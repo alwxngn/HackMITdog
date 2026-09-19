@@ -17,6 +17,8 @@
 - Map coordinates: metres, origin = SW corner of taped area, +x east
   (`docs/16-e3-portal.md`).
 - Human attention: escalation ladder timers + ack cancellation — not UI polish.
+- Dog camera is on-demand only (`DOG_CAMERA_*` env + Night Watch panel); video is
+  out-of-band from E2 (`robot/README.md`), never frames on `/api/ingest`.
 
 ## E4 /orchestrator + /bus
 

@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from bus import bus
+from camera import router as camera_router
 from escalation import escalation
 from report import build_morning_report
 from schema import DEFAULT_CONFIG
@@ -86,6 +87,8 @@ from voice_bridge import install_voice
 
 install_voice(app)
 
+app.include_router(camera_router)
+
 
 @app.get("/")
 async def root():
@@ -93,6 +96,7 @@ async def root():
         "service": "lantern-cloud",
         "ws": "/ws",
         "docs": "/docs",
+        "camera": "/api/camera/status",
         "hint": "Open the React portal (vite) or GET /api/report",
     }
 

@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertBanner } from './AlertBanner'
 import { CheckinComposer } from './CheckinComposer'
+import { DogCamera } from './DogCamera'
 import { MapView } from './Map'
 import { MorningReport } from './MorningReport'
 import { ShareQR } from './ShareQR'
@@ -12,6 +14,8 @@ async function resetDemo() {
 }
 
 export function Dashboard() {
+  const [cameraOpen, setCameraOpen] = useState(false)
+
   return (
     <div className="min-h-full pb-16">
       <nav>
@@ -38,8 +42,13 @@ export function Dashboard() {
       </nav>
 
       <main className="mx-auto grid max-w-[1400px] grid-cols-1 gap-[21px] px-6 lg:grid-cols-12 lg:items-start">
-        <div className="lg:sticky lg:top-6 lg:col-span-7">
+        <div className="flex flex-col gap-[21px] lg:sticky lg:top-6 lg:col-span-7">
           <MapView />
+          <DogCamera
+            open={cameraOpen}
+            onOpen={() => setCameraOpen(true)}
+            onClose={() => setCameraOpen(false)}
+          />
         </div>
         <div className="flex flex-col gap-[21px] lg:col-span-5">
           <StatePanel />
@@ -49,7 +58,10 @@ export function Dashboard() {
         </div>
       </main>
 
-      <AlertBanner />
+      <AlertBanner
+        onOpenCamera={() => setCameraOpen(true)}
+        cameraOpen={cameraOpen}
+      />
     </div>
   )
 }

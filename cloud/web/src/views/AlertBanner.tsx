@@ -6,7 +6,12 @@ async function ack(alertId: string, action: string) {
   })
 }
 
-export function AlertBanner() {
+type Props = {
+  onOpenCamera?: () => void
+  cameraOpen?: boolean
+}
+
+export function AlertBanner({ onOpenCamera, cameraOpen }: Props) {
   const p = useProjection()
   const a = p.open_alert
   if (!a) return null
@@ -20,6 +25,15 @@ export function AlertBanner() {
         </p>
         <h2 className="mt-3 text-[40px]">{a.headline}</h2>
         <p className="mt-3 text-[14px] text-[var(--color-charcoal)]">{a.detail}</p>
+        {onOpenCamera && !cameraOpen && (
+          <p className="mt-4 rounded-[14px] bg-[var(--color-keylime-wash)] px-4 py-3 text-[13px] text-[var(--color-forest-ink)]">
+            Need eyes on the room?{' '}
+            <button type="button" className="underline" onClick={onOpenCamera}>
+              Open dog camera
+            </button>{' '}
+            (on-demand — not always recording).
+          </p>
+        )}
         <div className="mt-8 flex flex-col gap-[14px] sm:flex-row">
           <button type="button" className="btn-primary" onClick={() => ack(a.alert_id, 'im_coming')}>
             I have this

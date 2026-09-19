@@ -15,7 +15,7 @@ have never seen each other's chat history and never will.
 
 ```
 /voice/          — E1. Deepgram, ElevenLabs, dialogue policy, prosody.
-/robot/          — E2. DimOS/Unitree, tracker, lead-away/follow controller.
+/robot/          — E2. DimOS/Unitree, tracker, lead-away/follow controller; dog camera relay URL for Night Watch.
 /cloud/          — E3. FastAPI, WebSocket, React portal, Twilio.
 /orchestrator/   — E4. State machine, event bus, mocks, impersonation guard.
 /bus/            — shared schema definitions from 04-interfaces.md. E4 owns it. Everyone reads it.
