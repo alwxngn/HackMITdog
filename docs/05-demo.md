@@ -19,7 +19,8 @@ in that order.
 | Loud hall | Open-mic mumbling will not transcribe. Headset or lav on the person playing the patient. Say plainly that the home version uses a far-field array. |
 | Go2 battery ~1–2 h active | Two packs minimum, rotating on the charger. Robot idles between demos; it only walks during the one beat that needs it. |
 | Judges arrive mid-loop | Under-10-second reset, one key. Demo must be idempotent. |
-| Hundreds of moving people | **No live SLAM.** Pre-authored map, hard geofence at the tape line. Live mapping here is a failure mode, not a feature. |
+| Hundreds of moving people | **No live SLAM.** Pre-authored map, hard geofence at the tape line. Live mapping here is a failure mode, not a feature. The taped corners double as the person-tracker's calibration (`11-perception.md`) — **re-calibrate once you're set up in the actual demo spot.** |
+| People walking through your shot | The tracker needs an actor lock: on reset it latches onto whoever is standing in the start box and ignores everyone else. Otherwise a passing judge becomes the patient mid-demo. |
 | Judge attention ≈ 90 s | One beat, done well, beats four beats rushed. |
 | Judges may step toward the robot | The yield rule has to be real, because someone will test it. When it works, that's the best moment of your demo. |
 
@@ -83,12 +84,14 @@ does; the difference is whether it looks like a plan or a collapse.
 | Level | When | What you do |
 |---|---|---|
 | **A — Full** | Everything up | The demo above. |
-| **B — Sim robot** | Robot dead, battery out, SDK wedged | Run `mock_robot`. Dashboard and voice are fully live; the robot's motion renders on the map. Say: *"navigation is running against our simulator right now — the expo floor isn't a home. Here's the hardware video."* Then play 20 seconds of it. This is not embarrassing. Judges see dead hardware all day. |
+| **B — Sim robot** | Robot dead, battery out, SDK wedged | Run `mock_robot`. **Person tracking, dialogue, dashboard, and escalation are all still live** — a real human walks the taped area and the whole product responds; only the robot's motion is simulated on the map. Say: *"navigation is running against our simulator right now — the expo floor isn't a home. Here's the hardware video."* Then play 20 seconds of it. This is not embarrassing. Judges see dead hardware all day. |
 | **C — Voice only** | Robot and map both down | Live voice conversation with the dialogue policy plus the dashboard replaying a logged event. The conversation alone is compelling with this user story. |
 | **D — Video** | Laptop, network, or venue failure | The hour-30 backup video, 90 seconds, narrated, plus the slides. |
 
-**Record the level-D video at hour 30.** Not hour 34. Record it while everything works — you
+**Record the level-D video at 6 AM Sunday.** Not at 10. Record it while everything works — you
 cannot record a working demo after things stop working, and that is precisely when you need it.
+On a 24-hour clock that deadline lands when everyone most wants to sleep, which is exactly why
+it has to be a deadline rather than an intention.
 
 Two parts: a screen recording of the dashboard through a full event, and phone video of the
 robot doing the lead-away in a quiet room. Cut together, narrated, under 90 seconds.
@@ -119,6 +122,8 @@ the climax around a judge's phone receiving an SMS over congested cell service.
 
 ## Devpost
 
-Write it at hour 32, not hour 35.5. Lead with the 2 AM scene. Include the safety envelope table
-and the four measured numbers — the written submission is where the judging-rubric points for
-rigor actually live, and it's the only artifact that's read without you standing next to it.
+Draft it around 7 AM and **submit by 10:30**, not at 11:40. Lead with the 2 AM scene. Include
+the safety envelope table and the measured numbers — the written submission is where the
+judging-rubric points for rigor actually live, and it's the only artifact that's read without
+you standing next to it. Include `CREDITS.md`; HackMIT requires open-source citation in the
+submission.

@@ -29,6 +29,42 @@ reason too.
 
 ---
 
+**"How are you actually tracking the person?"**
+
+Right now, off a fixed camera covering the mapped area — pose detection, homography onto the
+floor plane — because this is a taped square in a convention hall and live SLAM in here would
+be a hazard, not a feature. In a home it's the robot's own LiDAR, and that's running too; it's
+the same message either way, and the dashboard shows which tracker produced each track. What we
+deliberately didn't use is the Go2's built-in follow mode, because it tracks a worn beacon, and
+the whole premise is that the person isn't wearing anything.
+
+*Volunteering the limitation is the move here. They'll believe the rest of your numbers.*
+
+---
+
+**"It's a quadruped with a two-hour battery. How does it watch the house all night?"**
+
+It doesn't — it's docked and asleep. What stays awake overnight is the microphone and a bed-exit
+signal, which is the cheap part. A trigger wakes it, it does ten minutes of work, it goes back
+to the dock. Two or three episodes a night is well inside one charge. The dock is a commodity
+part Unitree already sells; the bed sensor is a twenty-dollar part we didn't build.
+
+*They are doing this arithmetic whether or not you say it. Say it first.*
+
+---
+
+**"How is this different from ElliQ?"**
+
+ElliQ is the closest thing to what we're doing on the conversation side, and it's a real
+shipping product with research behind it. It's also a tabletop device. The entire premise here
+is being in the hallway at 2 AM, which a table can't do. Same answer for Sensi.AI on the
+detection side — they do passive audio monitoring better than we do, but detection ends at an
+alert to somebody who isn't in the room yet.
+
+*See `13-landscape.md` for the other six.*
+
+---
+
 **"How do you know it's actually detecting agitation and not random?"**
 
 It's a behavioral pattern, not a clinical diagnosis — repeated corridor traversal with
@@ -46,6 +82,11 @@ and the consent timestamp is a required field in our message schema: without it 
 refuses to speak in that voice. It's also better technique, because it gives the person a
 reason their daughter isn't physically present, which is often what's actually distressing
 them.
+
+*If they follow up with "but what stops the model from claiming to be her?":* it isn't a prompt
+instruction, it's a filter on both sides of the model. Identity questions never reach the model
+— they get a fixed answer. And any generated text asserting first-person identity is dropped
+before it's spoken. Ask it yourself: **"are you Sarah?"**
 
 ---
 

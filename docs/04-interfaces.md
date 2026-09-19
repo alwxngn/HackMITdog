@@ -47,6 +47,7 @@ Every message:
 ```json
 { "type": "person_track", "payload": {
   "person_id": "p1",
+  "tracker": "overhead_cam",
   "x": 3.02, "y": 0.44,
   "vx": 0.31, "vy": -0.12,
   "heading": 4.31,
@@ -62,6 +63,13 @@ Every message:
 signal.
 `projected_zone` and `ttz_s` (time-to-zone) are E2's linear projection of current velocity.
 **The orchestrator triggers on these two fields**, so they matter more than they look.
+
+`tracker`: `overhead_cam` | `lidar_cluster` | `onboard_fusion` | `mock` — which sensor produced
+this track. **How this message is produced at all is specified in `11-perception.md`**, which
+exists because the first draft of this document defined the schema and never said where the
+data came from. Render `tracker` in the dashboard: when a judge asks how you track the person,
+a live field naming the sensor is a better answer than a description, and it keeps you honest
+about which tracker you are actually demoing.
 
 ### `zone_event`
 

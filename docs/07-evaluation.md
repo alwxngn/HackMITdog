@@ -7,7 +7,21 @@ will have done it.
 Nobody expects a trial in 36 hours. They expect evidence that you know whether your own thing
 works.
 
-**Budget:** hours 20–28, in parallel with Tier 1. **Owner:** E4 coordinates, each engineer runs
+**Triage for 24 hours.** This document was written for a 36-hour window with an 8-hour
+evaluation block. At 24 hours that block is roughly 11 PM to 3 AM, overlapping Tier 1, so
+**two metrics get scheduled and two get collected only if they fall out for free**
+(`10-second-pass.md` P1-9):
+
+| | Metric | Why |
+|---|---|---|
+| **Scheduled** | 3 — pacing precision/recall | The number behind your only novel claim. Run it before the taped area is disturbed. |
+| **Scheduled** | 1 — WER on degraded speech | Strongest Deepgram artifact, and needs no robot and no floor space — perfect for whoever is blocked. |
+| Free | 2 — voice latency | Falls out of the logs if E1 timestamps the six boundaries early. Read `12-dialogue-runtime.md` first: report **system latency** and **perceived latency** separately, or your long endpointing makes your own number look bad. |
+| Free | 4 — alert to phone | Ten runs of something you're testing anyway. |
+
+Two numbers reported honestly beat four rushed, and beat any number you had to estimate.
+
+**Budget:** 11 PM – 3 AM, in parallel with Tier 1. **Owner:** E4 coordinates, each engineer runs
 their own.
 
 Everything below is computed from the JSONL bus log (`04-interfaces.md` rule 3), which is why

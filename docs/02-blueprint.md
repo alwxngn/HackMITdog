@@ -28,6 +28,10 @@ both are scarcest.
 The gap Lantern occupies: **present at the moment of confusion, mobile, screenless, and
 connected to the caregiver.** No existing product sits in all four.
 
+This table compares categories, which is not enough — a healthcare judge will name an actual
+product, most likely **ElliQ** or **Sensi.AI**. `13-landscape.md` names eight of them with the
+one-line differentiator for each. Read it before you pitch.
+
 ## 3. The three pillars (down from four)
 
 ```
@@ -65,6 +69,12 @@ therapy rather than correction:
 
 These rules go in the system prompt verbatim, and the prompt goes on a slide. The dialogue
 policy is a legitimate design contribution and it costs nothing to show.
+
+But a prompt is not a runtime and it is not a guarantee. **`12-dialogue-runtime.md` specifies
+what actually produces each utterance** — reflex lines that never touch the network, a cache
+for the things this user says most, the model for everything else — plus the latency budget and
+the impersonation guard, which is code on both sides of the model rather than an instruction
+inside it.
 
 Emotional inflection is driven by a coarse agitation state (`calm` / `unsettled` / `agitated`)
 rather than a continuous signal — slower, lower, shorter as agitation rises. Coarse is more
@@ -106,6 +116,21 @@ hardware, no added failure mode.
 7. **Escalate.** 20 seconds without redirection → caregiver link fires. The robot keeps talking
    and keeps the person company while help comes. Being there is still worth something even
    when the redirect fails.
+
+**d. How the robot spends the night.** A Go2 runs 1–2 hours on the standard battery, 2–4 on the
+EDU's long-life pack. A night is eight. So Lantern is *not* a robot that patrols all night — it
+is **docked and asleep, woken by an event**:
+
+- It spends the night on a charging dock in a low posture, locomotion idle.
+- What stays awake is the cheap part: the microphone, and a bed-exit signal.
+- A wake trigger brings it up, the state machine above runs, and after ten minutes it returns
+  to the dock. Two or three ten-minute episodes is comfortably inside one charge.
+
+**Say this unprompted**, because otherwise a judge does the battery arithmetic and concludes we
+didn't. The dock is a commodity part Unitree already sells and we didn't build one; the bed-exit
+trigger — a pressure mat or a bedside PIR, about $20 — is the obvious next integration and is
+out of scope for 24 hours. Framed this way the battery number argues *for* the architecture
+instead of being a hole in it.
 
 **Calm Mode** is a behavior that can run at any point from step 3: robot lowers to a still
 posture, personalized music at low volume, warm dimmed light, slow validating speech. Modeled
@@ -219,16 +244,26 @@ silenced are why families unplug devices like this.
 
 ## 6. Scope, with the cut lines drawn in advance
 
-**Tier 0 — the spine. If this doesn't work we have no demo.**
+Re-tiered for a **24-hour** window (`10-second-pass.md` P0-9). The important change: Tier 0 is
+split so that the part requiring no robot comes first and stands alone. If the hardware never
+cooperates, Tier 0a is still a complete, demoable product.
 
-- [ ] Person tracked in a small mapped space with drawn zones
+**Tier 0a — the spine, no robot required. Target: 6 PM Saturday.**
+
+- [ ] A real person tracked in the taped area with drawn zones (`11-perception.md` Tracker A)
 - [ ] Heading-toward-exit detection fires reliably
-- [ ] Lead-away behavior executes within the safety envelope
-- [ ] Deepgram STT → dialogue policy → ElevenLabs TTS, barge-in, under 2 s
+- [ ] Deepgram STT → dialogue policy → ElevenLabs TTS, barge-in, under 2 s system latency
+- [ ] Impersonation guard rejecting identity claims on both sides of the model
 - [ ] Escalation reaches a real phone
 - [ ] Every event appears in the portal timeline live
 
-**Tier 1 — build once Tier 0 is green (target: hour 20).**
+**Tier 0b — the robot. Target: 11 PM Saturday, and it is a cut decision, not a requirement.**
+
+- [ ] Lead-away behavior executing within the safety envelope on hardware
+- [ ] Yield reflex on raw LiDAR range, independent of the tracker
+- [ ] Tier 0 lines rendered in the consented voice and playing from the robot
+
+**Tier 1 — build once Tier 0 is green (target: after the 11 PM cut).**
 
 - [ ] Pacing detection from trajectory
 - [ ] Repeated-question detection from transcripts
@@ -249,6 +284,10 @@ silenced are why families unplug devices like this.
 - 40 Hz vibroacoustic DSP — unsupported claim, and the physics doesn't work, P0-2
 - Pulse ox as a trigger — wrong sensor for the job, P1-1
 - Ramp track — no real integration available, P1-3
+- Beacon-based follow (the Go2's built-in ISS mode) — it tracks a worn tag, which contradicts
+  our own argument against wearables, `11-perception.md`
+- Onboard camera–LiDAR fusion — the right long-term tracker, not a 24-hour one, `11-perception.md`
+- Two of the four evaluation metrics — 24 hours buys two done properly, `10-second-pass.md` P1-9
 
 Being able to say "we cut this *on purpose*, here's the reasoning" is itself a strong signal to
 a judge. It reads as engineering judgment. Saying "we ran out of time" reads as the opposite.

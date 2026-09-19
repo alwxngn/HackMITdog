@@ -62,7 +62,9 @@ that identified a *specific hard speech domain* and measured itself on it.
 - Quiet, mumbled, fragmented, restarting speech from a confused speaker.
 - **Endpointing tuned long, justified by data** — the count of utterances a default 500 ms
   endpoint would have truncated mid-thought. This is your best artifact for this track: a
-  configuration decision defended with evidence rather than a feature you turned on.
+  configuration decision defended with evidence rather than a feature you turned on. Pair it
+  with the two latency numbers from `12-dialogue-runtime.md` and own the trade out loud: the
+  perceived latency is higher *on purpose*, and here's the number that says why.
 - WER on a purpose-built 40-utterance degraded-speech set, against a baseline.
 - Barge-in and interim-result handling.
 
@@ -73,7 +75,10 @@ Lead with the measurement, not the integration. Everyone has the integration.
 ## ElevenLabs — strong, and the ethics work is the differentiator.
 
 - Consented voice cloning with the consent enforced in the message schema, not in a prompt.
-- **The anti-impersonation guarantee**, and the dialogue-policy adherence test that verifies it.
+- **The anti-impersonation guarantee**, implemented as a deterministic filter on both sides of
+  the model (`12-dialogue-runtime.md`) rather than an instruction inside it. Invite them to ask
+  the robot "are you Sarah?" — a guarantee you can let a judge attack is worth far more than one
+  you describe.
 - Emotional inflection driven by a real detected state rather than a demo toggle.
 - Low-latency streaming with barge-in, measured.
 
