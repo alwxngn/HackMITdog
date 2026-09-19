@@ -1,21 +1,31 @@
-# Lantern — HackMIT project
+# Lantern — HackMIT
 
-Planning documents and an initial mobile voice prototype for a voice-native quadruped companion for in-home
-dementia care. (Working name: **Lantern**. Previously "Project Aegis" — see
-[`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name) for why the name changed.)
+Voice-native quadruped companion for in-home dementia care. (Working name: **Lantern**.
+Previously "Project Aegis" — see [`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name).)
 
-The original planning documents are in `docs/`. The first implementation is now in
-[`voice/`](voice/README.md): a caregiver page sends a check-in to a paired mobile browser,
-which speaks for Lantern and accepts a spoken or typed patient reply. See the
-[setup guide](voice/README.md) for running locally, connecting a physical phone over HTTPS,
-and enabling Deepgram/ElevenLabs. Replies are scripted in this first version.
+Plans live in [`docs/`](docs/). Code is split by owner: `/cloud` (E3), `/voice` (E1), `/robot` (E2), `/orchestrator` (E4).
 
-The planning rules about writing project code during the hacking window remain documented in
-[`docs/10-second-pass.md`](docs/10-second-pass.md) P1-8.
+## Run the caregiver portal (Night Watch)
 
-It exists so that four engineers can agree on scope, interfaces, and the demo before anyone
-writes a line, because the most common way a 4-person hardware hack dies is integration at the
-seam, in the middle of the night.
+Full install + run steps: **[`cloud/README.md`](cloud/README.md)**.
+
+The original portal now includes a check-in button connected to the mobile voice service.
+See **[`voice/PORTAL_SETUP.md`](voice/PORTAL_SETUP.md)** for the combined Windows setup and phone pairing.
+
+```bash
+# install once
+cd cloud && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && cp -n .env.example .env
+(cd web && npm install)
+
+# terminal 1 — API
+cd cloud && source .venv/bin/activate
+cd server && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# terminal 2 — UI
+cd cloud/web && npm run dev
+# → http://127.0.0.1:5173/watch
+```
 
 ## Read this first: the clock
 
@@ -34,6 +44,7 @@ end times on `dayof.hackmit.org` and shift the schedule before relying on it.
 | [`docs/03-build-plan.md`](docs/03-build-plan.md) | 24-hour schedule, ownership, cut lines | Everyone |
 | [`docs/04-interfaces.md`](docs/04-interfaces.md) | Frozen event schemas so we can work in parallel | Everyone, in the first 90 minutes |
 | [`docs/15-dev-workflow.md`](docs/15-dev-workflow.md) | Repo layout, git rules, and running four different AI coding agents without them colliding | Everyone, before anyone opens an agent |
+| [`docs/16-e3-portal.md`](docs/16-e3-portal.md) | E3 portal/cloud playbook: bus contract, coordinate frame, build order | E3 |
 | [`docs/11-perception.md`](docs/11-perception.md) | How the person actually gets tracked. Six things depend on it | E2, E4 |
 | [`docs/12-dialogue-runtime.md`](docs/12-dialogue-runtime.md) | What produces each utterance, the latency budget, the impersonation guard | E1, E4 |
 | [`docs/14-companion-and-caretaker.md`](docs/14-companion-and-caretaker.md) | Check-in relay, companionship conversation, onboarding schedule, guided walks, the completed wandering policy | Everyone |

@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import secrets
 import time
+from typing import Callable, Awaitable
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -36,6 +37,7 @@ class Profile(BaseModel):
 
 class Checkin(BaseModel):
     text: str = Field(default="", max_length=500)
+    from_name: str | None = Field(default=None, min_length=1, max_length=60)
 
 
 class PhoneEvent(BaseModel):
@@ -64,6 +66,9 @@ class Session:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     audio_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     speech_cache: tuple[str, bytes] | None = None
+    event_sink: Callable[[dict], Awaitable[None]] | None = None
+    forwarded_seq: int = 0
+    forward_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def record(self, kind, payload, source="voice"):
         self.events.append({"type": kind, "ts": time.time(), "source": source,
@@ -78,6 +83,12 @@ class Session:
                 "configuration_notes": providers.configuration_notes()}
 
     async def publish(self):
+        if self.event_sink:
+            async with self.forward_lock:
+                for event in list(self.events):
+                    if event["seq"] > self.forwarded_seq:
+                        await self.event_sink(event)
+                        self.forwarded_seq = event["seq"]
         message = self.snapshot()
         for ws in list(self.watchers):
             try:
@@ -116,13 +127,17 @@ async def headers(request, call_next):
 
 
 @app.get("/")
-async def caregiver_page():
+async def caregiver_page(request: Request):
+    if request.scope.get("root_path"):
+        return RedirectResponse("/")
     return FileResponse(ROOT / "static" / "index.html")
 
 
 @app.get("/phone")
-async def phone_page():
-    return FileResponse(ROOT / "static" / "phone.html")
+async def phone_page(request: Request):
+    prefix = request.scope.get("root_path", "")
+    html = (ROOT / "static" / "phone.html").read_text(encoding="utf-8")
+    return HTMLResponse(html.replace('"/assets/', f'"{prefix}/assets/'))
 
 
 @app.get("/api/health")
@@ -132,13 +147,14 @@ async def health():
 
 
 @app.post("/api/sessions", status_code=201)
-async def create_session(profile: Profile):
+async def create_session(profile: Profile, request: Request):
     for key, session in list(sessions.items()):
         if time.time() - session.created > 12 * 3600 and not session.watchers:
             del sessions[key]
     if len(sessions) >= 100:
         raise HTTPException(503, "Demo session limit reached. Restart the server to clear sessions.")
     session = Session(secrets.token_urlsafe(12), profile)
+    session.event_sink = getattr(request.app.state, "event_sink", None)
     sessions[session.id] = session
     return {"session_id": session.id, "caregiver_token": session.caregiver_token,
             "phone_token": session.phone_token}
@@ -163,10 +179,21 @@ async def check_in(session_id: str, body: Checkin, request: Request):
     session = get_session(session_id)
     authorize(request, session, "caregiver")
     async with session.lock:
+        allowed = getattr(request.app.state, "checkin_allowed", None)
+        if allowed and not allowed():
+            raise HTTPException(409, "Lantern is handling a safety event. Please check in after it resolves.")
         if not session.ready or session.phone is None:
             raise HTTPException(409, "Start Lantern on the paired phone before sending a check-in.")
         if session.utterance and session.utterance["state"] in {"pending", "speaking"}:
             raise HTTPException(409, "Lantern is still speaking. Wait or interrupt on the phone.")
+        patient_name = getattr(request.app.state, "patient_name", None)
+        try:
+            session.profile = Profile(
+                patient=patient_name() if patient_name else session.profile.patient,
+                caregiver=body.from_name.strip() if body.from_name else session.profile.caregiver,
+            )
+        except ValidationError:
+            raise HTTPException(422, "Please use a valid patient and caregiver name.") from None
         session.checkin = {"checkin_id": secrets.token_urlsafe(12), "status": "sent",
                            "text": body.text.strip(), "needs_attention": False}
         session.record("checkin", {**session.checkin, "from_name": session.profile.caregiver}, "cloud")

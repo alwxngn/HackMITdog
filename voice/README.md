@@ -1,5 +1,8 @@
 # Mobile voice check-in prototype
 
+**For the combined app, start here: [portal + phone setup](PORTAL_SETUP.md).** The existing
+React portal is now the caregiver UI. Instructions below describe the standalone E1 test host.
+
 This first E1 implementation gives Lantern a phone microphone and speaker. It includes a
 small caregiver page and temporary session relay so the interaction works before the full
 E3 portal or E4 orchestrator exists. It does not control the Unitree.

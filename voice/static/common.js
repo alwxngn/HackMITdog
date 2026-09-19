@@ -1,7 +1,8 @@
 export const $ = (id) => document.getElementById(id);
+export const BASE = location.pathname.startsWith('/voice/') ? '/voice' : '';
 export function showError(message = '') { $('error').textContent = message; $('error').hidden = !message; }
 export async function api(path, token, options = {}) {
-  const response = await fetch(path, {...options, headers: {
+  const response = await fetch(`${BASE}${path}`, {...options, headers: {
     ...(token ? {Authorization: `Bearer ${token}`} : {}), ...options.headers,
   }});
   if (!response.ok) {
@@ -13,7 +14,7 @@ export async function api(path, token, options = {}) {
 export function connect(session, role, onMessage, onConnection) {
   let socket, timer, reconnect, closed = false;
   const open = () => {
-    socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/${session.session_id}/${role}`);
+    socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}${BASE}/ws/${session.session_id}/${role}`);
     socket.onopen = () => {
       socket.send(JSON.stringify({token: session.token}));
       timer = setInterval(() => { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({type: 'ping'})); }, 15000);

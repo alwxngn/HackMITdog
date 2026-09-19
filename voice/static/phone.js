@@ -1,10 +1,10 @@
-import {$, api, connect, showError} from './common.js';
+import {$, api, connect, showError, BASE} from './common.js';
 const params = new URLSearchParams(location.hash.slice(1));
 let session;
 try {
   session = params.get('session') && params.get('token') ? {session_id:params.get('session'), token:params.get('token')} : JSON.parse(sessionStorage.getItem('lantern-phone'));
   if (session) sessionStorage.setItem('lantern-phone', JSON.stringify(session));
-  history.replaceState(null, '', '/phone'); // Keep the pairing secret out of copied page URLs.
+  history.replaceState(null, '', `${BASE}/phone`); // Keep the pairing secret out of copied page URLs.
 } catch { /* Invalid storage is handled below. */ }
 let channel, connected = false, active = false, snapshot, audioContext, source, utterance, playbackVersion = 0;
 let fetchController, recorder, recognition, micStream, recording = false, busy = false, recordTimer, speechTimer, captureVersion = 0;
@@ -14,7 +14,7 @@ function update() {
   $('start').disabled = !connected;
   $('start').hidden = active;
   $('controls').hidden = !active;
-  $('help').textContent = active ? 'Your caregiver can send a hello. Tap Talk when you want to reply.' : 'Tap below to give Lantern a voice. Keep this page open during your check-in.';
+  $('help').textContent = active ? 'Tap Talk to reply. Keep this page open.' : 'Tap Start, then leave this page open.';
   $('record').disabled = !connected || !snapshot?.checkin || busy;
   $('send-reply').disabled = !connected || !snapshot?.checkin || busy || recording;
   $('record').textContent = recording ? 'Finish and send reply' : 'Talk to Lantern';
