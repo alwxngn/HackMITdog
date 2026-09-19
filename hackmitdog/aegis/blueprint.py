@@ -4,17 +4,36 @@ running Go2, following the exact pattern DimOS's own
 `NavigationSkillContainer`, `ObserveSkill`, `PersonFollowSkillContainer`,
 `UnitreeSkillContainer`, `WebInput`, and `SpeakSkill` onto `unitree_go2_spatial`.
 
-Two runnable blueprints (both registered as ``dimos.blueprints`` entry points,
+Three runnable blueprints (all registered as ``dimos.blueprints`` entry points,
 see this repo's ``pyproject.toml``):
 
     dimos run hackmitdog.aegis-go2                 # skills only, call them
                                                     # directly via `dimos mcp call`
+    dimos run hackmitdog.aegis-go2-agentic
+                                                    # + an agent backed by a
+                                                    # hosted LLM (OpenAI/
+                                                    # Anthropic/etc via
+                                                    # LangChain's
+                                                    # init_chat_model) -- reads
+                                                    # its API key from the
+                                                    # provider's normal env var
+                                                    # (e.g. OPENAI_API_KEY),
+                                                    # nothing DimOS-specific to
+                                                    # export
     dimos run hackmitdog.aegis-go2-ollama --listen-host 0.0.0.0
                                                     # + a local Ollama-backed
-                                                    # agent that can plan across
-                                                    # skills on its own, reachable
+                                                    # agent instead, reachable
                                                     # over the LAN (see the
                                                     # `--listen-host` note below)
+
+``aegis_go2_agentic`` mirrors DimOS's own
+``dimos.robot.unitree.go2.blueprints.agentic.unitree_go2_agentic`` exactly:
+``McpServer``/``McpClient()`` with no ``model=`` override, so it takes
+``McpClientConfig``'s own default (``"gpt-5.6-luna"``, a hosted model resolved
+through LangChain's ``init_chat_model`` -- any LangChain-supported provider
+string works, e.g. ``--model "anthropic:claude-sonnet-5"``, as long as that
+provider's API key is exported in the environment already). Use this one if
+you already have a hosted LLM API key rather than running Ollama locally.
 
 ``aegis_go2_agentic_ollama`` mirrors
 ``dimos.robot.unitree.go2.blueprints.agentic.unitree_go2_agentic_ollama``
@@ -65,11 +84,23 @@ aegis_go2_skills = autoconnect(
     DangerZoneSkills.blueprint(),
 ).global_config(n_workers=12)
 
+# Same skills, plus an MCP server/client pair backed by a hosted LLM (whatever
+# McpClientConfig.model defaults to, or whatever --model override is passed on
+# `dimos run` -- resolved via LangChain's init_chat_model, so it reads its API
+# key from that provider's normal env var, e.g. OPENAI_API_KEY). Mirrors
+# DimOS's own unitree_go2_agentic
+# (dimos/robot/unitree/go2/blueprints/agentic/unitree_go2_agentic.py) exactly.
+aegis_go2_agentic = autoconnect(
+    aegis_go2_skills,
+    McpServer.blueprint(),
+    McpClient.blueprint(),
+)
+
 # Same skills, plus an MCP server/client pair backed by a local Ollama model --
 # the same small-LLM configuration DimOS's own unitree_go2_agentic_ollama uses
 # (dimos/robot/unitree/go2/blueprints/agentic/unitree_go2_agentic_ollama.py).
 # This is the one to run if you want the robot to plan across skills on its
-# own rather than being driven one `dimos mcp call` at a time.
+# own without a hosted API key.
 aegis_go2_agentic_ollama = autoconnect(
     aegis_go2_skills,
     McpServer.blueprint(),
