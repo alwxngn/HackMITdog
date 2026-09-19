@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+MUJOCO_LOG.TXT
+
+# Aegis danger-zone persistence -- runtime state, not source
+hackmitdog/aegis/danger_zones.json
+hackmitdog/aegis/guided_walk_routes.json
