@@ -43,17 +43,17 @@ export function ShareQR() {
         <span className="text-[17px] font-semibold tracking-[-0.03em] text-[var(--color-clinical-cyan)]">
           Share on phone
         </span>
-        <span className="text-[12px] text-[var(--color-lilac-mist)]">{open ? 'hide' : 'show'}</span>
+        <span className="text-[12px] text-[var(--color-iris-pulse)]">{open ? 'hide' : 'show'}</span>
       </button>
       {open && (
         <div className="mt-4 space-y-3">
-          <p className="text-[12px] tracking-[0.02em] text-[var(--color-ash)]">
+          <p className="text-[12px] tracking-[0.02em] text-[var(--color-muted-ink)]">
             Scan to open Night Watch or caregiver onboarding. Set{' '}
-            <code className="text-[var(--color-pearl)]">VITE_PUBLIC_ORIGIN</code> to your tunnel URL
+            <code className="text-[var(--color-ink)]">VITE_PUBLIC_ORIGIN</code> to your tunnel URL
             when developing on localhost.
           </p>
           {needsTunnelHint && (
-            <p className="rounded-[16px] border border-dashed border-[var(--color-clinical-cyan)] px-3 py-2 text-[12px] text-[var(--color-cyan-soft)]">
+            <p className="rounded-[16px] border border-dashed border-[var(--color-clinical-cyan)] px-3 py-2 text-[12px] text-[var(--color-iris-pulse)]">
               These QRs point at localhost — phones cannot open that. Start a tunnel (see
               cloud/README) and set VITE_PUBLIC_ORIGIN.
             </p>
@@ -80,7 +80,7 @@ function QrCard({ label, url, src }: { label: string; url: string; src: string }
           </div>
         )}
       </div>
-      <p className="text-[14px] font-semibold text-[var(--color-pearl)]">{label}</p>
+      <p className="text-[14px] font-semibold text-[var(--color-ink)]">{label}</p>
       <a
         href={url}
         className="max-w-full truncate text-[10px] text-[var(--color-clinical-cyan)] underline"

@@ -16,6 +16,9 @@
   --color-pearl: #f4f4f6;
   --color-ash: #d8d8e3;
   --color-fog: #9494a9;
+  --color-ink: #16165c;
+  --color-muted-ink: #5c5b88;
+  --color-hairline: #dcdceb;
 
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
 
@@ -27,7 +30,6 @@
 }
 
 :root {
-  /* design.md tokens — Impilo / midnight clinical observatory */
   --color-deep-iris: #16165c;
   --color-iris-shadow: #232269;
   --color-iris-glow: #403cd5;
@@ -43,6 +45,9 @@
   --color-pearl: #f4f4f6;
   --color-ash: #d8d8e3;
   --color-fog: #9494a9;
+  --color-ink: #16165c;
+  --color-muted-ink: #5c5b88;
+  --color-hairline: #dcdceb;
 
   --font-gilroy: "Manrope", ui-sans-serif, system-ui, sans-serif;
 
@@ -57,11 +62,10 @@
   --radius-buttons: 9999px;
   --radius-inputs: 16px;
 
-  /* aliases used by existing components */
-  --bg: var(--color-deep-iris);
-  --panel: var(--color-iris-shadow);
-  --ink: var(--color-cloud-white);
-  --muted: var(--color-ash);
+  --bg: var(--color-cloud-white);
+  --panel: var(--color-cloud-white);
+  --ink: var(--color-ink);
+  --muted: var(--color-muted-ink);
   --accent: var(--color-clinical-cyan);
   --safe: var(--color-mint-vital);
   --watch: var(--color-cyan-soft);
@@ -87,8 +91,8 @@ body {
   font-size: 17px;
   line-height: 1.44;
   letter-spacing: -0.03em;
-  background: var(--color-deep-iris);
-  color: var(--color-cloud-white);
+  background: var(--color-cloud-white);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -99,18 +103,20 @@ h3 {
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.04em;
+  color: var(--color-ink);
 }
 
 .card {
-  background: var(--color-iris-shadow);
-  border: 1px solid var(--color-iris-border);
+  background: var(--color-cloud-white);
+  border: 1px solid var(--color-hairline);
   border-radius: var(--radius-cards);
   padding: var(--card-padding);
+  box-shadow: 0 12px 32px rgba(22, 22, 92, 0.06);
 }
 
 .card-metric {
-  background: color-mix(in srgb, var(--color-iris-glow) 55%, transparent);
-  border: 1px solid var(--color-iris-border);
+  background: color-mix(in srgb, var(--color-iris-pulse) 8%, var(--color-cloud-white));
+  border: 1px solid color-mix(in srgb, var(--color-iris-border) 28%, var(--color-hairline));
   border-radius: var(--radius-cards);
   padding: var(--card-padding);
 }
@@ -130,7 +136,7 @@ h3 {
   font-weight: 500;
   letter-spacing: -0.03em;
   cursor: pointer;
-  box-shadow: 0 0 20px rgba(60, 57, 185, 0.4);
+  box-shadow: 0 0 20px rgba(60, 57, 185, 0.28);
 }
 
 .btn-primary:hover {
@@ -143,10 +149,10 @@ h3 {
   justify-content: center;
   min-height: 44px;
   padding: 12px 20px;
-  border: 1px solid var(--color-pearl);
+  border: 1px solid var(--color-iris-border);
   border-radius: var(--radius-buttons);
   background: transparent;
-  color: var(--color-cloud-white);
+  color: var(--color-ink);
   font-family: var(--font-gilroy);
   font-size: 14px;
   font-weight: 500;
@@ -154,7 +160,16 @@ h3 {
 }
 
 .btn-ghost:hover {
-  background: rgba(244, 244, 246, 0.08);
+  background: color-mix(in srgb, var(--color-iris-pulse) 8%, transparent);
+}
+
+.btn-ghost-on-dark {
+  border-color: var(--color-pearl);
+  color: var(--color-cloud-white);
+}
+
+.btn-ghost-on-dark:hover {
+  background: rgba(244, 244, 246, 0.12);
 }
 
 .pill {
@@ -170,9 +185,9 @@ h3 {
 .input-field {
   width: 100%;
   border-radius: var(--radius-inputs);
-  border: 1px solid var(--color-iris-border);
-  background: color-mix(in srgb, var(--color-deep-iris) 60%, transparent);
-  color: var(--color-cloud-white);
+  border: 1px solid var(--color-hairline);
+  background: var(--color-pearl);
+  color: var(--color-ink);
   padding: 12px 14px;
   font-family: var(--font-gilroy);
   font-size: 14px;

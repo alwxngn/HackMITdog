@@ -97,7 +97,7 @@ async def websocket_endpoint(ws: WebSocket):
             data = await ws.receive_json()
             # Portal can push ack/config/checkin over WS too
             t = data.get("type")
-            if t in {"caregiver_ack", "config_update", "checkin"}:
+            if t in {"caregiver_ack", "config_update", "checkin", "map_scan_request"}:
                 data.setdefault("ts", time.time())
                 data.setdefault("source", "cloud")
                 await bus.publish(data)
@@ -175,6 +175,74 @@ async def api_checkin(body: dict[str, Any]):
     }
     await bus.publish(msg)
     return {"ok": True, "payload": payload}
+
+
+@app.post("/api/map-scan")
+async def api_map_scan(body: dict[str, Any] | None = None):
+    """Caregiver 'Scan home' — live mode asks E2; demo mode synthesizes map_ready."""
+    import os
+
+    body = body or {}
+    request_id = body.get("request_id") or f"ms_{uuid.uuid4().hex[:8]}"
+    mode = (body.get("mode") or os.getenv("MAP_SCAN_MODE", "demo")).strip().lower()
+
+    req = {
+        "type": "map_scan_request",
+        "ts": time.time(),
+        "source": "cloud",
+        "seq": 0,
+        "payload": {"request_id": request_id, "mode": "author_once"},
+    }
+    await bus.publish(req)
+
+    if mode != "live":
+        # Table fallback — same shape E2 should emit from DimOS
+        ready = {
+            "type": "map_ready",
+            "ts": time.time(),
+            "source": "mock",
+            "seq": 0,
+            "payload": {
+                "request_id": request_id,
+                "map_id": "demo_home_v1",
+                "origin": {"x": 0.0, "y": 0.0},
+                "width_m": 2.0,
+                "height_m": 2.0,
+                "outline": [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]],
+                "rooms": [
+                    {
+                        "id": "bedroom",
+                        "polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.2], [0.0, 1.2]],
+                    },
+                    {
+                        "id": "hallway",
+                        "polygon": [[1.0, 0.3], [1.8, 0.3], [1.8, 1.0], [1.0, 1.0]],
+                    },
+                    {
+                        "id": "front_door",
+                        "polygon": [[1.6, 0.0], [2.0, 0.0], [2.0, 0.5], [1.6, 0.5]],
+                    },
+                ],
+            },
+        }
+        await bus.ingest(ready)
+        return {"ok": True, "mode": "demo", "request_id": request_id, "map_ready": ready["payload"]}
+
+    return {
+        "ok": True,
+        "mode": "live",
+        "request_id": request_id,
+        "hint": "Waiting for E2 map_ready on the bus (POST /api/ingest)",
+    }
+
+
+@app.get("/api/map-scan/status")
+async def api_map_scan_status():
+    return {
+        "pending": store.projection.get("map_scan_pending"),
+        "map_ready": store.projection.get("map_ready"),
+        "mode": __import__("os").getenv("MAP_SCAN_MODE", "demo"),
+    }
 
 
 @app.post("/api/reset")

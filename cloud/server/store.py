@@ -45,6 +45,8 @@ class EventStore:
             "last_transcript": None,
             "robot_status": None,
             "checkin_queue": [],
+            "map_ready": None,
+            "map_scan_pending": None,
         }
 
     def append(self, msg: dict[str, Any]) -> None:
@@ -66,6 +68,8 @@ class EventStore:
             "say",
             "checkin",
             "config_update",
+            "map_scan_request",
+            "map_ready",
         }:
             return True
         if t == "robot_status" and (msg.get("payload") or {}).get("state") == "yielded":
@@ -109,6 +113,11 @@ class EventStore:
             self.projection["robot_status"] = p
         elif t == "checkin":
             self.projection["checkin_queue"].append(p)
+        elif t == "map_scan_request":
+            self.projection["map_scan_pending"] = p
+        elif t == "map_ready":
+            self.projection["map_ready"] = p
+            self.projection["map_scan_pending"] = None
 
     def snapshot(self) -> dict[str, Any]:
         return {

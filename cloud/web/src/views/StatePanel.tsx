@@ -20,12 +20,12 @@ export function StatePanel() {
         </span>
         <span className={`pill uppercase ${agitationClass}`}>{a.agitation}</span>
         {tracker && (
-          <span className="pill border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]">
+          <span className="pill border border-[var(--color-iris-border)] text-[var(--color-iris-pulse)]">
             tracker: {tracker}
           </span>
         )}
         {p.robot_status?.state === 'yielded' && (
-          <span className="pill border border-[var(--color-lilac-mist)] text-[var(--color-lilac-mist)]">
+          <span className="pill border border-[var(--color-iris-pulse)] text-[var(--color-iris-pulse)]">
             yielded
           </span>
         )}
@@ -34,7 +34,7 @@ export function StatePanel() {
         {a.reason}
       </p>
       {p.last_transcript && (
-        <p className="mt-4 text-[14px] tracking-[0.02em] text-[var(--color-ash)]">
+        <p className="mt-4 text-[14px] tracking-[0.02em] text-[var(--color-muted-ink)]">
           heard: “{p.last_transcript.text}”
         </p>
       )}

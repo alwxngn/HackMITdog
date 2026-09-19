@@ -1,17 +1,18 @@
 # Impilo — Style Reference
-> Midnight clinical observatory — a violet command console where health data glows in cyan.
+> Light clinical observatory — a white canvas where the same iris blues do the talking.
 
-**Theme:** dark
+**Theme:** light
 
-Impilo operates in a deep midnight-violet universe where the canvas itself (#16165c) carries the brand — there is no white default, only progressively lighter violet surfaces stacking toward #f4f4f6 for inverted sections. A single typeface (Gilroy) speaks in two voices: weight 500 for running text and weight 600 for display, with aggressive negative tracking at large sizes that makes headlines feel engineered rather than written. The accent system is a clinical triad — cyan #00b1ff for data and links, mint #00ffaa for positive states, and a lighter violet #b1a6f6 for line-art illustration — so color never decorates, it always means something. Surfaces are pill-soft (1425px buttons, 24-32px cards) and float on ambient violet shadows rather than neutral grays, keeping every elevation on-brand.
+The page is Cloud White (#ffffff). Deep Iris (#16165c) is ink, not the room. Accents stay the original blues: Iris Pulse buttons, Clinical Cyan data, Lilac Mist illustration, Mint Vital for in-range signals. Cards are white with hairline #dcdceb borders and a soft iris shadow. Pill geometry and Gilroy/Manrope tracking are unchanged.
 
 ## Tokens — Colors
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Deep Iris | `#16165c` | `--color-deep-iris` | Page canvas, hero background, primary surface — the brand-defining midnight violet that sets the entire dark mode identity |
-| Iris Shadow | `#232269` | `--color-iris-shadow` | Elevated card surfaces on dark canvas, secondary card backgrounds — one step lighter than canvas for depth without breaking the violet atmosphere |
-| Iris Glow | `#403cd5` | `--color-iris-glow` | Mid-tone accent surface, footer background, highlighted metric blocks — mid-violet for tertiary elevation and accent fills |
+| Cloud White | `#ffffff` | `--color-cloud-white` | Page canvas, card surfaces, primary background |
+| Deep Iris | `#16165c` | `--color-deep-iris` / `--color-ink` | Primary text, headings, QR dark modules |
+| Iris Shadow | `#232269` | `--color-iris-shadow` | Dark accent fills only (alert modal interior) |
+| Iris Glow | `#403cd5` | `--color-iris-glow` | Alert panels and filled status chips |
 | Iris Pulse | `#5350cc` | `--color-iris-pulse` | Violet action color for filled buttons, selected navigation states, and focused conversion moments. |
 | Iris Border | `#4846c6` | `--color-iris-border` | Card border outlines, subtle surface edges on dark mode — keeps card perimeters defined without breaking the violet mood |
 | Iris Veil | `#524fe1` | `--color-iris-veil` | Body and card border accent, secondary surface outline — lighter violet for hairline separators on dark surfaces |
@@ -20,10 +21,11 @@ Impilo operates in a deep midnight-violet universe where the canvas itself (#161
 | Cyan Soft | `#59b4ff` | `--color-cyan-soft` | Secondary cyan accent, softer data labels, gradient endpoints paired with Clinical Cyan |
 | Mint Vital | `#00ffaa` | `--color-mint-vital` | Green outline accent for tags, dividers, and focused UI edges. Use as a supporting accent, not as a status color |
 | Teal Signal | `#2ee9ff` | `--color-teal-signal` | Highlight accent for key data callouts and chart emphasis — brighter teal-cyan for moments that need to pop |
-| Cloud White | `#ffffff` | `--color-cloud-white` | Primary text, button text on dark, button backgrounds in light section, high-contrast headings |
-| Pearl | `#f4f4f6` | `--color-pearl` | Soft icon strokes, subtle dividers, and low-emphasis decorative details. Do not promote it to the primary CTA color |
-| Ash | `#d8d8e3` | `--color-ash` | Muted text on light sections, secondary borders, low-emphasis labels |
-| Fog | `#9494a9` | `--color-fog` | Hairline dividers, disabled borders, low-contrast separators |
+| Pearl | `#f4f4f6` | `--color-pearl` | Map wells, input fills |
+| Ash | `#d8d8e3` | `--color-ash` | Reserved; prefer `--color-hairline` for borders |
+| Fog | `#9494a9` | `--color-fog` | Captions, timestamps |
+| Muted ink | `#5c5b88` | `--color-muted-ink` | Secondary body copy on white |
+| Hairline | `#dcdceb` | `--color-hairline` | Card and input borders on white |
 
 ## Tokens — Typography
 
@@ -164,7 +166,7 @@ Monochromatic line drawings in Lilac Mist (#b1a6f6) at 1-2px stroke weight, depi
 ## Do's and Don'ts
 
 ### Do
-- Use Deep Iris (#16165c) as the page canvas for all dark sections — never introduce a neutral gray or pure black background
+- Use Cloud White (#ffffff) as the page canvas — Deep Iris is ink, not the room
 - Set all buttons and tags to 9999px border-radius — pill geometry is non-negotiable and defines the brand silhouette
 - Apply -0.075em letter-spacing at 92px+ display sizes to make headlines feel compressed and engineered rather than airy
 - Reserve Clinical Cyan (#00b1ff) for data, links, and chart strokes — never as a decorative fill
@@ -173,24 +175,24 @@ Monochromatic line drawings in Lilac Mist (#b1a6f6) at 1-2px stroke weight, depi
 - Break between dark and light sections with a hard color cut at Pearl (#f4f4f6) — no gradient transitions between themes
 
 ### Don't
-- Never use a neutral gray (e.g., #1a1a1a, #2a2a2a) as a background — all dark surfaces must stay in the violet family
+- Never use Deep Iris as a full-page canvas — keep it for type, CTAs, and the alert modal
 - Do not mix weight 400 or 700 into the type system — Gilroy speaks only in 500 and 600
 - Never apply Clinical Cyan (#00b1ff) as a large solid fill on buttons or hero blocks — it is a data/link color, not a surface color
 - Do not use Mint Vital (#00ffaa) for error states or warnings — its meaning is locked to positive health signals
 - Avoid sharp corners (0-4px radius) on any container — minimum 7px for icons, 16px for inputs, 24px for cards
 - Do not introduce a second typeface — Gilroy at weights 500/600 covers every typographic need
-- Never use white (#ffffff) as a card background on the dark canvas — the light inversion section is the only place Cloud White surfaces belong
+- Never set body copy to Cloud White or Lilac Mist on the white canvas — use ink / muted ink
 - Do not use gradient transitions between dark and light sections — the hard cut is a signature choice
 
 ## Surfaces
 
 | Level | Name | Value | Purpose |
 |-------|------|-------|---------|
-| 1 | Deep Iris Canvas | `#16165c` | Page and hero background — the foundational dark surface |
-| 2 | Iris Shadow | `#232269` | Elevated cards and panels on dark canvas |
-| 3 | Iris Glow | `#403cd5` | Highlighted metric blocks, footer, mid-elevation panels |
-| 4 | Pearl Inversion | `#f4f4f6` | Light-section backgrounds, inverted content blocks |
-| 5 | Cloud White | `#ffffff` | Top-elevation card surfaces in light sections, button fills |
+| 1 | Cloud White | `#ffffff` | Page canvas and cards |
+| 2 | Pearl | `#f4f4f6` | Recessed map / input wells |
+| 3 | Metric wash | iris pulse 8% on white | Highlighted state panel |
+| 4 | Iris Pulse | `#5350cc` | Primary buttons |
+| 5 | Iris Glow | `#403cd5` | Alert modal |
 
 ## Elevation
 
@@ -210,12 +212,14 @@ Full-bleed dark canvas with no max-width constraint on the violet sections — t
 ## Agent Prompt Guide
 
 **Quick Color Reference**
-- text: #ffffff (on dark) / #16165c (on light)
-- background: #16165c (dark canvas) / #f4f4f6 (light section)
-- border: #4846c6 (dark cards) / #d8d8e3 (light cards)
-- accent: #00b1ff (data, links, chart strokes)
-- positive state: #00ffaa (healthy vitals, active status)
-- primary action: #5350cc (filled action)
+- text: #16165c
+- muted text: #5c5b88
+- background: #ffffff
+- recessed: #f4f4f6
+- border: #dcdceb
+- accent: #00b1ff (data, links)
+- positive state: #00ffaa
+- primary action: #5350cc
 
 **3 Example Component Prompts**
 
@@ -227,7 +231,7 @@ Full-bleed dark canvas with no max-width constraint on the violet sections — t
 
 ## Color Hierarchy Rules
 
-The violet family has a strict tonal hierarchy: Deep Iris (#16165c) is ALWAYS the canvas, never an accent. Iris Shadow (#232269) is ALWAYS one level up. Iris Glow (#403cd5) is for highlighted metric blocks. Iris Pulse (#5350cc) is ONLY for pressed/active states and filled primary buttons. Lilac Mist (#b1a6f6) is ONLY for line-art illustration and decorative SVG — never for text or fills. Clinical Cyan (#00b1ff) and Mint Vital (#00ffaa) are the only two colors allowed to break the violet monochrome — they carry data meaning and must not be used as decorative backgrounds.
+Cloud White is ALWAYS the canvas. Deep Iris is ALWAYS ink. Iris Pulse is the primary filled action. Clinical Cyan is data and links. Mint Vital is in-range / home. Do not fill the page with violet.
 
 ## Typography Rhythm
 

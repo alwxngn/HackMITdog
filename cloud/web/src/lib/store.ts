@@ -22,6 +22,8 @@ const empty: Projection = {
   last_transcript: null,
   robot_status: null,
   checkin_queue: [],
+  map_ready: null,
+  map_scan_pending: null,
   timeline: [],
 }
 
@@ -80,6 +82,11 @@ export function handleBusMessage(msg: Envelope) {
     next.robot_status = p as Projection['robot_status']
   } else if (t === 'checkin') {
     next.checkin_queue = [...next.checkin_queue, p as Projection['checkin_queue'][0]]
+  } else if (t === 'map_scan_request') {
+    next.map_scan_pending = p as Projection['map_scan_pending']
+  } else if (t === 'map_ready') {
+    next.map_ready = p as unknown as Projection['map_ready']
+    next.map_scan_pending = null
   }
 
   const timelineTypes = new Set([
@@ -91,6 +98,8 @@ export function handleBusMessage(msg: Envelope) {
     'say',
     'checkin',
     'config_update',
+    'map_scan_request',
+    'map_ready',
   ])
   const yielded = t === 'robot_status' && (p as { state?: string }).state === 'yielded'
   if (timelineTypes.has(t) || yielded) {

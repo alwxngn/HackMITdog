@@ -149,27 +149,44 @@ Live-tracking map mode if slack.
 
 Every step is cancellable with one `caregiver_ack` (`im_coming` | `handled` | `false_alarm` | `call_help`).
 
-## Onboarding fields E3 owns
+## Onboarding (first-run wizard)
 
-**Step 3 — risks and home**
+Four steps on `/onboarding`:
 
-- Draw zones: `safe` / `watch` / `exit` (UI label **"Don't go"**), plus `label`, `kind`
-  (`door` | `stairs` | `outdoor_boundary`)
-- Drop `patient.home` anchor
-- Escalation contacts and channels
+1. **Patient** — name, preferred name, calming / avoid topics  
+2. **Scan home** — triggers mapping (see below)  
+3. **Paint zones** — whole map starts Safe; paint Watch / Don’t go; place home pin  
+4. **Schedule + contacts** — wake/meals/walk + escalation names → one `config_update`
 
-**Step 4 — schedule**
+### Scan home — dual mode (`MAP_SCAN_MODE`)
+
+| Mode | When | Behavior |
+|---|---|---|
+| `demo` (default) | Table / no robot | Schematic floorplan after a short “scanning…” UI |
+| `live` | Testing with Go2 | Publish `map_scan_request`; wait for E2 `map_ready` |
+
+**Additive bus messages (agree with E2/E4 out loud; E4 owns `/bus`):**
 
 ```json
-"schedule": {
-  "wake_time": "07:30",
-  "meals": ["08:00", "12:30", "18:00"],
-  "walk_window": ["15:00", "16:30"],
-  "notes": "likes the porch after lunch"
-}
+{ "type": "map_scan_request", "source": "cloud", "payload": {
+  "request_id": "ms_1", "mode": "author_once"
+}}
 ```
 
-Both steps emit one `config_update` on the bus.
+```json
+{ "type": "map_ready", "source": "robot", "payload": {
+  "request_id": "ms_1",
+  "map_id": "home_v3",
+  "origin": { "x": 0, "y": 0 },
+  "width_m": 8.0, "height_m": 6.0,
+  "outline": [[0,0],[8,0],[8,6],[0,6]],
+  "rooms": [ { "id": "bedroom", "polygon": [[0,0],[3,0],[3,4],[0,4]] } ]
+}}
+```
+
+E2 runs DimOS author-once mapping and emits `map_ready` in the shared metre frame (origin = SW). E3 never imports Unitree. Until `/bus` merges these types, cloud still accepts them via `/api/ingest` (unknown types are fine for other subsystems).
+
+Zone wire values stay `safe` | `watch` | `exit` (UI label for `exit` = **"Don't go"**).
 
 ## Cursor / git rules for E3
 

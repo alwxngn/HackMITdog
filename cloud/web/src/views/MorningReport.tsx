@@ -32,7 +32,7 @@ export function MorningReport() {
       <p className="text-[17px] font-semibold tracking-[-0.03em] text-[var(--color-clinical-cyan)]">
         {report.summary}
       </p>
-      <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-ash)]">
+      <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-muted-ink)]">
         {report.episodes.map((e, i) => (
           <li key={i} className="flex gap-2">
             <span className="mt-1 h-2 w-2 shrink-0 rounded-[7px] bg-[var(--color-mint-vital)]" />

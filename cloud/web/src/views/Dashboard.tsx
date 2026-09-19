@@ -14,13 +14,13 @@ async function resetDemo() {
 export function Dashboard() {
   return (
     <div className="min-h-full pb-10">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-iris-border)] bg-[var(--color-deep-iris)]/95 px-4 py-4 backdrop-blur md:px-8">
+      <header className="sticky top-0 z-40 border-b border-[var(--color-hairline)] bg-[var(--color-cloud-white)]/95 px-4 py-4 backdrop-blur md:px-8">
         <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-[12px] font-medium tracking-[0.02em] text-[var(--color-lilac-mist)]">
+            <p className="text-[12px] font-medium tracking-[0.02em] text-[var(--color-iris-pulse)]">
               Lantern
             </p>
-            <h1 className="text-[28px] tracking-[-0.04em] text-[var(--color-cloud-white)] sm:text-[36px] md:text-[46px]">
+            <h1 className="text-[28px] tracking-[-0.04em] text-[var(--color-ink)] sm:text-[36px] md:text-[46px]">
               Night <span className="word-highlight">Watch</span>
             </h1>
           </div>

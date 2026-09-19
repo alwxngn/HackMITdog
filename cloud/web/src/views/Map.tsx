@@ -1,31 +1,38 @@
-import { polygonToPoints, SVG, worldToSvg } from '../lib/frame'
+import { polygonToPoints, SVG, worldToSvg, type MapBounds } from '../lib/frame'
+import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE } from '../lib/zonePaint'
 import type { Zone } from '../lib/types'
 import { useProjection } from '../hooks/useProjection'
-
-const ZONE_FILL: Record<string, string> = {
-  safe: 'rgba(0,255,170,0.22)',
-  watch: 'rgba(0,177,255,0.22)',
-  exit: 'rgba(177,166,246,0.35)',
-}
-
-const ZONE_STROKE: Record<string, string> = {
-  safe: '#00ffaa',
-  watch: '#00b1ff',
-  exit: '#b1a6f6',
-}
 
 export function MapView() {
   const p = useProjection()
   const live = p.live_tracking || Boolean(p.open_alert?.live_tracking)
+  const bounds: MapBounds = {
+    width: p.map_ready?.width_m ?? 2,
+    height: p.map_ready?.height_m ?? 2,
+  }
 
   return (
     <div className="card">
-      <div className="mb-3 flex items-baseline justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-[18px] tracking-[-0.03em] text-[var(--color-cloud-white)]">Floor</h2>
         <span className="text-[12px] tracking-[0.02em] text-[var(--color-lilac-mist)]">
           {live ? 'live tracking' : 'map'} · metres
+          {p.map_ready?.map_id ? ` · ${p.map_ready.map_id}` : ''}
         </span>
       </div>
+
+      <div className="mb-3 flex flex-wrap gap-3 text-[12px]">
+        {(['safe', 'watch', 'exit'] as const).map((c) => (
+          <span key={c} className="inline-flex items-center gap-1.5 text-[var(--color-ash)]">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ background: PAINT_STROKE[c] }}
+            />
+            {PAINT_LABEL[c]}
+          </span>
+        ))}
+      </div>
+
       <svg
         viewBox={`0 0 ${SVG.width} ${SVG.height}`}
         className="h-auto w-full max-w-full rounded-[16px] border border-[var(--color-iris-border)] bg-[var(--color-deep-iris)]"
@@ -35,22 +42,32 @@ export function MapView() {
           y={SVG.pad}
           width={SVG.width - SVG.pad * 2}
           height={SVG.height - SVG.pad * 2}
-          fill="none"
-          stroke="#4846c6"
-          strokeDasharray="4 4"
+          fill={PAINT_FILL.safe}
+          opacity={0.35}
         />
+        {p.map_ready?.rooms?.map((r) => (
+          <polygon
+            key={r.id}
+            points={polygonToPoints(r.polygon, bounds)}
+            fill="none"
+            stroke="#b1a6f6"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+          />
+        ))}
         {p.zones.map((z: Zone) => (
           <g key={z.id}>
             <polygon
-              points={polygonToPoints(z.polygon)}
-              fill={ZONE_FILL[z.class] || 'rgba(255,255,255,0.08)'}
-              stroke={ZONE_STROKE[z.class] || '#b1a6f6'}
-              strokeWidth={1.5}
+              points={polygonToPoints(z.polygon, bounds)}
+              fill={PAINT_FILL[z.class] || 'rgba(255,255,255,0.08)'}
+              stroke={PAINT_STROKE[z.class] || '#b1a6f6'}
+              strokeWidth={z.class === 'safe' ? 0 : 1.5}
+              opacity={z.class === 'safe' ? 0.25 : 0.85}
             />
-            {z.polygon[0] && (
+            {z.class !== 'safe' && z.polygon[0] && (
               <text
-                x={worldToSvg(z.polygon[0][0], z.polygon[0][1]).cx + 4}
-                y={worldToSvg(z.polygon[0][0], z.polygon[0][1]).cy + 14}
+                x={worldToSvg(z.polygon[0][0], z.polygon[0][1], bounds).cx + 4}
+                y={worldToSvg(z.polygon[0][0], z.polygon[0][1], bounds).cy + 14}
                 fill="#f4f4f6"
                 fontSize={11}
                 fontFamily="Manrope, sans-serif"
@@ -69,7 +86,7 @@ export function MapView() {
             opacity={0.85}
             points={p.person_trail
               .map(({ x, y }) => {
-                const { cx, cy } = worldToSvg(x, y)
+                const { cx, cy } = worldToSvg(x, y, bounds)
                 return `${cx},${cy}`
               })
               .join(' ')}
@@ -78,7 +95,7 @@ export function MapView() {
 
         {p.pose &&
           (() => {
-            const { cx, cy } = worldToSvg(p.pose.x, p.pose.y)
+            const { cx, cy } = worldToSvg(p.pose.x, p.pose.y, bounds)
             return (
               <g>
                 <circle cx={cx} cy={cy} r={10} fill="#b1a6f6" stroke="#ffffff" strokeWidth={1.5} />
@@ -91,7 +108,7 @@ export function MapView() {
 
         {p.person_track &&
           (() => {
-            const { cx, cy } = worldToSvg(p.person_track.x, p.person_track.y)
+            const { cx, cy } = worldToSvg(p.person_track.x, p.person_track.y, bounds)
             return (
               <g>
                 <circle cx={cx} cy={cy} r={12} fill="#00b1ff" stroke="#ffffff" strokeWidth={2} />
@@ -105,11 +122,11 @@ export function MapView() {
         {(() => {
           const home = (p.config.patient as { home?: { x: number; y: number } } | undefined)?.home
           if (!home) return null
-          const { cx, cy } = worldToSvg(home.x, home.y)
+          const { cx, cy } = worldToSvg(home.x, home.y, bounds)
           return (
             <g>
-              <rect x={cx - 4} y={cy - 4} width={8} height={8} rx={2} fill="#00ffaa" />
-              <text x={cx + 8} y={cy + 4} fill="#d8d8e3" fontSize={10} fontFamily="Manrope, sans-serif">
+              <circle cx={cx} cy={cy} r={9} fill="#00ffaa" stroke="#fff" strokeWidth={2} />
+              <text x={cx + 12} y={cy + 4} fill="#00ffaa" fontSize={10} fontFamily="Manrope, sans-serif">
                 home
               </text>
             </g>

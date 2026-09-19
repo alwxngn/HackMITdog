@@ -43,6 +43,17 @@ ACK_BASE_URL=https://YOUR-SUBDOMAIN.trycloudflare.com
 3. Scan Night Watch (or tap the link) → live dashboard on the phone; laptop stays the judge screen.
 4. Ack from either device clears the alert on both (shared WebSocket / event store).
 
+## Onboarding
+
+Open `/onboarding` (or QR). Flow: Patient → **Scan home** → Paint zones → Schedule.
+
+- `MAP_SCAN_MODE=demo` (default): Scan loads a schematic floorplan.
+- `MAP_SCAN_MODE=live`: publishes `map_scan_request`; E2 must POST `map_ready` to `/api/ingest`.
+- Paint: whole map starts Safe (green); drag Watch / Don't go; Place home pin.
+- Finish publishes one `config_update`.
+
+See [docs/16-e3-portal.md](../docs/16-e3-portal.md) for the E2 bus contract.
+
 ## Fixture replay (no mocks needed)
 
 ```bash

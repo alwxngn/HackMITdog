@@ -1,25 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MAP_METRES, SVG, svgToWorld, worldToSvg } from '../../lib/frame'
-import type { Zone } from '../../lib/types'
+import { DEMO_MAP, type MapReadyPayload } from '../../lib/demoFloorplan'
 import { useProjection } from '../../hooks/useProjection'
+import type { Zone } from '../../lib/types'
+import { ZonePainter } from './ZonePainter'
 
-const CLASSES: { value: Zone['class']; label: string }[] = [
-  { value: 'safe', label: 'Safe' },
-  { value: 'watch', label: 'Watch' },
-  { value: 'exit', label: "Don't go" },
-]
+type Step = 1 | 2 | 3 | 4
 
 export function Onboarding() {
-  const p = useProjection()
-  const [step, setStep] = useState<3 | 4>(3)
-  const [zones, setZones] = useState<Zone[]>(p.zones.length ? p.zones : [])
-  const [drawing, setDrawing] = useState<[number, number][]>([])
-  const [zoneClass, setZoneClass] = useState<Zone['class']>('exit')
-  const [zoneLabel, setZoneLabel] = useState("Don't go")
-  const [kind, setKind] = useState<Zone['kind']>('door')
-  const [home, setHome] = useState({ x: 0, y: 0 })
-  const [placeHome, setPlaceHome] = useState(false)
+  const projection = useProjection()
+  const [step, setStep] = useState<Step>(1)
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [map, setMap] = useState<MapReadyPayload | null>(
+    (projection.map_ready as MapReadyPayload | null) || null,
+  )
+  const [zones, setZones] = useState<Zone[]>([])
+  const [home, setHome] = useState({ x: 0.4, y: 0.4 })
+  const [patient, setPatient] = useState({
+    name: 'Arthur',
+    preferred_name: 'Art',
+    calming_topics: 'fishing at Moosehead, his dog Bella',
+    avoid_topics: "his wife's death",
+  })
   const [schedule, setSchedule] = useState({
     wake_time: '07:30',
     meals: '08:00,12:30,18:00',
@@ -27,86 +30,118 @@ export function Onboarding() {
     walk_end: '16:30',
     notes: 'likes the porch after lunch',
   })
-  const [contacts, setContacts] = useState({
-    primary: 'jenny',
-    primary_phone: '',
-    secondary: 'mark',
-  })
+  const [contacts, setContacts] = useState({ primary: 'jenny', secondary: 'mark' })
   const [saved, setSaved] = useState('')
 
-  function onSvgClick(e: React.MouseEvent<SVGSVGElement>) {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const cx = ((e.clientX - rect.left) / rect.width) * SVG.width
-    const cy = ((e.clientY - rect.top) / rect.height) * SVG.height
-    const { x, y } = svgToWorld(cx, cy)
-    const rounded = {
-      x: Math.round(x * 100) / 100,
-      y: Math.round(y * 100) / 100,
+  useEffect(() => {
+    if (projection.map_ready) {
+      setMap(projection.map_ready as MapReadyPayload)
+      setScanning(false)
     }
-    if (placeHome || e.shiftKey) {
-      setHome(rounded)
-      setPlaceHome(false)
-      return
+  }, [projection.map_ready])
+
+  async function startScan(forceDemo = false) {
+    setScanError('')
+    setScanning(true)
+    try {
+      const r = await fetch('/api/map-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(forceDemo ? { mode: 'demo' } : {}),
+      })
+      const data = await r.json()
+      if (data.mode === 'demo' && data.map_ready) {
+        // brief animation then show
+        await new Promise((res) => setTimeout(res, 1800))
+        setMap(data.map_ready as MapReadyPayload)
+        setScanning(false)
+        setStep(3)
+        return
+      }
+      // live: poll until map_ready on projection / status
+      const deadline = Date.now() + 90_000
+      while (Date.now() < deadline) {
+        const st = await fetch('/api/map-scan/status').then((x) => x.json())
+        if (st.map_ready) {
+          setMap(st.map_ready as MapReadyPayload)
+          setScanning(false)
+          setStep(3)
+          return
+        }
+        await new Promise((res) => setTimeout(res, 800))
+      }
+      setScanError('Timed out waiting for the robot map. Use demo floorplan or retry.')
+      setScanning(false)
+    } catch (e) {
+      setScanError(String(e))
+      setScanning(false)
+      setMap(DEMO_MAP)
     }
-    setDrawing((d) => [...d, [rounded.x, rounded.y]])
   }
 
-  function finishZone() {
-    if (drawing.length < 3) return
-    const id = `${zoneClass}_${zones.length + 1}`
-    const z: Zone = {
-      id,
-      class: zoneClass,
-      label: zoneClass === 'exit' ? "Don't go" : zoneLabel || id,
-      kind,
-      polygon: drawing,
-    }
-    setZones((zs) => [...zs, z])
-    setDrawing([])
-  }
-
-  async function save() {
-    const patient = {
-      name: 'Arthur',
-      preferred_name: 'Art',
-      calming_topics: ['fishing at Moosehead', 'his dog Bella'],
-      avoid_topics: ["his wife's death"],
-      music_url: '/media/arthur_playlist.mp3',
-      schedule: {
-        wake_time: schedule.wake_time,
-        meals: schedule.meals.split(',').map((s) => s.trim()).filter(Boolean),
-        walk_window: [schedule.walk_start, schedule.walk_end],
-        notes: schedule.notes,
+  async function finish() {
+    if (!map) return
+    const body = {
+      zones: zones.length
+        ? zones
+        : [
+            {
+              id: 'whole_safe',
+              class: 'safe',
+              label: 'Safe',
+              kind: 'door',
+              polygon: map.outline,
+            },
+          ],
+      patient: {
+        name: patient.name,
+        preferred_name: patient.preferred_name,
+        calming_topics: patient.calming_topics.split(',').map((s) => s.trim()).filter(Boolean),
+        avoid_topics: patient.avoid_topics.split(',').map((s) => s.trim()).filter(Boolean),
+        music_url: '/media/arthur_playlist.mp3',
+        schedule: {
+          wake_time: schedule.wake_time,
+          meals: schedule.meals.split(',').map((s) => s.trim()).filter(Boolean),
+          walk_window: [schedule.walk_start, schedule.walk_end],
+          notes: schedule.notes,
+        },
+        home: { ...home, lat: null, lon: null },
+        route_id: null,
       },
-      home: { ...home, lat: null, lon: null },
-      route_id: null,
+      escalation: [
+        { level: 2, contact: contacts.primary, channel: 'sms', after_s: 0 },
+        { level: 3, contact: contacts.primary, channel: 'voice_call', after_s: 60 },
+        { level: 4, contact: contacts.secondary, channel: 'voice_call', after_s: 120 },
+        {
+          level: 5,
+          contact: contacts.primary,
+          channel: 'voice_call',
+          after_s: 0,
+          trigger: 'dont_go_breach',
+        },
+      ],
+      map_id: map.map_id,
     }
-    const escalation = [
-      { level: 2, contact: contacts.primary, channel: 'sms', after_s: 0 },
-      { level: 3, contact: contacts.primary, channel: 'voice_call', after_s: 60 },
-      { level: 4, contact: contacts.secondary, channel: 'voice_call', after_s: 120 },
-      {
-        level: 5,
-        contact: contacts.primary,
-        channel: 'voice_call',
-        after_s: 0,
-        trigger: 'dont_go_breach',
-      },
-    ]
-    const body = { zones, patient, escalation }
     const r = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    setSaved(r.ok ? 'Saved — config_update on the bus' : 'Save failed')
+    setSaved(r.ok ? 'Saved — Night Watch will use this map and zones.' : 'Save failed')
   }
+
+  const steps: { n: Step; label: string }[] = [
+    { n: 1, label: 'Patient' },
+    { n: 2, label: 'Scan home' },
+    { n: 3, label: 'Paint zones' },
+    { n: 4, label: 'Schedule' },
+  ]
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 p-4 pb-24 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[12px] tracking-[0.02em] text-[var(--color-lilac-mist)]">Lantern</p>
+          <p className="text-[12px] tracking-[0.02em] text-[var(--color-iris-pulse)]">Lantern</p>
           <h1 className="text-[32px] tracking-[-0.04em] sm:text-[46px]">
             On<span className="word-highlight">boarding</span>
           </h1>
@@ -115,161 +150,125 @@ export function Onboarding() {
           Night Watch
         </Link>
       </div>
-      <p className="max-w-2xl text-[14px] text-[var(--color-ash)]">
-        Scan the QR on the laptop to set this up on your phone. Steps 3–4: risks, home, schedule.
-        Tap the map to drop zone points; use{' '}
-        <strong className="text-[var(--color-pearl)]">Place home</strong> then tap (or Shift-click
-        on desktop). Frame: SW origin, +x east, metres.
-      </p>
+
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={`pill min-h-11 px-4 ${step === 3 ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
-          onClick={() => setStep(3)}
-        >
-          3 · Risks & home
-        </button>
-        <button
-          type="button"
-          className={`pill min-h-11 px-4 ${step === 4 ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
-          onClick={() => setStep(4)}
-        >
-          4 · Schedule
-        </button>
+        {steps.map((s) => (
+          <button
+            key={s.n}
+            type="button"
+            className={`pill min-h-10 px-4 ${step === s.n ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-iris-pulse)]'}`}
+            onClick={() => {
+              if (s.n === 3 && !map) return
+              setStep(s.n)
+            }}
+          >
+            {s.n}. {s.label}
+          </button>
+        ))}
       </div>
 
-      {step === 3 && (
-        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-          <div className="card !p-4">
-            <div className="mb-3 flex flex-wrap gap-2 text-[14px]">
-              {CLASSES.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  className={`pill ${zoneClass === c.value ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
-                  onClick={() => {
-                    setZoneClass(c.value)
-                    setZoneLabel(c.label)
-                  }}
-                >
-                  {c.label}
-                </button>
-              ))}
-              <select
-                className="input-field !w-auto !py-2"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as Zone['kind'])}
-              >
-                <option value="door">door</option>
-                <option value="stairs">stairs</option>
-                <option value="outdoor_boundary">outdoor_boundary</option>
-              </select>
-              <button type="button" className="btn-ghost !min-h-10 !px-3 !text-[12px]" onClick={finishZone}>
-                Close polygon
-              </button>
-              <button
-                type="button"
-                className="btn-ghost !min-h-10 !px-3 !text-[12px]"
-                onClick={() => setDrawing([])}
-              >
-                Clear points
-              </button>
-              <button
-                type="button"
-                className={`pill min-h-10 ${placeHome ? 'bg-[color-mix(in_srgb,var(--color-mint-vital)_25%,transparent)] text-[var(--color-mint-vital)]' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
-                onClick={() => setPlaceHome((v) => !v)}
-              >
-                {placeHome ? 'Tap map for home…' : 'Place home'}
-              </button>
+      {step === 1 && (
+        <div className="card max-w-lg space-y-3">
+          <h2 className="text-[18px]">Who are we caring for?</h2>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Name
+            <input
+              className="input-field mt-1"
+              value={patient.name}
+              onChange={(e) => setPatient({ ...patient, name: e.target.value })}
+            />
+          </label>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Preferred name
+            <input
+              className="input-field mt-1"
+              value={patient.preferred_name}
+              onChange={(e) => setPatient({ ...patient, preferred_name: e.target.value })}
+            />
+          </label>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Calming topics (comma-separated)
+            <input
+              className="input-field mt-1"
+              value={patient.calming_topics}
+              onChange={(e) => setPatient({ ...patient, calming_topics: e.target.value })}
+            />
+          </label>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Avoid topics
+            <input
+              className="input-field mt-1"
+              value={patient.avoid_topics}
+              onChange={(e) => setPatient({ ...patient, avoid_topics: e.target.value })}
+            />
+          </label>
+          <button type="button" className="btn-primary" onClick={() => setStep(2)}>
+            Next — Scan home
+          </button>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="card max-w-xl space-y-4">
+          <h2 className="text-[18px]">Scan home with Lantern</h2>
+          <p className="text-[14px] text-[var(--color-muted-ink)]">
+            In testing, this asks the Go2 to map the space (E2 / DimOS). At the table demo it loads
+            a schematic floorplan — same paint step either way.
+          </p>
+          {scanning ? (
+            <div className="space-y-2">
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--color-iris-border)]">
+                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-clinical-cyan)]" />
+              </div>
+              <p className="text-[14px] text-[var(--color-clinical-cyan)]">
+                Mapping… walk the robot through the space (or waiting on demo map).
+              </p>
             </div>
-            <svg
-              viewBox={`0 0 ${SVG.width} ${SVG.height}`}
-              className="w-full cursor-crosshair rounded-[16px] border border-[var(--color-iris-border)] bg-[var(--color-deep-iris)]"
-              onClick={onSvgClick}
-            >
-              <rect
-                x={SVG.pad}
-                y={SVG.pad}
-                width={SVG.width - SVG.pad * 2}
-                height={SVG.height - SVG.pad * 2}
-                fill="none"
-                stroke="#4846c6"
-                strokeDasharray="4 4"
-              />
-              {zones.map((z) => (
-                <polygon
-                  key={z.id}
-                  points={z.polygon
-                    .map(([x, y]) => {
-                      const { cx, cy } = worldToSvg(x, y)
-                      return `${cx},${cy}`
-                    })
-                    .join(' ')}
-                  fill={
-                    z.class === 'exit'
-                      ? 'rgba(177,166,246,0.35)'
-                      : z.class === 'watch'
-                        ? 'rgba(0,177,255,0.22)'
-                        : 'rgba(0,255,170,0.22)'
-                  }
-                  stroke={z.class === 'exit' ? '#b1a6f6' : z.class === 'watch' ? '#00b1ff' : '#00ffaa'}
-                />
-              ))}
-              {drawing.length > 0 && (
-                <polyline
-                  fill="none"
-                  stroke="#00b1ff"
-                  strokeWidth={2}
-                  points={drawing
-                    .map(([x, y]) => {
-                      const { cx, cy } = worldToSvg(x, y)
-                      return `${cx},${cy}`
-                    })
-                    .join(' ')}
-                />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-primary" onClick={() => startScan(false)}>
+                Scan home
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => startScan(true)}>
+                Use demo floorplan
+              </button>
+              {map && (
+                <button type="button" className="btn-ghost" onClick={() => setStep(3)}>
+                  Continue with current map
+                </button>
               )}
-              {(() => {
-                const { cx, cy } = worldToSvg(home.x, home.y)
-                return <rect x={cx - 4} y={cy - 4} width={8} height={8} rx={2} fill="#00ffaa" />
-              })()}
-            </svg>
-            <p className="mt-3 text-[12px] text-[var(--color-fog)]">
-              Map {MAP_METRES.width}×{MAP_METRES.height} m · home ({home.x}, {home.y}) ·{' '}
-              {drawing.length} points drafting
+            </div>
+          )}
+          {scanError && (
+            <p className="text-[14px] text-[var(--color-iris-pulse)]">
+              {scanError}{' '}
+              <button type="button" className="underline text-[var(--color-clinical-cyan)]" onClick={() => startScan(true)}>
+                Load demo map
+              </button>
             </p>
-          </div>
-          <div className="card space-y-3 text-[14px]">
-            <h3 className="text-[18px] tracking-[-0.03em]">Escalation contacts</h3>
-            <label className="block text-[var(--color-ash)]">
-              Primary
-              <input
-                className="input-field mt-1"
-                value={contacts.primary}
-                onChange={(e) => setContacts({ ...contacts, primary: e.target.value })}
-              />
-            </label>
-            <label className="block text-[var(--color-ash)]">
-              Secondary
-              <input
-                className="input-field mt-1"
-                value={contacts.secondary}
-                onChange={(e) => setContacts({ ...contacts, secondary: e.target.value })}
-              />
-            </label>
-            <ul className="text-[12px] text-[var(--color-fog)]">
-              {zones.map((z) => (
-                <li key={z.id}>
-                  {z.label} ({z.class}/{z.kind}) — {z.polygon.length} pts
-                </li>
-              ))}
-            </ul>
-          </div>
+          )}
+        </div>
+      )}
+
+      {step === 3 && map && (
+        <div className="card space-y-4">
+          <h2 className="text-[18px]">Paint zones</h2>
+          <p className="text-[14px] text-[var(--color-muted-ink)]">
+            Everything starts <span className="text-[var(--color-mint-vital)]">Safe</span>. Paint{' '}
+            <span className="text-[var(--color-clinical-cyan)]">Watch</span> and{' '}
+            <span className="text-[var(--color-lilac-mist)]">Don&apos;t go</span>, then place home.
+          </p>
+          <ZonePainter map={map} home={home} onHomeChange={setHome} onZonesChange={setZones} />
+          <button type="button" className="btn-primary" onClick={() => setStep(4)}>
+            Next — Schedule
+          </button>
         </div>
       )}
 
       {step === 4 && (
-        <div className="card max-w-md space-y-3 text-[14px]">
-          <label className="block text-[var(--color-ash)]">
+        <div className="card max-w-md space-y-3">
+          <h2 className="text-[18px]">Schedule & contacts</h2>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
             Wake time
             <input
               className="input-field mt-1"
@@ -277,8 +276,8 @@ export function Onboarding() {
               onChange={(e) => setSchedule({ ...schedule, wake_time: e.target.value })}
             />
           </label>
-          <label className="block text-[var(--color-ash)]">
-            Meals (comma-separated)
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Meals
             <input
               className="input-field mt-1"
               value={schedule.meals}
@@ -286,7 +285,7 @@ export function Onboarding() {
             />
           </label>
           <div className="flex gap-2">
-            <label className="block flex-1 text-[var(--color-ash)]">
+            <label className="block flex-1 text-[14px] text-[var(--color-muted-ink)]">
               Walk start
               <input
                 className="input-field mt-1"
@@ -294,7 +293,7 @@ export function Onboarding() {
                 onChange={(e) => setSchedule({ ...schedule, walk_start: e.target.value })}
               />
             </label>
-            <label className="block flex-1 text-[var(--color-ash)]">
+            <label className="block flex-1 text-[14px] text-[var(--color-muted-ink)]">
               Walk end
               <input
                 className="input-field mt-1"
@@ -303,22 +302,37 @@ export function Onboarding() {
               />
             </label>
           </div>
-          <label className="block text-[var(--color-ash)]">
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
             Notes
             <textarea
-              className="input-field mt-1 min-h-[88px]"
-              rows={3}
+              className="input-field mt-1"
+              rows={2}
               value={schedule.notes}
               onChange={(e) => setSchedule({ ...schedule, notes: e.target.value })}
             />
           </label>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Primary contact
+            <input
+              className="input-field mt-1"
+              value={contacts.primary}
+              onChange={(e) => setContacts({ ...contacts, primary: e.target.value })}
+            />
+          </label>
+          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+            Secondary contact
+            <input
+              className="input-field mt-1"
+              value={contacts.secondary}
+              onChange={(e) => setContacts({ ...contacts, secondary: e.target.value })}
+            />
+          </label>
+          <button type="button" className="btn-primary w-full sm:w-auto" onClick={finish}>
+            Finish — publish config
+          </button>
+          {saved && <p className="text-[14px] text-[var(--color-iris-pulse)]">{saved}</p>}
         </div>
       )}
-
-      <button type="button" className="btn-primary w-full sm:w-auto" onClick={save}>
-        Publish config_update
-      </button>
-      {saved && <p className="text-[14px] text-[var(--color-mint-vital)]">{saved}</p>}
     </div>
   )
 }

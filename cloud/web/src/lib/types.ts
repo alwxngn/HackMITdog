@@ -64,6 +64,16 @@ export interface Alert {
   ts?: number
 }
 
+export interface MapReady {
+  request_id: string
+  map_id: string
+  origin: { x: number; y: number }
+  width_m: number
+  height_m: number
+  outline: [number, number][]
+  rooms?: { id: string; polygon: [number, number][] }[]
+}
+
 export interface Projection {
   agent_state: AgentState
   pose: Pose | null
@@ -77,6 +87,8 @@ export interface Projection {
   last_transcript: { text: string; confidence?: number } | null
   robot_status: { command_id: string; state: string; detail: string | null; distance_to_person_m?: number } | null
   checkin_queue: { checkin_id: string; from_name: string; text: string }[]
+  map_ready: MapReady | null
+  map_scan_pending: { request_id: string; mode?: string } | null
   timeline: Envelope[]
 }
 
