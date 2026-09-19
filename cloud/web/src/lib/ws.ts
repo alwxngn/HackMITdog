@@ -1,9 +1,12 @@
 import { handleBusMessage } from './store'
 import type { Envelope } from './types'
 
-const WS_URL =
-  (import.meta.env.VITE_WS_URL as string | undefined) ||
-  `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8000/ws`
+/** Same-origin WS so Vite proxy + Cloudflare/ngrok tunnel work on phone. */
+function wsUrl(): string {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL as string
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  return `${proto}://${location.host}/ws`
+}
 
 let socket: WebSocket | null = null
 let retries = 0
@@ -22,10 +25,11 @@ export function disconnectBus() {
 
 function open() {
   if (stop) return
-  socket = new WebSocket(WS_URL)
+  const url = wsUrl()
+  socket = new WebSocket(url)
   socket.onopen = () => {
     retries = 0
-    console.info('[ws] connected', WS_URL)
+    console.info('[ws] connected', url)
   }
   socket.onmessage = (ev) => {
     try {

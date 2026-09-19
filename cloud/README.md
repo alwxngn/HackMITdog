@@ -18,6 +18,31 @@ cd cloud/web && npm install && npm run dev
 # open http://127.0.0.1:5173
 ```
 
+## Phone + QR (same app, browser on phone)
+
+Phones cannot open `localhost` on your laptop. Tunnel **Vite :5173** (it already proxies `/api` and `/ws` to FastAPI).
+
+```bash
+# Install once: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/
+cloudflared tunnel --url http://127.0.0.1:5173
+# or: ngrok http 5173
+```
+
+Copy the HTTPS URL into both places, then restart Vite:
+
+```bash
+# cloud/web/.env.local
+VITE_PUBLIC_ORIGIN=https://YOUR-SUBDOMAIN.trycloudflare.com
+
+# cloud/.env
+ACK_BASE_URL=https://YOUR-SUBDOMAIN.trycloudflare.com
+```
+
+1. Laptop Night Watch shows **Share on phone** QR codes (Night Watch + Onboarding).
+2. Scan Onboarding → enter zones / home / schedule → Publish.
+3. Scan Night Watch (or tap the link) → live dashboard on the phone; laptop stays the judge screen.
+4. Ack from either device clears the alert on both (shared WebSocket / event store).
+
 ## Fixture replay (no mocks needed)
 
 ```bash
@@ -25,11 +50,19 @@ cd cloud/server
 python replay.py --fixture ../fixtures/exit_seeking.jsonl --rate 4
 ```
 
-## Twilio spike
+## Twilio
 
 1. Copy `.env.example` → `.env`, fill `TWILIO_*` (trial: verify the destination number).
 2. `cd cloud/server && python twilio_spike.py`
-3. Confirm SMS arrives; tap the ack link → dashboard alert clears.
+3. Confirm SMS arrives.
+
+**Trial vs upgrade**
+
+| | Trial (`TWILIO_TRIAL=1`) | Upgraded (`TWILIO_TRIAL=0`) |
+|---|---|---|
+| Real SMS to your phone | Yes | Yes |
+| Message body | Twilio stock template (`sms_account_alerts`) | Custom “Arthur is heading…” + ack URL |
+| Ack link in SMS | Not in stock template | Works when `ACK_BASE_URL` is the tunnel HTTPS URL |
 
 Without credentials, `notify.py` dry-runs to the console so the ladder still demos.
 

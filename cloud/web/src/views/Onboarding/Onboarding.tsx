@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { MAP_METRES, SVG, svgToWorld, worldToSvg } from '../../lib/frame'
 import type { Zone } from '../../lib/types'
 import { useProjection } from '../../hooks/useProjection'
@@ -18,6 +19,7 @@ export function Onboarding() {
   const [zoneLabel, setZoneLabel] = useState("Don't go")
   const [kind, setKind] = useState<Zone['kind']>('door')
   const [home, setHome] = useState({ x: 0, y: 0 })
+  const [placeHome, setPlaceHome] = useState(false)
   const [schedule, setSchedule] = useState({
     wake_time: '07:30',
     meals: '08:00,12:30,18:00',
@@ -37,11 +39,16 @@ export function Onboarding() {
     const cx = ((e.clientX - rect.left) / rect.width) * SVG.width
     const cy = ((e.clientY - rect.top) / rect.height) * SVG.height
     const { x, y } = svgToWorld(cx, cy)
-    if (e.shiftKey) {
-      setHome({ x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 })
+    const rounded = {
+      x: Math.round(x * 100) / 100,
+      y: Math.round(y * 100) / 100,
+    }
+    if (placeHome || e.shiftKey) {
+      setHome(rounded)
+      setPlaceHome(false)
       return
     }
-    setDrawing((d) => [...d, [Math.round(x * 100) / 100, Math.round(y * 100) / 100]])
+    setDrawing((d) => [...d, [rounded.x, rounded.y]])
   }
 
   function finishZone() {
@@ -96,21 +103,32 @@ export function Onboarding() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4">
-      <h1 className="text-3xl">Onboarding</h1>
+    <div className="mx-auto max-w-4xl space-y-4 p-4 pb-24">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs uppercase tracking-[0.15em] text-[var(--muted)]">Lantern</p>
+          <h1 className="text-2xl sm:text-3xl">Onboarding</h1>
+        </div>
+        <Link className="min-h-11 rounded bg-white/10 px-3 py-2 text-sm text-[var(--accent)]" to="/">
+          Night Watch
+        </Link>
+      </div>
       <p className="text-sm text-[var(--muted)]">
-        Steps 3–4 for caregivers. Click map to drop polygon points; Shift-click sets home.
-        Frame: origin SW corner, +x east, metres (see docs/16-e3-portal.md).
+        Scan the QR on the laptop to set this up on your phone. Steps 3–4: risks, home, schedule.
+        Tap the map to drop zone points; use <strong className="text-[var(--ink)]">Place home</strong>{' '}
+        then tap (or Shift-click on desktop). Frame: SW origin, +x east, metres.
       </p>
       <div className="flex gap-2">
         <button
-          className={`rounded px-3 py-1 text-sm ${step === 3 ? 'bg-[var(--accent)] text-[#1a1408]' : 'bg-white/10'}`}
+          type="button"
+          className={`min-h-11 rounded px-3 py-2 text-sm ${step === 3 ? 'bg-[var(--accent)] text-[#1a1408]' : 'bg-white/10'}`}
           onClick={() => setStep(3)}
         >
           3 · Risks & home
         </button>
         <button
-          className={`rounded px-3 py-1 text-sm ${step === 4 ? 'bg-[var(--accent)] text-[#1a1408]' : 'bg-white/10'}`}
+          type="button"
+          className={`min-h-11 rounded px-3 py-2 text-sm ${step === 4 ? 'bg-[var(--accent)] text-[#1a1408]' : 'bg-white/10'}`}
           onClick={() => setStep(4)}
         >
           4 · Schedule
@@ -142,11 +160,18 @@ export function Onboarding() {
                 <option value="stairs">stairs</option>
                 <option value="outdoor_boundary">outdoor_boundary</option>
               </select>
-              <button className="rounded bg-white/10 px-2" onClick={finishZone}>
+              <button type="button" className="min-h-10 rounded bg-white/10 px-2" onClick={finishZone}>
                 Close polygon
               </button>
-              <button className="rounded bg-white/10 px-2" onClick={() => setDrawing([])}>
+              <button type="button" className="min-h-10 rounded bg-white/10 px-2" onClick={() => setDrawing([])}>
                 Clear points
+              </button>
+              <button
+                type="button"
+                className={`min-h-10 rounded px-2 ${placeHome ? 'bg-[var(--safe)]/50' : 'bg-white/10'}`}
+                onClick={() => setPlaceHome((v) => !v)}
+              >
+                {placeHome ? 'Tap map for home…' : 'Place home'}
               </button>
             </div>
             <svg
@@ -283,7 +308,8 @@ export function Onboarding() {
       )}
 
       <button
-        className="rounded bg-[var(--accent)] px-4 py-2 font-medium text-[#1a1408]"
+        type="button"
+        className="min-h-12 w-full rounded bg-[var(--accent)] px-4 py-3 font-medium text-[#1a1408] sm:w-auto"
         onClick={save}
       >
         Publish config_update

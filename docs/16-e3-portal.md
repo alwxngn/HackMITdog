@@ -193,3 +193,21 @@ From `05-demo.md`:
 
 Fallback B (sim robot): person tracking, dialogue, **dashboard**, and escalation stay live.
 E3's half must work with mocks alone.
+
+## Phone + QR
+
+Same React app in the phone browser — no native app.
+
+1. Tunnel Vite `:5173` with `cloudflared tunnel --url http://127.0.0.1:5173` (or ngrok).
+2. Set `VITE_PUBLIC_ORIGIN` (web) and `ACK_BASE_URL` (server) to that HTTPS URL.
+3. Dashboard **Share on phone** panel shows QRs for `/` (Night Watch) and `/onboarding`.
+4. Caregiver scans onboarding, publishes `config_update`; both screens stay in sync over the bus.
+
+WebSocket uses same-origin `/ws` (Vite proxies to FastAPI) so the tunnel works without hard-coding `:8000`.
+
+## Twilio status
+
+Trial accounts send a **real** SMS but only with Twilio's predefined template names (error 572006
+if you send custom text). Keep `TWILIO_TRIAL=1` until you upgrade; then set `TWILIO_TRIAL=0` for
+the Arthur headline + ack link in the message body.
+
