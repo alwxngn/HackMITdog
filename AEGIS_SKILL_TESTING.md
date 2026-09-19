@@ -1,4 +1,4 @@
-# Aegis skill testing — exact commands
+co# Aegis skill testing — exact commands
 
 Companion to `DIMOS_SKILL_IMPLEMENTATION_PLAN.md`. Every command below uses the real, confirmed
 `dimos mcp` CLI syntax (`dimos/cli/dimos.py`, `dimos/cli/commands/mcp.py`) — nothing here is
