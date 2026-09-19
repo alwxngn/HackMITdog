@@ -4,29 +4,37 @@ running Go2, following the exact pattern DimOS's own
 `NavigationSkillContainer`, `ObserveSkill`, `PersonFollowSkillContainer`,
 `UnitreeSkillContainer`, `WebInput`, and `SpeakSkill` onto `unitree_go2_spatial`.
 
-Run with:
+Two runnable blueprints (both registered as ``dimos.blueprints`` entry points,
+see this repo's ``pyproject.toml``):
 
-    dimos run hackmitdog.aegis-go2
+    dimos run hackmitdog.aegis-go2                 # skills only, call them
+                                                    # directly via `dimos mcp call`
+    dimos run hackmitdog.aegis-go2-ollama --listen-host 0.0.0.0
+                                                    # + a local Ollama-backed
+                                                    # agent that can plan across
+                                                    # skills on its own, reachable
+                                                    # over the LAN (see the
+                                                    # `--listen-host` note below)
 
-(the ``dimos.blueprints`` entry point below; see this repo's ``pyproject.toml``).
+``aegis_go2_agentic_ollama`` mirrors
+``dimos.robot.unitree.go2.blueprints.agentic.unitree_go2_agentic_ollama``
+exactly: same ``McpServer``/``McpClient(model="ollama:qwen3:8b")`` pair DimOS's
+own agentic Go2 blueprints use, just pointed at this package's skills instead
+of (or alongside) DimOS's built-in ones. Requires a running Ollama daemon
+(``ollama serve``) with the model pulled (``ollama pull qwen3:8b``) on
+whichever machine runs ``dimos`` -- ``ollama_installed()`` is declared as a
+requirement so ``dimos run`` refuses early with a clear message if it isn't.
 
-Or compose it yourself into a different base, e.g. with the Ollama MCP client
-DimOS already ships for small local models (see
-``dimos.robot.unitree.go2.blueprints.agentic.unitree_go2_agentic_ollama`` for
-the reference)::
-
-    from dimos.agents.mcp.mcp_client import McpClient
-    from dimos.agents.mcp.mcp_server import McpServer
-    from dimos.core.coordination.blueprints import autoconnect
-    from hackmitdog.aegis.blueprint import aegis_go2_skills
-
-    aegis_go2_agentic_ollama = autoconnect(
-        aegis_go2_skills,
-        McpServer.blueprint(),
-        McpClient.blueprint(model="ollama:qwen3:8b"),
-    )
+**Reachable over wifi**: ``McpServer`` binds to ``GlobalConfig.listen_host``
+(default ``127.0.0.1``, i.e. localhost-only) and ``GlobalConfig.mcp_port``
+(default ``9990``). Pass ``--listen-host 0.0.0.0`` on `dimos run` to make it
+reachable from another device on the same network, then point that device's
+`dimos mcp` calls (or an `McpAdapter`) at ``http://<this-machine's-LAN-ip>:9990``.
 """
 
+from dimos.agents.mcp.mcp_client import McpClient
+from dimos.agents.mcp.mcp_server import McpServer
+from dimos.agents.ollama_agent import ollama_installed
 from dimos.core.coordination.blueprints import autoconnect
 from dimos.robot.unitree.go2.blueprints.smart.unitree_go2_spatial import (
     unitree_go2_spatial,
@@ -56,3 +64,16 @@ aegis_go2_skills = autoconnect(
     HomeSkills.blueprint(),
     DangerZoneSkills.blueprint(),
 ).global_config(n_workers=12)
+
+# Same skills, plus an MCP server/client pair backed by a local Ollama model --
+# the same small-LLM configuration DimOS's own unitree_go2_agentic_ollama uses
+# (dimos/robot/unitree/go2/blueprints/agentic/unitree_go2_agentic_ollama.py).
+# This is the one to run if you want the robot to plan across skills on its
+# own rather than being driven one `dimos mcp call` at a time.
+aegis_go2_agentic_ollama = autoconnect(
+    aegis_go2_skills,
+    McpServer.blueprint(),
+    McpClient.blueprint(model="ollama:qwen3:8b"),
+).requirements(
+    ollama_installed,
+)
