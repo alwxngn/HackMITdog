@@ -29,8 +29,10 @@ end times on `dayof.hackmit.org` and shift the schedule before relying on it.
 | [`docs/02-blueprint.md`](docs/02-blueprint.md) | The revised product: what we are actually building | Everyone |
 | [`docs/03-build-plan.md`](docs/03-build-plan.md) | 24-hour schedule, ownership, cut lines | Everyone |
 | [`docs/04-interfaces.md`](docs/04-interfaces.md) | Frozen event schemas so we can work in parallel | Everyone, in the first 90 minutes |
+| [`docs/15-dev-workflow.md`](docs/15-dev-workflow.md) | Repo layout, git rules, and running four different AI coding agents without them colliding | Everyone, before anyone opens an agent |
 | [`docs/11-perception.md`](docs/11-perception.md) | How the person actually gets tracked. Six things depend on it | E2, E4 |
 | [`docs/12-dialogue-runtime.md`](docs/12-dialogue-runtime.md) | What produces each utterance, the latency budget, the impersonation guard | E1, E4 |
+| [`docs/14-companion-and-caretaker.md`](docs/14-companion-and-caretaker.md) | Check-in relay, companionship conversation, onboarding schedule, guided walks, the completed wandering policy | Everyone |
 | [`docs/05-demo.md`](docs/05-demo.md) | Table demo, stage demo, fallback ladder | Everyone |
 | [`docs/06-safety-ethics.md`](docs/06-safety-ethics.md) | Safety envelope, consent, privacy, claims discipline | Everyone |
 | [`docs/07-evaluation.md`](docs/07-evaluation.md) | The numbers we put on the slide | E1, E2, E4 |
@@ -54,3 +56,5 @@ the caregiver a head start plus a record of exactly what happened.
 5. Interfaces in `docs/04` freeze 90 minutes in. Changes after that need all four engineers to agree.
 6. No project code before hacking opens, and cite every open-source dependency in `CREDITS.md`
    as you add it. See `docs/10` P1-8.
+7. Four people, four different AI coding agents, one folder each, no long-lived branches, tiny
+   commits. See `docs/15`.

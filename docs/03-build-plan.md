@@ -224,7 +224,11 @@ No team slide, no market-size slide, no roadmap. At a table you get 90 seconds.
 
 ## Standing rules
 
-- **Commit and push every hour.** Hackathons eat laptops.
+- **Commit and push every hour, at minimum — an AI coding agent can produce an hour of
+  hand-written-equivalent work in a couple of minutes, so treat that as a ceiling, not a
+  cadence.** Commit after every agent turn that changes behavior. `15-dev-workflow.md` has the
+  full git and multi-agent workflow, including which files are safe for an agent to touch
+  unsupervised and which aren't.
 - **Cite open-source as you use it.** `CREDITS.md`, updated when you add the dependency, not
   reconstructed at 11 AM. HackMIT requires it (`10-second-pass.md` P1-8).
 - **Nobody works on something outside the spine while the spine is red.**
