@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { DEMO_MAP, type MapReadyPayload } from '../../lib/demoFloorplan'
 import { useProjection } from '../../hooks/useProjection'
 import type { Zone } from '../../lib/types'
@@ -8,6 +8,7 @@ import { ZonePainter } from './ZonePainter'
 type Step = 1 | 2 | 3 | 4
 
 export function Onboarding() {
+  const navigate = useNavigate()
   const projection = useProjection()
   const [step, setStep] = useState<Step>(1)
   const [scanning, setScanning] = useState(false)
@@ -128,6 +129,7 @@ export function Onboarding() {
       body: JSON.stringify(body),
     })
     setSaved(r.ok ? 'Saved — Night Watch will use this map and zones.' : 'Save failed')
+    if (r.ok) navigate('/watch')
   }
 
   const steps: { n: Step; label: string }[] = [
@@ -141,12 +143,10 @@ export function Onboarding() {
     <div className="mx-auto max-w-[1200px] space-y-6 p-4 pb-24 md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[12px] tracking-[0.02em] text-[var(--color-iris-pulse)]">Lantern</p>
-          <h1 className="text-[32px] tracking-[-0.04em] sm:text-[46px]">
-            On<span className="word-highlight">boarding</span>
-          </h1>
+          <p className="eyebrow">Lantern</p>
+          <h1 className="mt-2 text-[40px] md:text-[56px]">Onboarding</h1>
         </div>
-        <Link className="btn-ghost !min-h-11 !text-[14px]" to="/">
+        <Link className="btn-ghost !min-h-11" to="/watch">
           Night Watch
         </Link>
       </div>
@@ -156,7 +156,7 @@ export function Onboarding() {
           <button
             key={s.n}
             type="button"
-            className={`pill min-h-10 px-4 ${step === s.n ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-iris-pulse)]'}`}
+            className={`pill min-h-10 px-4 ${step === s.n ? 'bg-[var(--color-forest-ink)] text-[var(--color-cream-paper)]' : ''}`}
             onClick={() => {
               if (s.n === 3 && !map) return
               setStep(s.n)
@@ -170,7 +170,7 @@ export function Onboarding() {
       {step === 1 && (
         <div className="card max-w-lg space-y-3">
           <h2 className="text-[18px]">Who are we caring for?</h2>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Name
             <input
               className="input-field mt-1"
@@ -178,7 +178,7 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, name: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Preferred name
             <input
               className="input-field mt-1"
@@ -186,7 +186,7 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, preferred_name: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Calming topics (comma-separated)
             <input
               className="input-field mt-1"
@@ -194,7 +194,7 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, calming_topics: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Avoid topics
             <input
               className="input-field mt-1"
@@ -211,16 +211,16 @@ export function Onboarding() {
       {step === 2 && (
         <div className="card max-w-xl space-y-4">
           <h2 className="text-[18px]">Scan home with Lantern</h2>
-          <p className="text-[14px] text-[var(--color-muted-ink)]">
+          <p className="text-[14px] text-[var(--color-charcoal)]">
             In testing, this asks the Go2 to map the space (E2 / DimOS). At the table demo it loads
             a schematic floorplan — same paint step either way.
           </p>
           {scanning ? (
             <div className="space-y-2">
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--color-iris-border)]">
-                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-clinical-cyan)]" />
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--color-mint-veil)]">
+                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-forest-ink)]" />
               </div>
-              <p className="text-[14px] text-[var(--color-clinical-cyan)]">
+              <p className="text-[14px] text-[var(--color-forest-ink)]">
                 Mapping… walk the robot through the space (or waiting on demo map).
               </p>
             </div>
@@ -240,9 +240,9 @@ export function Onboarding() {
             </div>
           )}
           {scanError && (
-            <p className="text-[14px] text-[var(--color-iris-pulse)]">
+            <p className="text-[14px] text-[var(--color-charcoal)]">
               {scanError}{' '}
-              <button type="button" className="underline text-[var(--color-clinical-cyan)]" onClick={() => startScan(true)}>
+              <button type="button" className="underline text-[var(--color-forest-ink)]" onClick={() => startScan(true)}>
                 Load demo map
               </button>
             </p>
@@ -253,10 +253,10 @@ export function Onboarding() {
       {step === 3 && map && (
         <div className="card space-y-4">
           <h2 className="text-[18px]">Paint zones</h2>
-          <p className="text-[14px] text-[var(--color-muted-ink)]">
-            Everything starts <span className="text-[var(--color-mint-vital)]">Safe</span>. Paint{' '}
-            <span className="text-[var(--color-clinical-cyan)]">Watch</span> and{' '}
-            <span className="text-[var(--color-lilac-mist)]">Don&apos;t go</span>, then place home.
+          <p className="text-[14px] text-[var(--color-charcoal)]">
+            Everything starts <span className="text-[var(--color-forest-ink)]">Safe</span>. Paint{' '}
+            <span className="text-[var(--color-forest-ink)]">Watch</span> and{' '}
+            <span className="text-[var(--color-forest-ink)]">Don&apos;t go</span>, then place home.
           </p>
           <ZonePainter map={map} home={home} onHomeChange={setHome} onZonesChange={setZones} />
           <button type="button" className="btn-primary" onClick={() => setStep(4)}>
@@ -268,7 +268,7 @@ export function Onboarding() {
       {step === 4 && (
         <div className="card max-w-md space-y-3">
           <h2 className="text-[18px]">Schedule & contacts</h2>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Wake time
             <input
               className="input-field mt-1"
@@ -276,7 +276,7 @@ export function Onboarding() {
               onChange={(e) => setSchedule({ ...schedule, wake_time: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Meals
             <input
               className="input-field mt-1"
@@ -285,7 +285,7 @@ export function Onboarding() {
             />
           </label>
           <div className="flex gap-2">
-            <label className="block flex-1 text-[14px] text-[var(--color-muted-ink)]">
+            <label className="block flex-1 text-[14px] text-[var(--color-charcoal)]">
               Walk start
               <input
                 className="input-field mt-1"
@@ -293,7 +293,7 @@ export function Onboarding() {
                 onChange={(e) => setSchedule({ ...schedule, walk_start: e.target.value })}
               />
             </label>
-            <label className="block flex-1 text-[14px] text-[var(--color-muted-ink)]">
+            <label className="block flex-1 text-[14px] text-[var(--color-charcoal)]">
               Walk end
               <input
                 className="input-field mt-1"
@@ -302,7 +302,7 @@ export function Onboarding() {
               />
             </label>
           </div>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Notes
             <textarea
               className="input-field mt-1"
@@ -311,7 +311,7 @@ export function Onboarding() {
               onChange={(e) => setSchedule({ ...schedule, notes: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Primary contact
             <input
               className="input-field mt-1"
@@ -319,7 +319,7 @@ export function Onboarding() {
               onChange={(e) => setContacts({ ...contacts, primary: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-muted-ink)]">
+          <label className="block text-[14px] text-[var(--color-charcoal)]">
             Secondary contact
             <input
               className="input-field mt-1"
@@ -330,7 +330,7 @@ export function Onboarding() {
           <button type="button" className="btn-primary w-full sm:w-auto" onClick={finish}>
             Finish — publish config
           </button>
-          {saved && <p className="text-[14px] text-[var(--color-iris-pulse)]">{saved}</p>}
+          {saved && <p className="text-[14px] text-[var(--color-forest-ink)]">{saved}</p>}
         </div>
       )}
     </div>

@@ -23,19 +23,19 @@ export function MorningReport() {
         <h2 className="text-[18px] tracking-[-0.03em]">Morning report</h2>
         <button
           type="button"
-          className="text-[12px] text-[var(--color-clinical-cyan)] underline"
+          className="text-[13px] text-[var(--color-forest-ink)] underline"
           onClick={load}
         >
           refresh
         </button>
       </div>
-      <p className="text-[17px] font-semibold tracking-[-0.03em] text-[var(--color-clinical-cyan)]">
+      <p className="text-[18px] text-[var(--color-forest-ink)]">
         {report.summary}
       </p>
-      <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-muted-ink)]">
+      <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-charcoal)]">
         {report.episodes.map((e, i) => (
           <li key={i} className="flex gap-2">
-            <span className="mt-1 h-2 w-2 shrink-0 rounded-[7px] bg-[var(--color-mint-vital)]" />
+            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--color-forest-ink)]" />
             <span>
               {e.peak_state} · {e.duration_s}s · {e.resolution || 'open'}
               {e.reason ? ` — ${e.reason}` : ''}

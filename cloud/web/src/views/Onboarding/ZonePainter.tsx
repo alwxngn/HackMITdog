@@ -79,7 +79,7 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
           <button
             key={c}
             type="button"
-            className={`pill min-h-10 px-4 ${tool === c ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-iris-pulse)]'}`}
+            className={`pill min-h-10 px-4 ${tool === c ? 'bg-[var(--color-forest-ink)] text-[var(--color-cream-paper)]' : ''}`}
             onClick={() => setTool(c)}
           >
             <span
@@ -91,19 +91,19 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
         ))}
         <button
           type="button"
-          className={`pill min-h-10 px-4 ${tool === 'home' ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-iris-pulse)]'}`}
+          className={`pill min-h-10 px-4 ${tool === 'home' ? 'bg-[var(--color-forest-ink)] text-[var(--color-cream-paper)]' : ''}`}
           onClick={() => setTool('home')}
         >
           Place home
         </button>
       </div>
-      <p className="text-[12px] text-[var(--color-fog)]">
+      <p className="text-[13px] text-[var(--color-charcoal)]">
         Drag to paint. Whole home starts Safe (green). Watch = caution, Don&apos;t go = exit risk.
         {tool === 'home' ? ' Tap to drop the home pin.' : ''}
       </p>
       <svg
         viewBox={`0 0 ${SVG.width} ${SVG.height}`}
-        className="w-full touch-none cursor-crosshair rounded-[16px] border border-[var(--color-hairline)] bg-[var(--color-pearl)]"
+        className="w-full touch-none cursor-crosshair rounded-[14px] bg-[var(--color-cream-paper)]"
         onPointerDown={(e) => {
           painting.current = true
           e.currentTarget.setPointerCapture(e.pointerId)
@@ -152,7 +152,7 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
             key={r.id}
             points={polygonToPoints(r.polygon, bounds)}
             fill="none"
-            stroke="#b1a6f6"
+            stroke="#0f3e17"
             strokeWidth={1.5}
             strokeDasharray="4 3"
           />
@@ -160,7 +160,7 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
         <polygon
           points={polygonToPoints(map.outline, bounds)}
           fill="none"
-          stroke="#4846c6"
+          stroke="#0f3e17"
           strokeWidth={2}
         />
         {/* home pin */}
@@ -168,14 +168,14 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
           const { cx, cy } = worldToSvg(home.x, home.y, bounds)
           return (
             <g>
-              <circle cx={cx} cy={cy} r={10} fill="#00ffaa" stroke="#fff" strokeWidth={2} />
+              <circle cx={cx} cy={cy} r={10} fill="#0f3e17" stroke="#fffefc" strokeWidth={2} />
               <text
                 x={cx}
                 y={cy - 14}
                 textAnchor="middle"
-                fill="#00ffaa"
+                fill="#0f3e17"
                 fontSize={11}
-                fontFamily="Manrope, sans-serif"
+                fontFamily="Inter, sans-serif"
               >
                 home
               </text>

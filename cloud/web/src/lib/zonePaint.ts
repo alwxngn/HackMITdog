@@ -9,15 +9,15 @@ export const PAINT_LABEL: Record<PaintClass, string> = {
 }
 
 export const PAINT_FILL: Record<PaintClass, string> = {
-  safe: 'rgba(0,255,170,0.28)',
-  watch: 'rgba(0,177,255,0.32)',
-  exit: 'rgba(177,166,246,0.45)',
+  safe: 'rgba(177,219,184,0.7)',
+  watch: 'rgba(182,206,213,0.9)',
+  exit: 'rgba(15,62,23,0.18)',
 }
 
 export const PAINT_STROKE: Record<PaintClass, string> = {
-  safe: '#00ffaa',
-  watch: '#00b1ff',
-  exit: '#b1a6f6',
+  safe: '#0f3e17',
+  watch: '#0f3e17',
+  exit: '#0c2f10',
 }
 
 const CLASS_CODE: Record<PaintClass, number> = { safe: 0, watch: 1, exit: 2 }

@@ -22,8 +22,8 @@ export function CheckinComposer() {
 
   return (
     <div className="card">
-      <h2 className="mb-2 text-[18px] tracking-[-0.03em]">Check-in</h2>
-      <p className="mb-4 text-[12px] tracking-[0.02em] text-[var(--color-fog)]">
+      <h2 className="mb-2 text-[18px]">Check-in</h2>
+      <p className="mb-4 text-[13px] text-[var(--color-charcoal)]">
         Robot delivers this attributed — never as you.
       </p>
       <input
@@ -43,7 +43,7 @@ export function CheckinComposer() {
         Send to robot
       </button>
       {status && (
-        <p className="mt-3 text-[12px] text-[var(--color-mint-vital)]">{status}</p>
+        <p className="mt-3 text-[13px] text-[var(--color-forest-ink)]">{status}</p>
       )}
     </div>
   )
