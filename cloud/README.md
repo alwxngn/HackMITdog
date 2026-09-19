@@ -123,11 +123,15 @@ Without credentials, `notify.py` dry-runs to the console so the ladder still dem
 
 ## Bridge for E4 / voice
 
-When mocks / orchestrator / voice are live, POST bus messages to:
+Spine runner (`orchestrator/run_spine.py`) POSTs every bus message to:
 
 `POST http://127.0.0.1:8000/api/ingest`
 
-Check-in from the dashboard hits the API and publishes a `say` for E1 TTS. That is the only swap needed until a shared `/bus` transport lands — `bus.py` stays the adapter.
+Optional: set `LANTERN_ORCH_PUBLISH_URL=http://127.0.0.1:9000` in `cloud/.env` so
+caregiver acks/checkins also POST to the bus hub.
+
+Check-in from the dashboard hits the API and publishes a `checkin`; the orchestrator turns it
+into a `say` when IDLE. Until a shared transport lands, `bus.py` + the spine bridge are the seam.
 
 ## Reset
 

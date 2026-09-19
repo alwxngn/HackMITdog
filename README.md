@@ -24,6 +24,19 @@ cd cloud/web && npm run dev
 # → http://127.0.0.1:5173/watch
 ```
 
+## Spine on mocks (E3 + E4)
+
+End-to-end without Unitree — see [`orchestrator/README.md`](orchestrator/README.md).
+
+```bash
+# terminal 1: cloud API (as above)
+# terminal 2: portal (optional)
+# terminal 3:
+cd orchestrator && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python run_spine.py --scenario exit_seeking
+```
+
 ## Read this first: the clock
 
 **HackMIT is 24 hours, not 36**, and HackMIT 2026 runs September 19–20. The original build plan

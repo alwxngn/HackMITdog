@@ -18,3 +18,12 @@
 | [qrcode](https://github.com/soldair/node-qrcode) | MIT | Phone share QR codes on the dashboard |
 | [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) | OFL | Display serif (Faire Octave substitute per `cloud/web/design.md`) |
 | [Inter](https://fonts.google.com/specimen/Inter) | OFL | UI type (Suisse Intl substitute) |
+
+## Bus + orchestrator (E4)
+
+| Dependency | License | Use |
+|---|---|---|
+| [FastAPI](https://github.com/fastapi/fastapi) | MIT | Bus hub HTTP/WS |
+| [Uvicorn](https://github.com/encode/uvicorn) | BSD-3-Clause | Bus hub server |
+| [httpx](https://github.com/encode/httpx) | BSD-3-Clause | Bridge cloud ingest |
+| [websockets](https://github.com/python-websockets/websockets) | BSD-3-Clause | Bridge cloud WS + mock_robot hub |

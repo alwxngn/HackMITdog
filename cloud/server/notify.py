@@ -127,6 +127,11 @@ def place_voice_call(headline: str, contact: str = "jenny") -> dict[str, Any]:
     if not client or not to or not from_:
         logger.warning("Twilio not configured — voice dry-run to=%s: %s", to, headline)
         return {"ok": False, "dry_run": True, "to": to, "headline": headline}
-    call = client.calls.create(twiml=twiml, to=to, from_=from_)
+    try:
+        call = client.calls.create(twiml=twiml, to=to, from_=from_)
+    except Exception as e:
+        # Trial accounts often reject Calls API — never fail the alert ingest path.
+        logger.warning("Voice call failed (dry-run): %s — %s", contact, e)
+        return {"ok": False, "dry_run": True, "error": str(e), "to": to, "headline": headline}
     logger.info("Voice call sid=%s to=%s", call.sid, to)
     return {"ok": True, "sid": call.sid, "to": to}
