@@ -1,16 +1,73 @@
 @import "tailwindcss";
 
+@theme {
+  --color-deep-iris: #16165c;
+  --color-iris-shadow: #232269;
+  --color-iris-glow: #403cd5;
+  --color-iris-pulse: #5350cc;
+  --color-iris-border: #4846c6;
+  --color-iris-veil: #524fe1;
+  --color-lilac-mist: #b1a6f6;
+  --color-clinical-cyan: #00b1ff;
+  --color-cyan-soft: #59b4ff;
+  --color-mint-vital: #00ffaa;
+  --color-teal-signal: #2ee9ff;
+  --color-cloud-white: #ffffff;
+  --color-pearl: #f4f4f6;
+  --color-ash: #d8d8e3;
+  --color-fog: #9494a9;
+
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-cards: 24px;
+  --radius-cards-elevated: 32px;
+  --radius-inputs: 16px;
+  --radius-buttons: 9999px;
+  --radius-icons: 7px;
+}
+
 :root {
-  --bg: #0f1419;
-  --panel: #1a222c;
-  --ink: #e8eef4;
-  --muted: #8b9aab;
-  --accent: #c4a35a;
-  --safe: #3d7a5f;
-  --watch: #b8893d;
-  --exit: #b54a4a;
-  --alert: #d45c5c;
-  --yield: #6b8cae;
+  /* design.md tokens — Impilo / midnight clinical observatory */
+  --color-deep-iris: #16165c;
+  --color-iris-shadow: #232269;
+  --color-iris-glow: #403cd5;
+  --color-iris-pulse: #5350cc;
+  --color-iris-border: #4846c6;
+  --color-iris-veil: #524fe1;
+  --color-lilac-mist: #b1a6f6;
+  --color-clinical-cyan: #00b1ff;
+  --color-cyan-soft: #59b4ff;
+  --color-mint-vital: #00ffaa;
+  --color-teal-signal: #2ee9ff;
+  --color-cloud-white: #ffffff;
+  --color-pearl: #f4f4f6;
+  --color-ash: #d8d8e3;
+  --color-fog: #9494a9;
+
+  --font-gilroy: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  --text-caption: 12px;
+  --text-body-sm: 14px;
+  --text-subheading: 18px;
+  --text-heading-sm: 24px;
+  --text-heading: 46px;
+
+  --card-padding: 24px;
+  --radius-cards: 24px;
+  --radius-buttons: 9999px;
+  --radius-inputs: 16px;
+
+  /* aliases used by existing components */
+  --bg: var(--color-deep-iris);
+  --panel: var(--color-iris-shadow);
+  --ink: var(--color-cloud-white);
+  --muted: var(--color-ash);
+  --accent: var(--color-clinical-cyan);
+  --safe: var(--color-mint-vital);
+  --watch: var(--color-cyan-soft);
+  --exit: var(--color-lilac-mist);
+  --alert: var(--color-teal-signal);
+  --yield: var(--color-lilac-mist);
 }
 
 * {
@@ -25,14 +82,111 @@ body,
 }
 
 body {
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  background: radial-gradient(1200px 600px at 10% -10%, #1c2836 0%, var(--bg) 55%);
-  color: var(--ink);
+  font-family: var(--font-gilroy);
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 1.44;
+  letter-spacing: -0.03em;
+  background: var(--color-deep-iris);
+  color: var(--color-cloud-white);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: var(--font-gilroy);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.card {
+  background: var(--color-iris-shadow);
+  border: 1px solid var(--color-iris-border);
+  border-radius: var(--radius-cards);
+  padding: var(--card-padding);
+}
+
+.card-metric {
+  background: color-mix(in srgb, var(--color-iris-glow) 55%, transparent);
+  border: 1px solid var(--color-iris-border);
+  border-radius: var(--radius-cards);
+  padding: var(--card-padding);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 16px 24px;
+  border: none;
+  border-radius: var(--radius-buttons);
+  background: var(--color-iris-pulse);
+  color: var(--color-cloud-white);
+  font-family: var(--font-gilroy);
+  font-size: 17px;
   font-weight: 500;
+  letter-spacing: -0.03em;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(60, 57, 185, 0.4);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 12px 20px;
+  border: 1px solid var(--color-pearl);
+  border-radius: var(--radius-buttons);
+  background: transparent;
+  color: var(--color-cloud-white);
+  font-family: var(--font-gilroy);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: rgba(244, 244, 246, 0.08);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 6px 12px;
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.input-field {
+  width: 100%;
+  border-radius: var(--radius-inputs);
+  border: 1px solid var(--color-iris-border);
+  background: color-mix(in srgb, var(--color-deep-iris) 60%, transparent);
+  color: var(--color-cloud-white);
+  padding: 12px 14px;
+  font-family: var(--font-gilroy);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.input-field:focus {
+  outline: 2px solid var(--color-clinical-cyan);
+  outline-offset: 1px;
+}
+
+.word-highlight {
+  display: inline;
+  border: 1px dashed var(--color-clinical-cyan);
+  border-radius: 7px;
+  padding: 0 6px;
 }

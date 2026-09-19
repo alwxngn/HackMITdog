@@ -30,30 +30,37 @@ function lineFor(msg: Envelope): string {
 export function Timeline() {
   const p = useProjection()
   return (
-    <div className="flex h-full min-h-[220px] flex-col rounded-lg bg-[var(--panel)] p-3">
-      <h2 className="mb-2 text-lg">Timeline</h2>
-      <ul className="flex-1 space-y-2 overflow-y-auto text-sm">
+    <div className="card flex h-full min-h-[220px] flex-col">
+      <h2 className="mb-3 text-[18px] tracking-[-0.03em]">Timeline</h2>
+      <ul className="flex-1 space-y-3 overflow-y-auto text-[14px]">
         {p.timeline.length === 0 && (
-          <li className="text-[var(--muted)]">Waiting for events…</li>
+          <li className="text-[var(--color-fog)]">Waiting for events…</li>
         )}
-        {p.timeline.map((msg, i) => (
-          <li
-            key={`${msg.ts}-${msg.seq}-${i}`}
-            className={
-              msg.type === 'robot_status' &&
-              (msg.payload as { state?: string }).state === 'yielded'
-                ? 'border-l-2 border-[var(--yield)] pl-2'
-                : msg.type === 'alert'
-                  ? 'border-l-2 border-[var(--alert)] pl-2'
-                  : 'border-l-2 border-white/10 pl-2'
-            }
-          >
-            <span className="mr-2 font-mono text-[10px] text-[var(--muted)]">
-              {new Date(msg.ts * 1000).toLocaleTimeString()}
-            </span>
-            {lineFor(msg)}
-          </li>
-        ))}
+        {p.timeline.map((msg, i) => {
+          const yielded =
+            msg.type === 'robot_status' &&
+            (msg.payload as { state?: string }).state === 'yielded'
+          const isAlert = msg.type === 'alert'
+          return (
+            <li
+              key={`${msg.ts}-${msg.seq}-${i}`}
+              className={
+                isAlert
+                  ? 'border-l-2 border-[var(--color-teal-signal)] pl-3'
+                  : yielded
+                    ? 'border-l-2 border-[var(--color-lilac-mist)] pl-3'
+                    : 'border-l-2 border-[var(--color-iris-border)] pl-3'
+              }
+            >
+              <span className="mr-2 text-[12px] tracking-[0.02em] text-[var(--color-fog)]">
+                {new Date(msg.ts * 1000).toLocaleTimeString()}
+              </span>
+              <span className={isAlert ? 'text-[var(--color-clinical-cyan)]' : ''}>
+                {lineFor(msg)}
+              </span>
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

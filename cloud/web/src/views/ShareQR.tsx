@@ -6,7 +6,7 @@ async function toDataUrl(text: string): Promise<string> {
   return QRCode.toDataURL(text, {
     margin: 1,
     width: 160,
-    color: { dark: '#0f1419', light: '#ffffff' },
+    color: { dark: '#16165c', light: '#ffffff' },
   })
 }
 
@@ -34,29 +34,31 @@ export function ShareQR() {
   }, [watchUrl, onboardUrl])
 
   return (
-    <div className="rounded-lg border border-white/10 bg-[var(--panel)] p-3">
+    <div className="card !py-4">
       <button
         type="button"
-        className="flex w-full items-center justify-between text-left text-sm"
+        className="flex w-full items-center justify-between text-left"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="font-medium text-[var(--accent)]">Share on phone</span>
-        <span className="text-[var(--muted)]">{open ? 'hide' : 'show'}</span>
+        <span className="text-[17px] font-semibold tracking-[-0.03em] text-[var(--color-clinical-cyan)]">
+          Share on phone
+        </span>
+        <span className="text-[12px] text-[var(--color-lilac-mist)]">{open ? 'hide' : 'show'}</span>
       </button>
       {open && (
-        <div className="mt-3 space-y-3">
-          <p className="text-xs text-[var(--muted)]">
+        <div className="mt-4 space-y-3">
+          <p className="text-[12px] tracking-[0.02em] text-[var(--color-ash)]">
             Scan to open Night Watch or caregiver onboarding. Set{' '}
-            <code className="text-[var(--ink)]">VITE_PUBLIC_ORIGIN</code> to your tunnel URL when
-            developing on localhost.
+            <code className="text-[var(--color-pearl)]">VITE_PUBLIC_ORIGIN</code> to your tunnel URL
+            when developing on localhost.
           </p>
           {needsTunnelHint && (
-            <p className="rounded bg-[var(--watch)]/20 px-2 py-1 text-xs text-[#ffd9a0]">
+            <p className="rounded-[16px] border border-dashed border-[var(--color-clinical-cyan)] px-3 py-2 text-[12px] text-[var(--color-cyan-soft)]">
               These QRs point at localhost — phones cannot open that. Start a tunnel (see
               cloud/README) and set VITE_PUBLIC_ORIGIN.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <QrCard label="Night Watch" url={watchUrl} src={watchQr} />
             <QrCard label="Onboarding" url={onboardUrl} src={onboardQr} />
           </div>
@@ -69,19 +71,19 @@ export function ShareQR() {
 function QrCard({ label, url, src }: { label: string; url: string; src: string }) {
   return (
     <div className="flex flex-col items-center gap-2 text-center">
-      <div className="rounded bg-white p-2">
+      <div className="rounded-[16px] bg-[var(--color-cloud-white)] p-2">
         {src ? (
           <img src={src} alt={`QR ${label}`} className="h-28 w-28 sm:h-36 sm:w-36" />
         ) : (
-          <div className="flex h-28 w-28 items-center justify-center text-xs text-black/40 sm:h-36 sm:w-36">
+          <div className="flex h-28 w-28 items-center justify-center text-[12px] text-[var(--color-fog)] sm:h-36 sm:w-36">
             …
           </div>
         )}
       </div>
-      <p className="text-xs font-medium">{label}</p>
+      <p className="text-[14px] font-semibold text-[var(--color-pearl)]">{label}</p>
       <a
         href={url}
-        className="max-w-full truncate text-[10px] text-[var(--muted)] underline"
+        className="max-w-full truncate text-[10px] text-[var(--color-clinical-cyan)] underline"
         target="_blank"
         rel="noreferrer"
       >

@@ -16,4 +16,4 @@
 | [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) | MIT | Styling |
 | [React Router](https://github.com/remix-run/react-router) | MIT | Portal routes |
 | [qrcode](https://github.com/soldair/node-qrcode) | MIT | Phone share QR codes on the dashboard |
-| [Fraunces](https://fonts.google.com/specimen/Fraunces) / [IBM Plex Sans](https://fonts.google.com/specimen/IBM+Plex+Sans) | OFL | UI fonts (Google Fonts) |
+| [Manrope](https://fonts.google.com/specimen/Manrope) | OFL | UI type (Gilroy substitute per `cloud/web/design.md`) |

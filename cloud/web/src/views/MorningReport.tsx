@@ -18,19 +18,28 @@ export function MorningReport() {
   if (!report) return null
 
   return (
-    <div className="rounded-lg bg-[var(--panel)] p-4">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="text-lg">Morning report</h2>
-        <button className="text-xs text-[var(--muted)] underline" onClick={load}>
+    <div className="card">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-[18px] tracking-[-0.03em]">Morning report</h2>
+        <button
+          type="button"
+          className="text-[12px] text-[var(--color-clinical-cyan)] underline"
+          onClick={load}
+        >
           refresh
         </button>
       </div>
-      <p className="text-[var(--accent)]">{report.summary}</p>
-      <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
+      <p className="text-[17px] font-semibold tracking-[-0.03em] text-[var(--color-clinical-cyan)]">
+        {report.summary}
+      </p>
+      <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-ash)]">
         {report.episodes.map((e, i) => (
-          <li key={i}>
-            {e.peak_state} · {e.duration_s}s · {e.resolution || 'open'}
-            {e.reason ? ` — ${e.reason}` : ''}
+          <li key={i} className="flex gap-2">
+            <span className="mt-1 h-2 w-2 shrink-0 rounded-[7px] bg-[var(--color-mint-vital)]" />
+            <span>
+              {e.peak_state} · {e.duration_s}s · {e.resolution || 'open'}
+              {e.reason ? ` — ${e.reason}` : ''}
+            </span>
           </li>
         ))}
       </ul>

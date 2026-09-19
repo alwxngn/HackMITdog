@@ -21,31 +21,30 @@ export function CheckinComposer() {
   }
 
   return (
-    <div className="rounded-lg bg-[var(--panel)] p-4">
-      <h2 className="mb-2 text-lg">Check-in</h2>
-      <p className="mb-3 text-xs text-[var(--muted)]">
+    <div className="card">
+      <h2 className="mb-2 text-[18px] tracking-[-0.03em]">Check-in</h2>
+      <p className="mb-4 text-[12px] tracking-[0.02em] text-[var(--color-fog)]">
         Robot delivers this attributed — never as you.
       </p>
       <input
-        className="mb-2 w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm"
+        className="input-field mb-2"
         value={fromName}
         onChange={(e) => setFromName(e.target.value)}
         placeholder="From"
       />
       <textarea
-        className="mb-2 w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm"
+        className="input-field mb-3 min-h-[88px] resize-y"
         rows={3}
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Hi Mom, thinking of you…"
       />
-      <button
-        className="rounded bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[#1a1408]"
-        onClick={send}
-      >
+      <button type="button" className="btn-primary !min-h-11 !px-5 !py-2 !text-[14px]" onClick={send}>
         Send to robot
       </button>
-      {status && <p className="mt-2 text-xs text-[var(--muted)]">{status}</p>}
+      {status && (
+        <p className="mt-3 text-[12px] text-[var(--color-mint-vital)]">{status}</p>
+      )}
     </div>
   )
 }

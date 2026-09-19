@@ -103,32 +103,35 @@ export function Onboarding() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4 pb-24">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="mx-auto max-w-[1200px] space-y-6 p-4 pb-24 md:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.15em] text-[var(--muted)]">Lantern</p>
-          <h1 className="text-2xl sm:text-3xl">Onboarding</h1>
+          <p className="text-[12px] tracking-[0.02em] text-[var(--color-lilac-mist)]">Lantern</p>
+          <h1 className="text-[32px] tracking-[-0.04em] sm:text-[46px]">
+            On<span className="word-highlight">boarding</span>
+          </h1>
         </div>
-        <Link className="min-h-11 rounded bg-white/10 px-3 py-2 text-sm text-[var(--accent)]" to="/">
+        <Link className="btn-ghost !min-h-11 !text-[14px]" to="/">
           Night Watch
         </Link>
       </div>
-      <p className="text-sm text-[var(--muted)]">
+      <p className="max-w-2xl text-[14px] text-[var(--color-ash)]">
         Scan the QR on the laptop to set this up on your phone. Steps 3–4: risks, home, schedule.
-        Tap the map to drop zone points; use <strong className="text-[var(--ink)]">Place home</strong>{' '}
-        then tap (or Shift-click on desktop). Frame: SW origin, +x east, metres.
+        Tap the map to drop zone points; use{' '}
+        <strong className="text-[var(--color-pearl)]">Place home</strong> then tap (or Shift-click
+        on desktop). Frame: SW origin, +x east, metres.
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className={`min-h-11 rounded px-3 py-2 text-sm ${step === 3 ? 'bg-[var(--accent)] text-[#1a1408]' : 'bg-white/10'}`}
+          className={`pill min-h-11 px-4 ${step === 3 ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
           onClick={() => setStep(3)}
         >
           3 · Risks & home
         </button>
         <button
           type="button"
-          className={`min-h-11 rounded px-3 py-2 text-sm ${step === 4 ? 'bg-[var(--accent)] text-[#1a1408]' : 'bg-white/10'}`}
+          className={`pill min-h-11 px-4 ${step === 4 ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
           onClick={() => setStep(4)}
         >
           4 · Schedule
@@ -136,13 +139,14 @@ export function Onboarding() {
       </div>
 
       {step === 3 && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg bg-[var(--panel)] p-3">
-            <div className="mb-2 flex flex-wrap gap-2 text-sm">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+          <div className="card !p-4">
+            <div className="mb-3 flex flex-wrap gap-2 text-[14px]">
               {CLASSES.map((c) => (
                 <button
                   key={c.value}
-                  className={`rounded px-2 py-1 ${zoneClass === c.value ? 'bg-white/20' : 'bg-white/5'}`}
+                  type="button"
+                  className={`pill ${zoneClass === c.value ? 'bg-[var(--color-iris-pulse)] text-white' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
                   onClick={() => {
                     setZoneClass(c.value)
                     setZoneLabel(c.label)
@@ -152,7 +156,7 @@ export function Onboarding() {
                 </button>
               ))}
               <select
-                className="rounded bg-black/40 px-2"
+                className="input-field !w-auto !py-2"
                 value={kind}
                 onChange={(e) => setKind(e.target.value as Zone['kind'])}
               >
@@ -160,15 +164,19 @@ export function Onboarding() {
                 <option value="stairs">stairs</option>
                 <option value="outdoor_boundary">outdoor_boundary</option>
               </select>
-              <button type="button" className="min-h-10 rounded bg-white/10 px-2" onClick={finishZone}>
+              <button type="button" className="btn-ghost !min-h-10 !px-3 !text-[12px]" onClick={finishZone}>
                 Close polygon
               </button>
-              <button type="button" className="min-h-10 rounded bg-white/10 px-2" onClick={() => setDrawing([])}>
+              <button
+                type="button"
+                className="btn-ghost !min-h-10 !px-3 !text-[12px]"
+                onClick={() => setDrawing([])}
+              >
                 Clear points
               </button>
               <button
                 type="button"
-                className={`min-h-10 rounded px-2 ${placeHome ? 'bg-[var(--safe)]/50' : 'bg-white/10'}`}
+                className={`pill min-h-10 ${placeHome ? 'bg-[color-mix(in_srgb,var(--color-mint-vital)_25%,transparent)] text-[var(--color-mint-vital)]' : 'border border-[var(--color-iris-border)] text-[var(--color-lilac-mist)]'}`}
                 onClick={() => setPlaceHome((v) => !v)}
               >
                 {placeHome ? 'Tap map for home…' : 'Place home'}
@@ -176,7 +184,7 @@ export function Onboarding() {
             </div>
             <svg
               viewBox={`0 0 ${SVG.width} ${SVG.height}`}
-              className="w-full cursor-crosshair rounded border border-white/10 bg-[#0b1016]"
+              className="w-full cursor-crosshair rounded-[16px] border border-[var(--color-iris-border)] bg-[var(--color-deep-iris)]"
               onClick={onSvgClick}
             >
               <rect
@@ -185,7 +193,7 @@ export function Onboarding() {
                 width={SVG.width - SVG.pad * 2}
                 height={SVG.height - SVG.pad * 2}
                 fill="none"
-                stroke="rgba(255,255,255,0.2)"
+                stroke="#4846c6"
                 strokeDasharray="4 4"
               />
               {zones.map((z) => (
@@ -199,18 +207,18 @@ export function Onboarding() {
                     .join(' ')}
                   fill={
                     z.class === 'exit'
-                      ? 'rgba(181,74,74,0.4)'
+                      ? 'rgba(177,166,246,0.35)'
                       : z.class === 'watch'
-                        ? 'rgba(184,137,61,0.35)'
-                        : 'rgba(61,122,95,0.35)'
+                        ? 'rgba(0,177,255,0.22)'
+                        : 'rgba(0,255,170,0.22)'
                   }
-                  stroke="white"
+                  stroke={z.class === 'exit' ? '#b1a6f6' : z.class === 'watch' ? '#00b1ff' : '#00ffaa'}
                 />
               ))}
               {drawing.length > 0 && (
                 <polyline
                   fill="none"
-                  stroke="var(--accent)"
+                  stroke="#00b1ff"
                   strokeWidth={2}
                   points={drawing
                     .map(([x, y]) => {
@@ -222,33 +230,33 @@ export function Onboarding() {
               )}
               {(() => {
                 const { cx, cy } = worldToSvg(home.x, home.y)
-                return <rect x={cx - 4} y={cy - 4} width={8} height={8} fill="var(--safe)" />
+                return <rect x={cx - 4} y={cy - 4} width={8} height={8} rx={2} fill="#00ffaa" />
               })()}
             </svg>
-            <p className="mt-2 text-xs text-[var(--muted)]">
+            <p className="mt-3 text-[12px] text-[var(--color-fog)]">
               Map {MAP_METRES.width}×{MAP_METRES.height} m · home ({home.x}, {home.y}) ·{' '}
               {drawing.length} points drafting
             </p>
           </div>
-          <div className="space-y-3 rounded-lg bg-[var(--panel)] p-4 text-sm">
-            <h3 className="text-base">Escalation contacts</h3>
-            <label className="block">
+          <div className="card space-y-3 text-[14px]">
+            <h3 className="text-[18px] tracking-[-0.03em]">Escalation contacts</h3>
+            <label className="block text-[var(--color-ash)]">
               Primary
               <input
-                className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+                className="input-field mt-1"
                 value={contacts.primary}
                 onChange={(e) => setContacts({ ...contacts, primary: e.target.value })}
               />
             </label>
-            <label className="block">
+            <label className="block text-[var(--color-ash)]">
               Secondary
               <input
-                className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+                className="input-field mt-1"
                 value={contacts.secondary}
                 onChange={(e) => setContacts({ ...contacts, secondary: e.target.value })}
               />
             </label>
-            <ul className="text-xs text-[var(--muted)]">
+            <ul className="text-[12px] text-[var(--color-fog)]">
               {zones.map((z) => (
                 <li key={z.id}>
                   {z.label} ({z.class}/{z.kind}) — {z.polygon.length} pts
@@ -260,45 +268,45 @@ export function Onboarding() {
       )}
 
       {step === 4 && (
-        <div className="max-w-md space-y-3 rounded-lg bg-[var(--panel)] p-4 text-sm">
-          <label className="block">
+        <div className="card max-w-md space-y-3 text-[14px]">
+          <label className="block text-[var(--color-ash)]">
             Wake time
             <input
-              className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+              className="input-field mt-1"
               value={schedule.wake_time}
               onChange={(e) => setSchedule({ ...schedule, wake_time: e.target.value })}
             />
           </label>
-          <label className="block">
+          <label className="block text-[var(--color-ash)]">
             Meals (comma-separated)
             <input
-              className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+              className="input-field mt-1"
               value={schedule.meals}
               onChange={(e) => setSchedule({ ...schedule, meals: e.target.value })}
             />
           </label>
           <div className="flex gap-2">
-            <label className="block flex-1">
+            <label className="block flex-1 text-[var(--color-ash)]">
               Walk start
               <input
-                className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+                className="input-field mt-1"
                 value={schedule.walk_start}
                 onChange={(e) => setSchedule({ ...schedule, walk_start: e.target.value })}
               />
             </label>
-            <label className="block flex-1">
+            <label className="block flex-1 text-[var(--color-ash)]">
               Walk end
               <input
-                className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+                className="input-field mt-1"
                 value={schedule.walk_end}
                 onChange={(e) => setSchedule({ ...schedule, walk_end: e.target.value })}
               />
             </label>
           </div>
-          <label className="block">
+          <label className="block text-[var(--color-ash)]">
             Notes
             <textarea
-              className="mt-1 w-full rounded border border-white/10 bg-black/30 px-2 py-1"
+              className="input-field mt-1 min-h-[88px]"
               rows={3}
               value={schedule.notes}
               onChange={(e) => setSchedule({ ...schedule, notes: e.target.value })}
@@ -307,14 +315,10 @@ export function Onboarding() {
         </div>
       )}
 
-      <button
-        type="button"
-        className="min-h-12 w-full rounded bg-[var(--accent)] px-4 py-3 font-medium text-[#1a1408] sm:w-auto"
-        onClick={save}
-      >
+      <button type="button" className="btn-primary w-full sm:w-auto" onClick={save}>
         Publish config_update
       </button>
-      {saved && <p className="text-sm text-[var(--muted)]">{saved}</p>}
+      {saved && <p className="text-[14px] text-[var(--color-mint-vital)]">{saved}</p>}
     </div>
   )
 }

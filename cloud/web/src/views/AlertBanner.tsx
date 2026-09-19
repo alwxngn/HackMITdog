@@ -12,32 +12,34 @@ export function AlertBanner() {
   if (!a) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-2xl border border-[var(--alert)] bg-[#2a1515] p-5 shadow-2xl sm:rounded-xl sm:p-6">
-        <p className="text-xs uppercase tracking-widest text-[#ffb4b4]">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[color-mix(in_srgb,var(--color-deep-iris)_75%,black)]/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="w-full max-w-lg rounded-t-[32px] border border-[var(--color-iris-border)] bg-[var(--color-iris-glow)] p-6 shadow-[0_0_40px_rgba(60,57,185,0.45)] sm:rounded-[32px]">
+        <p className="text-[12px] uppercase tracking-[0.08em] text-[var(--color-lilac-mist)]">
           Alert level {a.level}
           {a.live_tracking ? ' · live tracking' : ''}
         </p>
-        <h2 className="mt-2 text-xl text-[#ffe0e0] sm:text-2xl">{a.headline}</h2>
-        <p className="mt-2 text-sm text-[#ffc9c9]">{a.detail}</p>
+        <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.04em] text-[var(--color-cloud-white)] sm:text-[36px]">
+          {a.headline}
+        </h2>
+        <p className="mt-3 text-[14px] text-[var(--color-pearl)]">{a.detail}</p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
-            className="min-h-12 w-full rounded-md bg-[var(--accent)] px-4 py-3 text-base font-medium text-[#1a1408] sm:w-auto"
+            className="btn-primary w-full sm:w-auto"
             onClick={() => ack(a.alert_id, 'im_coming')}
           >
             I have this
           </button>
           <button
             type="button"
-            className="min-h-12 w-full rounded-md bg-white/10 px-4 py-3 text-sm sm:w-auto"
+            className="btn-ghost w-full sm:w-auto"
             onClick={() => ack(a.alert_id, 'false_alarm')}
           >
             False alarm
           </button>
           <button
             type="button"
-            className="min-h-12 w-full rounded-md bg-white/10 px-4 py-3 text-sm sm:w-auto"
+            className="btn-ghost w-full sm:w-auto"
             onClick={() => ack(a.alert_id, 'call_help')}
           >
             Call help
