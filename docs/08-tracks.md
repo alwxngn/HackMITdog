@@ -27,7 +27,7 @@ claims, and some measurement.
 
 **What still hurts you if you skip it:** no contact with anyone who does this work. One
 conversation with a memory care nurse or family caregiver, one quote, and you move from
-"plausible" to "grounded." Start it at hour 2.
+"plausible" to "grounded." Send it by noon Saturday.
 
 **The fixes that are load-bearing:** kill physical intercept (P0-1), kill the clinical claim
 (P0-2), get the numbers (P0-7). Without those three you're a cool robot with a safety problem.
@@ -92,9 +92,9 @@ remember and talk about afterwards.
 
 A tokens-saved counter in the dashboard corner, backed by real before/after counts on the
 compressed scene-graph and sensor JSON. Two hours of backend work, assigned to whoever is green
-at hour 26.
+after the 11 PM cut.
 
-If nobody is green at hour 26, drop it. A half-built compression layer costs you more in
+If nobody is green by then, drop it. A half-built compression layer costs you more in
 integration risk than the track is worth.
 
 ---

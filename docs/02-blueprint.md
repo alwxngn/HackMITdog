@@ -186,7 +186,7 @@ the happy path.
           └──────────── all speak the schemas in 04-interfaces.md ────┘
                                        │
                     ┌──────────────────┴──────────────────┐
-                    │  MOCKS (E4, live by hour 6)         │
+                    │  MOCKS (E4, live by 2:30 PM)        │
                     │  fake robot · fake patient · fake   │
                     │  mic — everyone tests without HW    │
                     └─────────────────────────────────────┘

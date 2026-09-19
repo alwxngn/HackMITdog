@@ -99,7 +99,7 @@ robot doing the lead-away in a quiet room. Cut together, narrated, under 90 seco
 ## Reset procedure
 
 One key. Under ten seconds. Written down and tested by someone who didn't build it, because at
-hour 34 the person who built it may be asleep or talking to a judge.
+9 AM Sunday the person who built it may be asleep or talking to a judge.
 
 - Orchestrator to `IDLE`, agitation cleared, alerts cancelled
 - Robot to home pose inside the taped area

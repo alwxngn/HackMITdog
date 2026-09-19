@@ -1,5 +1,11 @@
 # Judge review of "Project Aegis"
 
+> **Note on the hour numbers below.** This document was written assuming a 36-hour hackathon.
+> HackMIT is 24 hours. The findings all still stand — they are about the product, not the
+> schedule — but wherever this document says "hour 20" or "hour 30", use the wall-clock plan in
+> `03-build-plan.md` instead. `10-second-pass.md` reviews this revision a second time and finds
+> six more issues, two of them larger than anything here.
+
 Read this as if I'm a healthcare-track judge at the table, and assume at least one judge in
 your rotation is a clinician, a digital-health PM, or an MIT neuroscience grad student. That
 assumption changes what you can get away with.

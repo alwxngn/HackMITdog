@@ -146,7 +146,7 @@ A thousand hackers on shared wifi, and your worst hour is the judging hour.
 
 **Prepare, in this order:**
 
-1. **Phone hotspot, tethered, tested at hour 1.** Not discovered at hour 22. `05-demo.md`
+1. **Phone hotspot, tethered, tested in the first hour.** Not discovered at 9 AM Sunday. `05-demo.md`
    already says this for the stage demo; it applies to the table demo too.
 2. **Tier 0 and Tier 1 audio rendered to disk and committed.** The demo beats then need no
    network at all. This is the single highest-value hour in the voice workstream.

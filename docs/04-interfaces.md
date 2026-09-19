@@ -1,12 +1,12 @@
 # Interface contracts
 
-**Freeze these by hour 4.** Changes after that need all four engineers to agree, in the same
-room, out loud.
+**Freeze these by 1:15 PM Saturday — 90 minutes in.** Changes after that need all four engineers
+to agree, in the same room, out loud.
 
 Everything moves as JSON over one bus. Use whatever transport is fastest to stand up — Redis
 pub/sub, an in-process asyncio queue, or plain WebSockets. The transport is not the point; the
 schemas are. Subsystems talk only through these messages, which is what lets all four people
-work against mocks from hour 6.
+work against mocks from 2:30 PM Saturday.
 
 ## Common envelope
 
@@ -23,7 +23,7 @@ Every message:
 ```
 
 - `ts` — Unix seconds, float. One clock. If the Jetson and the laptop disagree, fix it at hour 1,
-  because debugging causality across skewed clocks at hour 30 is miserable.
+  because debugging causality across skewed clocks at 4 AM is miserable.
 - `source` — `robot` | `voice` | `orchestrator` | `cloud` | `mock`
 - `seq` — monotonic per source. Makes dropped messages visible instead of mysterious.
 
@@ -267,12 +267,12 @@ answer instead of a shrug.
 refuses `say` commands carrying a `voice_id` with no consent timestamp. Enforced in code, not
 in policy — again, a much better answer to the ethics question.
 
-## Mocks (E4, by hour 6)
+## Mocks (E4, by 2:30 PM Saturday)
 
 Three fakes that let everyone else work:
 
 - **`mock_robot`** — accepts every `command`, emits plausible `pose` and `robot_status`. Has a
-  `--fail-rate` flag so the orchestrator's failure paths get exercised before hour 30.
+  `--fail-rate` flag so the orchestrator's failure paths get exercised before the night shift.
 - **`mock_patient`** — emits `person_track` along a scripted path. Ships with named scenarios:
   `calm`, `pacing`, `exit_seeking`, `fall`. Everyone develops against `exit_seeking`.
 - **`mock_mic`** — replays recorded WAVs into the voice pipeline, so the voice path is testable
@@ -283,11 +283,11 @@ they're blocked on hardware.
 
 ## The rules
 
-1. **Nothing bypasses the bus.** No direct calls between subsystems, however tempting at hour 26.
+1. **Nothing bypasses the bus.** No direct calls between subsystems, however tempting at 2 AM.
    The one time someone does it is the one time you can't debug it.
 2. **Unknown fields are ignored, never fatal.** Additive changes must not break anyone.
 3. **Every message is logged to a JSONL file.** This gives you replay for debugging, the morning
-   report, and your evaluation data, all for free. Set it up at hour 2 and it pays for itself
+   report, and your evaluation data, all for free. Set it up in the first two hours and it pays for itself
    five times.
 4. **The dashboard renders from the bus only.** If it needs a demo-specific hack to look right,
    it isn't actually working.

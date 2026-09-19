@@ -25,7 +25,7 @@ Two numbers reported honestly beat four rushed, and beat any number you had to e
 their own.
 
 Everything below is computed from the JSONL bus log (`04-interfaces.md` rule 3), which is why
-setting that up at hour 2 pays for itself.
+setting it up in the first two hours pays for itself.
 
 ---
 

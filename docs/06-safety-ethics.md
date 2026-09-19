@@ -169,7 +169,7 @@ about a demo.
 
 **Talk to one person who does this work.** A memory care nurse, an occupational therapist, a
 geriatric social worker, or a family caregiver. Caregiver forums and subreddits respond within
-hours. Start at hour 2 so the answer can still change the build.
+hours. Send it by noon Saturday so the answer can still change the build.
 
 One quote on a slide — *"I spoke with an RN who runs a memory care unit; she told me the first
 thing they teach is never to block someone who's exit-seeking, so we rebuilt the intervention
