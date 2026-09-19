@@ -30,6 +30,7 @@ end times on `dayof.hackmit.org` and shift the schedule before relying on it.
 | [`docs/03-build-plan.md`](docs/03-build-plan.md) | 24-hour schedule, ownership, cut lines | Everyone |
 | [`docs/04-interfaces.md`](docs/04-interfaces.md) | Frozen event schemas so we can work in parallel | Everyone, in the first 90 minutes |
 | [`docs/15-dev-workflow.md`](docs/15-dev-workflow.md) | Repo layout, git rules, and running four different AI coding agents without them colliding | Everyone, before anyone opens an agent |
+| [`docs/16-e3-portal.md`](docs/16-e3-portal.md) | E3 portal/cloud playbook: bus contract, coordinate frame, build order | E3 |
 | [`docs/11-perception.md`](docs/11-perception.md) | How the person actually gets tracked. Six things depend on it | E2, E4 |
 | [`docs/12-dialogue-runtime.md`](docs/12-dialogue-runtime.md) | What produces each utterance, the latency budget, the impersonation guard | E1, E4 |
 | [`docs/14-companion-and-caretaker.md`](docs/14-companion-and-caretaker.md) | Check-in relay, companionship conversation, onboarding schedule, guided walks, the completed wandering policy | Everyone |

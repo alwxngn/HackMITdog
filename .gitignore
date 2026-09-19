@@ -1,0 +1,9 @@
+cloud/.venv/
+cloud/web/node_modules/
+cloud/web/dist/
+cloud/data/
+cloud/.env
+__pycache__/
+*.pyc
+.DS_Store
+*.bak.jsonl
