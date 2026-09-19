@@ -2,20 +2,71 @@
 
 See [docs/16-e3-portal.md](../docs/16-e3-portal.md) for the full playbook.
 
-## Quick start
+**Teammates (E1 voice, etc.):** you need **two processes** — API + React. Install once, then run both.
+
+## Prerequisites
+
+| Tool | Check |
+|---|---|
+| Python 3.11+ | `python3 --version` |
+| Node.js 20+ | `node -v` / `npm -v` |
+
+## Install everything (once)
+
+From the **repo root**:
 
 ```bash
-# API
+# Backend deps
 cd cloud
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env   # fill Twilio for real SMS
-cd server && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+cp .env.example .env               # Twilio optional for SMS; leave blank to dry-run
 
-# Portal (other terminal)
-cd cloud/web && npm install && npm run dev
-# open http://127.0.0.1:5173
+# Frontend deps
+cd web
+npm install
+```
+
+Or one shot from `cloud/`:
+
+```bash
+cd cloud
+python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+cp -n .env.example .env
+(cd web && npm install)
+```
+
+## Run the whole portal (two terminals)
+
+**Terminal 1 — API**
+
+```bash
+cd cloud
+source .venv/bin/activate
+cd server && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — frontend**
+
+```bash
+cd cloud/web
+npm run dev
+```
+
+Open **http://127.0.0.1:5173**
+
+| URL | Screen |
+|---|---|
+| http://127.0.0.1:5173/ | Welcome + phone QR |
+| http://127.0.0.1:5173/onboarding | Scan home → paint zones → schedule |
+| http://127.0.0.1:5173/watch | Night Watch dashboard (live map / alerts / check-in) |
+
+Demo alert without the robot:
+
+```bash
+cd cloud/server
+python replay.py --fixture ../fixtures/exit_seeking.jsonl --rate 4
 ```
 
 ## Phone + QR (same app, browser on phone)
@@ -54,13 +105,6 @@ Open `/onboarding` (or QR). Flow: Patient → **Scan home** → Paint zones → 
 
 See [docs/16-e3-portal.md](../docs/16-e3-portal.md) for the E2 bus contract.
 
-## Fixture replay (no mocks needed)
-
-```bash
-cd cloud/server
-python replay.py --fixture ../fixtures/exit_seeking.jsonl --rate 4
-```
-
 ## Twilio
 
 1. Copy `.env.example` → `.env`, fill `TWILIO_*` (trial: verify the destination number).
@@ -77,13 +121,13 @@ python replay.py --fixture ../fixtures/exit_seeking.jsonl --rate 4
 
 Without credentials, `notify.py` dry-runs to the console so the ladder still demos.
 
-## Bridge for E4
+## Bridge for E4 / voice
 
-When mocks / orchestrator are live, POST bus messages to:
+When mocks / orchestrator / voice are live, POST bus messages to:
 
 `POST http://127.0.0.1:8000/api/ingest`
 
-That is the only swap needed until a shared `/bus` transport lands — `bus.py` stays the adapter.
+Check-in from the dashboard hits the API and publishes a `say` for E1 TTS. That is the only swap needed until a shared `/bus` transport lands — `bus.py` stays the adapter.
 
 ## Reset
 

@@ -1,17 +1,28 @@
-# Lantern — HackMIT planning repo
+# Lantern — HackMIT
 
-Planning and scoping documents for a voice-native quadruped companion for in-home
-dementia care. (Working name: **Lantern**. Previously "Project Aegis" — see
-[`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name) for why the name changed.)
+Voice-native quadruped companion for in-home dementia care. (Working name: **Lantern**.
+Previously "Project Aegis" — see [`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name).)
 
-This repo holds the **plan**, not the code — deliberately. HackMIT allows you to plan in
-advance but requires all project code to be written during the hacking window, so nothing here
-is implementation and nothing should become implementation until hacking opens. See
-[`docs/10-second-pass.md`](docs/10-second-pass.md) P1-8.
+Plans live in [`docs/`](docs/). Code is split by owner: `/cloud` (E3), `/voice` (E1), `/robot` (E2), `/orchestrator` (E4).
 
-It exists so that four engineers can agree on scope, interfaces, and the demo before anyone
-writes a line, because the most common way a 4-person hardware hack dies is integration at the
-seam, in the middle of the night.
+## Run the caregiver portal (Night Watch)
+
+Full install + run steps: **[`cloud/README.md`](cloud/README.md)**.
+
+```bash
+# install once
+cd cloud && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && cp -n .env.example .env
+(cd web && npm install)
+
+# terminal 1 — API
+cd cloud && source .venv/bin/activate
+cd server && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# terminal 2 — UI
+cd cloud/web && npm run dev
+# → http://127.0.0.1:5173/watch
+```
 
 ## Read this first: the clock
 
