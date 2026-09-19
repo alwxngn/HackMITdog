@@ -24,6 +24,12 @@ claims, and some measurement.
   than the feature was.
 - Four measured numbers, including the false positives.
 - The consent architecture, enforced in schema.
+- **A second, related clinical angle that isn't just safety: loneliness.** Social isolation in
+  dementia and in home-bound older adults is its own documented risk factor for cognitive and
+  physical decline — a healthcare judge doesn't need this explained. Lantern's companionship
+  layer (`14-companion-and-caretaker.md`) isn't a separate feature competing for build time; it
+  reuses the same voice pipeline and the same profile as the safety layer. One relationship,
+  two clinically relevant problems.
 
 **What still hurts you if you skip it:** no contact with anyone who does this work. One
 conversation with a memory care nurse or family caregiver, one quote, and you move from
@@ -51,6 +57,16 @@ someone on the team has a grandparent — because the specificity is what makes 
 
 Right now this is one line in a matrix at the bottom of the document. It should be the second
 thing you say at the table.
+
+**The non-believer's second objection, and it's the one worth pre-empting here specifically:**
+"robot pets are a novelty that wears off." They've seen the Boston Dynamics videos and the
+segment where somebody's grandmother pets a robot dog once for a camera crew and never again.
+Answer it directly: *"That's the exact failure mode we built against. It's not a trick — it's
+the same robot, same voice, same profile, asking about her garden at 3 PM as walking her back to
+bed at 2 AM. The relationship is the product, not the demo of the week."* That line is the
+bridge between "convince a non-believer" and the companionship features in
+`14-companion-and-caretaker.md`, and it's a genuinely different answer from every other
+quadruped team in the room.
 
 ---
 

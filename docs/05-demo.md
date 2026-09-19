@@ -20,6 +20,7 @@ in that order.
 | Go2 battery ~1–2 h active | Two packs minimum, rotating on the charger. Robot idles between demos; it only walks during the one beat that needs it. |
 | Judges arrive mid-loop | Under-10-second reset, one key. Demo must be idempotent. |
 | Hundreds of moving people | **No live SLAM.** Pre-authored map, hard geofence at the tape line. Live mapping here is a failure mode, not a feature. The taped corners double as the person-tracker's calibration (`11-perception.md`) — **re-calibrate once you're set up in the actual demo spot.** |
+| No sky view, anywhere in the hall | **No real GPS.** The guided-walk/"take me home" feature (Tier 2, `14-companion-and-caretaker.md`) runs against `mock_gps` for the same reason the tracker runs against a taped map — the venue isn't the environment either feature targets. Say so; it's the same schema argument twice, not a weaker one. |
 | People walking through your shot | The tracker needs an actor lock: on reset it latches onto whoever is standing in the start box and ignores everyone else. Otherwise a passing judge becomes the patient mid-demo. |
 | Judge attention ≈ 90 s | One beat, done well, beats four beats rushed. |
 | Judges may step toward the robot | The yield rule has to be real, because someone will test it. When it works, that's the best moment of your demo. |
@@ -76,6 +77,24 @@ knowing what happened instead of guessing."*
 **Then stop talking.** Let them ask. If they have three minutes and want the numbers slide, it's
 ready. If they're already moving, they leave with a complete story.
 
+## The stretch beat: companionship and guided walk (only if Tier 2 landed)
+
+Don't build this into the 90-second script — it competes with the 2 AM story for the judge's
+attention, and the 2 AM story wins that fight every time. Use it only when a judge lingers past
+the report, or explicitly asks "what does it do the rest of the time?"
+
+*"It's not only a night-watch device."* Arthur asks it something ordinary — "what did I used to
+do for work" — and it answers from his own profile, same voice, same policy rules, no agitation
+involved. Then, if `FOLLOW`/`GUIDE_HOME` are wired: *"And during the day, he can just go for a
+walk — no fixed route."* Switch the dashboard to the mocked outdoor scenario, narrate the radius
+breaking, `FOLLOW` engaging, and say "take me home" — the robot asks *"Would you still like to
+go home?"* once, then guides. **Say the GPS line here, not defensively:** *"This is running
+against a scripted location feed, the same way our indoor tracking runs against a mock robot
+when hardware's charging — real GPS doesn't work inside a convention hall, for anyone."*
+
+Thirty seconds, maximum. If it isn't smooth in rehearsal, cut it — it is explicitly the item in
+`02-blueprint.md` §6 you're allowed to drop without cost.
+
 ## Fallback ladder
 
 Decide these in advance, rehearse each one, and assume you will use at least one. Every team
@@ -106,6 +125,9 @@ One key. Under ten seconds. Written down and tested by someone who didn't build 
 - Dashboard timeline cleared, map view re-centered
 - Phone alert dismissed
 - Voice pipeline flushed (no leftover audio in the buffer — this one will bite you)
+- Check-in queue and reminder timer cleared (Tier 1) — a stale "your son sent you this message"
+  firing mid-reset looks like a bug, not a feature
+- If demoing the stretch beat: `mock_gps` reset to the scenario's start point (Tier 2)
 
 ## The stage version (finals only)
 

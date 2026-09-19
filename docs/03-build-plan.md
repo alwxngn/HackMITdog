@@ -38,42 +38,46 @@ moved: person tracking is now explicitly E2's, and the impersonation guard is ex
 
 | | |
 |---|---|
-| Owns | Deepgram streaming STT, ElevenLabs TTS, the dialogue policy, the tiered runtime in `12-dialogue-runtime.md`, prosody features |
+| Owns | Deepgram streaming STT, ElevenLabs TTS, the dialogue policy, the tiered runtime in `12-dialogue-runtime.md`, prosody features, companionship conversation and check-in relay (`14-companion-and-caretaker.md` §1–2, Tier 1) |
 | Ships | A `voice_service` consuming mic audio, emitting `transcript` and `prosody`, rendering `say` commands |
 | Hard requirement | Barge-in. Robot stops speaking the instant the person speaks. Non-negotiable for this user. |
 | Hard requirement | The fifteen Tier 0 lines rendered to disk. **The demo beats must not need the network.** |
 | Watch out for | Endpointing tuned too aggressively — long pauses are normal here. Tune it long, early, and read `12-dialogue-runtime.md` on why that makes your latency metric look worse and what to report instead. |
+| Watch out for (Tier 1) | Companionship mode is the same six policy rules on lower-stakes material, not a second prompt to maintain. Don't fork the system prompt. |
 | Owns the metric | WER on degraded speech (**priority**); voice latency if it falls out for free |
 
 ### E2 — Perception and robot behavior
 
 | | |
 |---|---|
-| Owns | Person tracking (`11-perception.md`), zones, the lead-away controller, the pacing detector, Unitree/DimOS integration |
+| Owns | Person tracking (`11-perception.md`), zones, the lead-away controller, the pacing detector, Unitree/DimOS integration, and — Tier 2 only — the `FOLLOW`/`GUIDE_HOME` behaviors and `mock_gps` (`14-companion-and-caretaker.md` §6–7) |
 | Ships | A `tracker` emitting `person_track`, and a `robot_service` emitting `pose` and consuming `goto` / `lead_to` / `posture` |
 | **First deliverable** | **Tracker A, emitting real `person_track` from a real walking human, before you touch the robot.** Everything else depends on it. |
 | Hard requirement | The safety envelope in `06-safety-ethics.md` lives in the controller, not the demo script. The yield reflex uses raw LiDAR range, **not** the tracker. |
 | Watch out for | Live SLAM. Author the map once — it is a taped rectangle — save it, load it. |
+| Watch out for (Tier 2) | Real GPS does not work indoors. Don't lose an hour discovering this at the venue — `FOLLOW`/`GUIDE_HOME` are demoed against `mock_gps` by design, same as `mock_robot`. |
 | Owns the metric | Pacing detection precision/recall (**priority**) |
 
 ### E3 — Portal and cloud
 
 | | |
 |---|---|
-| Owns | FastAPI, WebSocket fan-out, event store, React portal, Twilio ladder |
+| Owns | FastAPI, WebSocket fan-out, event store, React portal, Twilio ladder, onboarding steps 3–4 (zone field-mapping + home anchor + schedule/habits) and the check-in composer (`14-companion-and-caretaker.md` §1, §5, §8) |
 | Ships | Live Night Watch dashboard, event timeline, morning report, escalation ladder with acknowledge, onboarding if time |
 | Hard requirement | The dashboard renders from the event stream alone. If it needs a demo mode to look right, it's wrong. |
 | Watch out for | Over-designing the floorplan canvas. Rectangles on a background image. Nobody is judging your canvas library. |
+| Watch out for (Tier 2) | The live-tracking map view during `FOLLOW` is one more rendering mode of the map you already built, not a new component. Reuse it. |
 | Owns the metric | Event-to-phone wall clock, if it falls out for free |
 
 ### E4 — Orchestrator and integration
 
 | | |
 |---|---|
-| Owns | The state machine, the event bus, **the mocks**, the impersonation guard, the demo runner, metrics collection |
+| Owns | The state machine, the event bus, **the mocks**, the impersonation guard, the demo runner, metrics collection, the reminder-suppression rule (`agent_state != IDLE` mutes nudges), and — Tier 2 — `CONFIRM_HOME` plus `mock_gps` |
 | Ships | `orchestrator` implementing the five states; `mock_robot`, `mock_patient`, `mock_mic`; a one-key reset |
 | Hard requirement | Mocks working by **2:30 PM**, so the other three can run the full pipeline alone |
 | Hard requirement | Inbound and outbound impersonation guards (`12-dialogue-runtime.md`) — code, not prompt |
+| Owns (Tier 1) | The check-in message queue: never interrupts `LEAD`/`ESCALATE`/`EMERGENCY`, delivered only in a conversational state |
 | Owns | The integration schedule, and the authority to call the cut at 11 PM |
 
 ---
@@ -165,7 +169,14 @@ that has been awake for 30 hours pitches badly, and the pitch is a large fractio
       forty degraded-speech utterances and WER against a baseline.** Needs no robot and no
       floor space; it is the perfect task for whoever is blocked.
 - [ ] **E1 + E2:** Calm Mode.
-- [ ] **E3:** morning report if it isn't done. It's cheap and it lands.
+- [ ] **E1:** companionship conversation fields (family/self/setting) added to the prompt, plus
+      check-in relay through the existing `say`/`attribution` path. Both are additive, not new
+      architecture — see `14-companion-and-caretaker.md` §1–2. Don't schedule more than an hour.
+- [ ] **E3:** morning report if it isn't done. It's cheap and it lands. Then onboarding step 4
+      (schedule/habits) and the zone label rename to "Don't go" if there's slack.
+- [ ] **E2/E4, only if the spine and Tier 1 are both green and it's still before 3 AM:** start
+      `FOLLOW`/`CONFIRM_HOME`/`GUIDE_HOME` against `mock_gps`. This is genuinely new work, not a
+      polish task — do not start it at the expense of Metric 3 or the feature-freeze gate below.
 - [ ] **E4:** demo runner, one-key reset, fallback modes wired and *each one rehearsed once*.
 - [ ] Metrics 2 and 4 only if they fall out of the logs for free. Do not schedule them.
 

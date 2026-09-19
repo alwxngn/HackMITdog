@@ -118,6 +118,51 @@ happening.
 
 ---
 
+**"Okay, but what if they actually walk out the door?"**
+
+It follows — after them, through the door they opened, never into it. Following at a distance
+isn't blocking; nothing about it restrains anyone. The alert to the caregiver escalates
+immediately rather than waiting the usual 20 seconds, and the dashboard switches to continuous
+live-location tracking for the duration of the episode. When the person is ready — they say
+"take me home," or agree to turn back — the robot asks once, *"Would you still like to go
+home?"*, and only then guides them back. That re-ask matters: it's the yield rule applied to
+navigation instead of proximity. It never acts on stale intent.
+
+---
+
+**"Isn't following someone who wandered off just surveillance with better PR?"**
+
+The distinction we're holding onto is the same one from the blocking question: it's about
+what the robot *does* with the information, not whether it has it. It follows at a fixed
+minimum distance, it never closes in to compel a direction change, and it shares location with
+exactly one party — the emergency contact the caregiver named — only for the duration of the
+flagged episode. When the episode ends, the location stream stops. That's a different thing
+from a tracker that reports position continuously to a platform.
+
+---
+
+**"You added a companionship feature. Isn't that scope creep on a safety pitch?"**
+
+The opposite, and here's the mechanism, not just the claim: check-in relay and companionship
+conversation reuse the exact `say`/`attribution` pipeline we already built for the cloned voice
+and the anti-impersonation guard — no new architecture, no new ethics surface. And the
+"guided walk" feature isn't a second product bolted on; it's the *same* follow-and-guide-home
+state machine that handles nighttime wandering, entered through a different, voluntary trigger.
+We built one navigation capability. It happens to serve two situations.
+
+---
+
+**"Does 'take me home' actually use real GPS at your table?"**
+
+No, and we'll say that before you ask. GPS doesn't work inside a building — not badly,
+intermittently, at all, for anyone, in any convention hall. What's running is the same
+orchestrator and dashboard, driven by a scripted location feed instead of a real satellite fix
+— exactly the relationship our indoor demo already has to the real robot when it's charging.
+The behavior you're watching is real; the location signal underneath it is mocked because
+nothing else is possible in this room.
+
+---
+
 **"What if it scares them? A robot appearing in the dark seems worse than nothing."**
 
 Real risk, and visual misperception is common in dementia — especially Lewy body. So: it

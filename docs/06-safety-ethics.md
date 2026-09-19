@@ -30,6 +30,25 @@ what state the agent thinks it's in or what command is executing. Report it as
 `robot_status: yielded`. Judges will step toward the robot to test this, and it working is
 worth more than any slide.
 
+## 1a. The envelope, extended past the door (Tier 2)
+
+The original envelope stopped at the doorway because the original policy did too. The completed
+wandering policy (`02-blueprint.md` §3, `14-companion-and-caretaker.md` §6) extends it rather
+than replacing it — same principles, applied to a person who has actually left:
+
+| Parameter | Value | Reasoning |
+|---|---|---|
+| Follow standoff, outdoors | Same 1.5 m minimum, no upper bound | Following is not leading; there's no "ahead of them" position to hold, so the only constraint that still applies is *never close in*. |
+| Follow speed | Match the person's pace, capped at their speed + 0.2 m/s | Closing distance faster than the person moves is functionally chasing, and chasing is the thing the whole policy exists to avoid. |
+| Re-confirmation before `GUIDE_HOME` | Ask **"Would you still like to go home?"** once, every time, before departing | The yield rule applied to navigation instead of proximity — never act on stale intent. Consent has to be current, not historical. |
+| Live-location sharing | Active only for the duration of a flagged episode (`FOLLOW`/`EMERGENCY`), never a standing background feed | Same "family, not platform" boundary as §4 below, extended to location instead of audio. |
+| Coercion floor | The robot never physically closes distance to compel a direction change, under any circumstance, at any state | This one line covers both the indoor lead-away and the outdoor follow — it is the same rule, not a new one. |
+
+**On "the dog will not block the path" (the team's own framing):** that's the correct extension
+of P0-1 in `01-judge-review.md`, applied outdoors instead of at a doorway. Warn, redirect by
+voice, escalate, and if the person leaves, follow and stay reachable. Never intercept. The
+reasoning doesn't change just because the hallway became a yard.
+
 ## 2. What we removed, and why
 
 Worth saying out loud in the pitch. Describing something you deliberately cut on safety grounds
@@ -120,8 +139,12 @@ someone asks.
 - **Local-first where practical.** VAD and pacing detection run on the Jetson. Only speech
   segments leave the device.
 - **Family, not platform.** Data belongs to the household. No training on patient audio.
+- **Location follows the same rule (Tier 2).** Live GPS/location streaming to the caregiver only
+  runs during a flagged episode — a `dont_go` breach or a separated walk — never as a standing
+  background feed. When the episode resolves, the stream stops. It's the same "family, not
+  platform" boundary as the audio rule, applied to where someone is instead of what they said.
 
-One slide. Six bullets. It takes fifteen seconds and it closes a line of questioning.
+One slide. Seven bullets. It takes fifteen seconds and it closes a line of questioning.
 
 ## 5. Claims discipline
 
@@ -135,6 +158,8 @@ Rules for every sentence in the pitch, the UI, and the README:
 | "Detects agitation" | "Detects a behavioral pattern associated with agitation." |
 | "Replaces a caregiver" | "Buys a caregiver time and information." |
 | "Medical device" | "Non-medical wellness and companion device." |
+| "Tracks the patient" | "Follows at a distance and shares location only during a flagged episode." |
+| "Takes them home" | "Guides, and re-confirms first — it never marches someone home on stale intent." |
 
 And the line to have ready for the regulatory question: *"Lantern is positioned as a
 non-medical wellness and companion device. It doesn't diagnose, treat, or monitor for medical
@@ -159,6 +184,9 @@ precisely to see whether you've thought about it.
 | Two people in the home | Wrong person tracked | Out of scope for the demo; say so rather than pretending |
 | Multi-floor home | Robot can't follow | Out of scope. Stairs are excluded by policy anyway. |
 | Robot battery dies overnight | Silent failure — the dangerous one | Dashboard shows battery; low battery is itself a caregiver alert |
+| Person walks faster than the robot, or out of sensor range, outdoors (Tier 2) | Robot loses the follow | Immediate escalation the moment the track is lost, not a silent retry — a lost track outdoors is worse than a lost track at home |
+| Robot says "would you still like to go home?" and gets no answer (Tier 2) | Ambiguous consent | Treat silence as "not yet" — stay in `FOLLOW`, keep company, re-ask on a timer, never assume yes |
+| Real deployment has no GPS signal (indoors, dense urban canyon) (Tier 2) | `GUIDE_HOME` can't localize | Fall back to `FOLLOW` + escalate; say plainly this is a known limitation of consumer GPS, not hidden |
 
 That last row matters more than it looks. A safety device that fails silently is worse than no
 device, because the family has stopped listening for the door. Having noticed that is exactly
