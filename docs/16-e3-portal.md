@@ -165,7 +165,24 @@ Four steps on `/onboarding`:
 | `demo` (default) | Table / no robot | Schematic floorplan after a short “scanning…” UI |
 | `live` | Testing with Go2 | Publish `map_scan_request`; wait for E2 `map_ready` |
 
-**Additive bus messages (agree with E2/E4 out loud; E4 owns `/bus`):**
+Set in `cloud/.env`:
+
+```bash
+MAP_SCAN_MODE=live
+```
+
+**E2 handoff checklist (agree out loud before first hardware map):**
+
+| Rule | Value |
+|---|---|
+| Units | Metres |
+| Origin | Southwest corner of the taped / mapped area (`patient.home` defaults to `{x:0,y:0}`) |
+| +x | East along the long edge |
+| +y | North along the short edge |
+| E3 never imports | Unitree / DimOS SDKs — only JSON via `POST /api/ingest` |
+| How E2 delivers | Same envelope as below; `request_id` must match the pending `map_scan_request` |
+
+**Additive bus messages:**
 
 ```json
 { "type": "map_scan_request", "source": "cloud", "payload": {
@@ -184,7 +201,28 @@ Four steps on `/onboarding`:
 }}
 ```
 
-E2 runs DimOS author-once mapping and emits `map_ready` in the shared metre frame (origin = SW). E3 never imports Unitree. Until `/bus` merges these types, cloud still accepts them via `/api/ingest` (unknown types are fine for other subsystems).
+Canonical sample (copy for DimOS export): [`cloud/fixtures/sample_map_ready.json`](../cloud/fixtures/sample_map_ready.json).
+
+**Smoke without a robot** (proves portal + ingest; also posts three `person_track` samples):
+
+```bash
+# Terminal: cloud API with MAP_SCAN_MODE=live in .env (smoke forces mode=live in the POST body)
+cd cloud && source .venv/bin/activate
+python scripts/smoke_live_map.py
+```
+
+Manual curl equivalent after Scan home (or after `POST /api/map-scan` with `{"mode":"live"}`):
+
+```bash
+# Replace REQUEST_ID with status.pending.request_id
+curl -s -X POST http://127.0.0.1:8000/api/ingest \
+  -H 'Content-Type: application/json' \
+  -d @cloud/fixtures/sample_map_ready.json
+```
+
+Then open `/onboarding` (map should appear) and `/watch`. Stream `person_track` the same way — if the pin is wrong, fix the **frame** with E2, not the React map renderer.
+
+E2 runs DimOS author-once mapping and emits `map_ready` in the shared metre frame (origin = SW). Until a shared `/bus` transport is used end-to-end, cloud still accepts these via `/api/ingest`.
 
 Zone wire values stay `safe` | `watch` | `exit` (UI label for `exit` = **"Don't go"**).
 

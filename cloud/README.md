@@ -107,6 +107,15 @@ Open `/onboarding` (or QR). Flow: Patient → **Scan home** → Paint zones → 
 - Paint: whole map starts Safe (green); drag Watch / Don't go; Place home pin.
 - Finish publishes one `config_update`.
 
+**Live map smoke (no robot):**
+
+```bash
+cd cloud && source .venv/bin/activate
+python scripts/smoke_live_map.py
+```
+
+Sample E2 payload: [`fixtures/sample_map_ready.json`](fixtures/sample_map_ready.json). Frame + checklist: [`docs/16-e3-portal.md`](../docs/16-e3-portal.md).
+
 See [docs/16-e3-portal.md](../docs/16-e3-portal.md) for the E2 bus contract.
 
 ## Twilio

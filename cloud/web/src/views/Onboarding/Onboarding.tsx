@@ -13,6 +13,9 @@ export function Onboarding() {
   const [step, setStep] = useState<Step>(1)
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState('')
+  const [scanMode, setScanMode] = useState<'demo' | 'live' | null>(null)
+  const [scanElapsed, setScanElapsed] = useState(0)
+  const [scanAbort] = useState({ aborted: false })
   const [map, setMap] = useState<MapReadyPayload | null>(
     (projection.map_ready as MapReadyPayload | null) || null,
   )
@@ -44,6 +47,13 @@ export function Onboarding() {
   async function startScan(forceDemo = false) {
     setScanError('')
     setScanning(true)
+    setScanElapsed(0)
+    scanAbort.aborted = false
+    const started = Date.now()
+    const tick = window.setInterval(
+      () => setScanElapsed(Math.floor((Date.now() - started) / 1000)),
+      500,
+    )
     try {
       const r = await fetch('/api/map-scan', {
         method: 'POST',
@@ -51,17 +61,19 @@ export function Onboarding() {
         body: JSON.stringify(forceDemo ? { mode: 'demo' } : {}),
       })
       const data = await r.json()
+      setScanMode(data.mode === 'live' ? 'live' : 'demo')
       if (data.mode === 'demo' && data.map_ready) {
-        // brief animation then show
         await new Promise((res) => setTimeout(res, 1800))
+        if (scanAbort.aborted) return
         setMap(data.map_ready as MapReadyPayload)
         setScanning(false)
         setStep(3)
         return
       }
-      // live: poll until map_ready on projection / status
-      const deadline = Date.now() + 90_000
+      // live: poll until E2 POSTs map_ready to /api/ingest
+      const deadline = Date.now() + 120_000
       while (Date.now() < deadline) {
+        if (scanAbort.aborted) return
         const st = await fetch('/api/map-scan/status').then((x) => x.json())
         if (st.map_ready) {
           setMap(st.map_ready as MapReadyPayload)
@@ -71,13 +83,23 @@ export function Onboarding() {
         }
         await new Promise((res) => setTimeout(res, 800))
       }
-      setScanError('Timed out waiting for the robot map. Use demo floorplan or retry.')
+      setScanError(
+        'Timed out waiting for robot map_ready (2 min). Keep MAP_SCAN_MODE=live, have E2 POST /api/ingest, or use demo floorplan.',
+      )
       setScanning(false)
     } catch (e) {
       setScanError(String(e))
       setScanning(false)
       setMap(DEMO_MAP)
+    } finally {
+      window.clearInterval(tick)
     }
+  }
+
+  function cancelScan() {
+    scanAbort.aborted = true
+    setScanning(false)
+    setScanMode(null)
   }
 
   async function finish() {
@@ -212,17 +234,23 @@ export function Onboarding() {
         <div className="card max-w-xl space-y-4">
           <h2 className="text-[18px]">Scan home with Lantern</h2>
           <p className="text-[14px] text-[var(--color-charcoal)]">
-            In testing, this asks the Go2 to map the space (E2 / DimOS). At the table demo it loads
-            a schematic floorplan — same paint step either way.
+            Live mode asks the Go2 for a metre-frame map (E2 posts <code>map_ready</code>). Demo
+            mode loads a schematic — same paint step either way. Frame: origin SW corner, +x east,
+            metres.
           </p>
           {scanning ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="h-2 overflow-hidden rounded-full bg-[var(--color-mint-veil)]">
                 <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-forest-ink)]" />
               </div>
               <p className="text-[14px] text-[var(--color-forest-ink)]">
-                Mapping… walk the robot through the space (or waiting on demo map).
+                {scanMode === 'live'
+                  ? `Waiting for robot map… ${scanElapsed}s (E2 → POST /api/ingest map_ready)`
+                  : 'Mapping… loading demo floorplan.'}
               </p>
+              <button type="button" className="btn-ghost !min-h-10" onClick={cancelScan}>
+                Cancel
+              </button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -242,9 +270,18 @@ export function Onboarding() {
           {scanError && (
             <p className="text-[14px] text-[var(--color-charcoal)]">
               {scanError}{' '}
-              <button type="button" className="underline text-[var(--color-forest-ink)]" onClick={() => startScan(true)}>
+              <button
+                type="button"
+                className="underline text-[var(--color-forest-ink)]"
+                onClick={() => startScan(true)}
+              >
                 Load demo map
               </button>
+            </p>
+          )}
+          {map && !scanning && (
+            <p className="text-[13px] text-[var(--color-forest-ink)]">
+              Map ready ({map.map_id}, {map.width_m}×{map.height_m} m). Continue to paint zones.
             </p>
           )}
         </div>

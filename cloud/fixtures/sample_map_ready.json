@@ -1,0 +1,33 @@
+{
+  "type": "map_ready",
+  "ts": 0,
+  "source": "robot",
+  "seq": 1,
+  "payload": {
+    "request_id": "REPLACE_ME",
+    "map_id": "e2_home_v1",
+    "origin": { "x": 0.0, "y": 0.0 },
+    "width_m": 4.0,
+    "height_m": 3.0,
+    "outline": [
+      [0.0, 0.0],
+      [4.0, 0.0],
+      [4.0, 3.0],
+      [0.0, 3.0]
+    ],
+    "rooms": [
+      {
+        "id": "bedroom",
+        "polygon": [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]]
+      },
+      {
+        "id": "hallway",
+        "polygon": [[2.0, 0.8], [3.2, 0.8], [3.2, 1.8], [2.0, 1.8]]
+      },
+      {
+        "id": "front_door",
+        "polygon": [[3.2, 0.0], [4.0, 0.0], [4.0, 1.0], [3.2, 1.0]]
+      }
+    ]
+  }
+}
