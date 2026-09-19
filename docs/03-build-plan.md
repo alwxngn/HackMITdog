@@ -1,166 +1,225 @@
-# 36-hour build plan
+# 24-hour build plan
 
-Assumes a standard HackMIT-length hacking window. Shift the hour numbers to match the real
-clock; the checkpoint structure is what matters.
+**This document was rewritten after we confirmed the window.** HackMIT is a **24-hour**
+hackathon, not 36. The previous version of this plan assumed 36 hours and every gate in it was
+wrong. See `10-second-pass.md` P0-9.
 
-## Ownership — revised
+Wall-clock times below assume HackMIT 2025's schedule — **hacking 11:45 AM Saturday to 11:45 AM
+Sunday**, closing ceremony Sunday evening. **Confirm this year's exact times on
+`dayof.hackmit.org` and shift everything by the difference before you rely on a single number
+here.** The gate structure matters more than the specific clock times, but the gate structure
+is built for 24 hours and does not survive being stretched back to 36.
 
-The change from the original: **Engineer 4 stops being the miscellaneous-hardware person and
-becomes the orchestrator.** They own the seam between the other three, which is where the
-project actually fails. Everything they were assigned before is either cut or downgraded to a
-late-game task.
+## The decision that shapes everything else
+
+At 36 hours, "build against mocks, swap in real hardware" is comfortable. At 24 hours, with the
+hardware block landing overnight, it is a coin flip — and you cannot re-roll it at 6 AM.
+
+**So invert the risk: the demo that must work is the one that does not require the robot.**
+
+Person tracking runs off a fixed camera over the taped area (`11-perception.md`, Tracker A).
+The orchestrator, dialogue, dashboard, escalation, and the morning report all run against a
+real human walking around, with no robot in the loop. Get that green by early evening and you
+have a complete, demoable product before dinner.
+
+Then the robot is upside. If it works, it is the best part of the demo. If it dies at 3 AM,
+you still have a product, and `05-demo.md` fallback level B is a plan rather than a collapse.
+
+This is not lowering ambition. It is refusing to make the whole project contingent on the one
+subsystem you cannot debug by reading a log.
+
+## Ownership
+
+Unchanged in spirit from the original: **E4 is the orchestrator, not the miscellaneous-hardware
+person.** They own the seam between the other three, which is where projects fail. Two things
+moved: person tracking is now explicitly E2's, and the impersonation guard is explicitly E4's.
 
 ### E1 — Voice and dialogue
 
 | | |
 |---|---|
-| Owns | Deepgram streaming STT, ElevenLabs TTS, the dementia dialogue policy, prosody features |
-| Ships | A `voice_service` that consumes mic audio, emits `transcript` and `prosody` events, and renders `say` commands |
+| Owns | Deepgram streaming STT, ElevenLabs TTS, the dialogue policy, the tiered runtime in `12-dialogue-runtime.md`, prosody features |
+| Ships | A `voice_service` consuming mic audio, emitting `transcript` and `prosody`, rendering `say` commands |
 | Hard requirement | Barge-in. Robot stops speaking the instant the person speaks. Non-negotiable for this user. |
-| Watch out for | Endpointing tuned too aggressively — long pauses are normal here and cutting people off is the exact failure we claim to fix. Tune it long, early, and test with real mumbling. |
-| Owns the metric | WER on the degraded-speech set; p50/p95 end-to-end voice latency |
+| Hard requirement | The fifteen Tier 0 lines rendered to disk. **The demo beats must not need the network.** |
+| Watch out for | Endpointing tuned too aggressively — long pauses are normal here. Tune it long, early, and read `12-dialogue-runtime.md` on why that makes your latency metric look worse and what to report instead. |
+| Owns the metric | WER on degraded speech (**priority**); voice latency if it falls out for free |
 
-### E2 — Robot behavior
+### E2 — Perception and robot behavior
 
 | | |
 |---|---|
-| Owns | DimOS/Unitree integration, mapping, zones, person tracking, lead-away controller, pacing detector |
-| Ships | A `robot_service` that emits `pose` and `person_track` and consumes `goto` / `lead_to` / `posture` commands |
-| Hard requirement | The safety envelope in `06-safety-ethics.md` is enforced in the controller, not in the demo script. Hard-coded limits. |
-| Watch out for | Burning hour 0–12 on live SLAM. Author a small map once, save it, load it. Live mapping in a venue is a hazard, not a feature. |
-| Sim-first mandate | Build against the fake robot until the behavior is right. Hardware is for validating a controller that already works, not for developing one. |
-| Owns the metric | Pacing detection precision/recall over 20 trials |
+| Owns | Person tracking (`11-perception.md`), zones, the lead-away controller, the pacing detector, Unitree/DimOS integration |
+| Ships | A `tracker` emitting `person_track`, and a `robot_service` emitting `pose` and consuming `goto` / `lead_to` / `posture` |
+| **First deliverable** | **Tracker A, emitting real `person_track` from a real walking human, before you touch the robot.** Everything else depends on it. |
+| Hard requirement | The safety envelope in `06-safety-ethics.md` lives in the controller, not the demo script. The yield reflex uses raw LiDAR range, **not** the tracker. |
+| Watch out for | Live SLAM. Author the map once — it is a taped rectangle — save it, load it. |
+| Owns the metric | Pacing detection precision/recall (**priority**) |
 
 ### E3 — Portal and cloud
 
 | | |
 |---|---|
 | Owns | FastAPI, WebSocket fan-out, event store, React portal, Twilio ladder |
-| Ships | Onboarding wizard, live Night Watch dashboard, event timeline, morning report, escalation ladder with acknowledge |
-| Hard requirement | The dashboard renders from the event stream alone. If it needs a special demo mode to look right, it's wrong. |
-| Watch out for | Over-designing the floorplan canvas. Drawing rectangles on a background image is enough. Nobody is judging your canvas library. |
-| Owns the metric | Event-to-phone-buzz wall clock |
+| Ships | Live Night Watch dashboard, event timeline, morning report, escalation ladder with acknowledge, onboarding if time |
+| Hard requirement | The dashboard renders from the event stream alone. If it needs a demo mode to look right, it's wrong. |
+| Watch out for | Over-designing the floorplan canvas. Rectangles on a background image. Nobody is judging your canvas library. |
+| Owns the metric | Event-to-phone wall clock, if it falls out for free |
 
 ### E4 — Orchestrator and integration
 
 | | |
 |---|---|
-| Owns | The state machine, the event bus, **the mocks**, the demo runner, metrics collection |
-| Ships | `orchestrator` implementing the five states; `mock_robot`, `mock_patient`, `mock_mic`; a one-key demo reset |
-| Hard requirement | Mocks working by hour 6, so the other three can each run the full pipeline alone |
-| Late-game | Token compression counter, if green at hour 26 |
-| Owns | The integration schedule, and the authority to call the Tier-1 cut at hour 20 |
+| Owns | The state machine, the event bus, **the mocks**, the impersonation guard, the demo runner, metrics collection |
+| Ships | `orchestrator` implementing the five states; `mock_robot`, `mock_patient`, `mock_mic`; a one-key reset |
+| Hard requirement | Mocks working by **2:30 PM**, so the other three can run the full pipeline alone |
+| Hard requirement | Inbound and outbound impersonation guards (`12-dialogue-runtime.md`) — code, not prompt |
+| Owns | The integration schedule, and the authority to call the cut at 11 PM |
+
+---
 
 ## Timeline
 
-### Hours 0–4 — Decide, don't build
+### 11:45 AM – 1:15 PM · Decide and confirm (H0–H1.5)
 
-- [ ] **All:** read `01-judge-review.md` together. Agree on the cuts. Argue now, not at hour 25.
-- [ ] **All:** freeze `04-interfaces.md`. This is the most valuable hour of the hackathon.
-- [ ] **Name locked.** Lantern unless someone has a better one in the next ten minutes.
-- [ ] **Someone:** start reaching out for a caregiver or clinician conversation *now* — a memory
-      care nurse, an OT, a family caregiver forum. It takes hours to get a reply and one quote
-      is worth more than a feature. Start it at hour 2 so it can still change what we build.
-- [ ] **E2:** confirm the robot works at all. Battery count, charger, SDK access, DimOS running,
-      teleop working. If the hardware is shared or loaned, find out the availability schedule
-      before you plan around it.
-- [ ] **E1:** Deepgram and ElevenLabs keys live, "hello world" round trip in a terminal.
-- [ ] **E3:** repo scaffolded, FastAPI + React running, WebSocket echoing.
-- [ ] **E4:** state machine diagram on paper, event bus skeleton.
+Ninety minutes, not four hours. Decide fast, then build.
 
-**Gate at hour 4:** interfaces frozen and in the repo. Anyone blocked on hardware access
-escalates *now*, while there's time to replan.
+- [ ] **All, 20 minutes, together:** agree the cuts in `01-judge-review.md` and `10-second-pass.md`.
+      Argue now, not at 2 AM. Name locked: Lantern.
+- [ ] **All:** freeze `04-interfaces.md`, with the `tracker` field added from `11-perception.md`.
+      Still the most valuable half hour of the event.
+- [ ] **E2 first, before anything else:** confirm the robot's SKU and that it powers on, walks
+      under teleop, and exposes the SDK. Count batteries and find the charger. **If the robot
+      is shared or loaned, find out the availability schedule now.** If it's dead or
+      unavailable, you need to know at noon, not midnight.
+- [ ] **E1:** Deepgram and ElevenLabs keys live, hello-world round trip in a terminal.
+- [ ] **E3:** repo scaffolded, FastAPI + React running, WebSocket echoing, `CREDITS.md` started.
+- [ ] **E4:** five states on paper, event bus skeleton, JSONL logging from the first message.
+- [ ] **Someone, by noon:** start the caregiver or clinician outreach. A memory-care nurse, an
+      OT, a family-caregiver forum. It takes hours to get a reply and one quote beats a
+      feature. Send it now, while the answer can still change the build.
+- [ ] **Someone:** phone hotspot tested. Not at 10 AM tomorrow.
 
-### Hours 4–12 — Parallel against mocks
+**Gate, 1:15 PM:** interfaces frozen and pushed. Robot status known. Anyone blocked escalates
+now, while there's still time to replan.
 
-- [ ] **E4 (priority over everything else they do):** mocks live by hour 6. `mock_robot` accepts
-      commands and emits plausible poses. `mock_patient` walks a scripted path toward an exit
-      zone. `mock_mic` replays recorded audio. Announce in chat the moment it works.
-- [ ] **E1:** STT streaming with long endpointing; TTS playing; barge-in working; dialogue policy
-      in the system prompt.
-- [ ] **E2:** map authored and loading; zones loading; person tracking against the mock; robot
-      moving to commanded poses on real hardware.
-- [ ] **E3:** event stream rendering on the dashboard; zone drawing; Twilio sending one real SMS
-      to a real phone (do this early — carrier and trial-account surprises are common).
-- [ ] **E4:** five states implemented, transitions driven by mock events.
+### 1:15 PM – 6:00 PM · Parallel against mocks (H1.5–H6.25)
 
-**Gate at hour 12:** the full spine runs end to end **with the fake robot**. Mock patient walks
-toward the exit, orchestrator transitions to LEAD, voice speaks, escalation fires, dashboard
-updates. Nothing is real except the software, and that is fine — this is the milestone that
-predicts whether you finish.
+The highest-leverage block of the event. Two things must land inside it.
 
-If hour 12 arrives and the mock spine doesn't run, stop adding features and fix it. Everything
-after this point depends on it.
+- [ ] **E4, 2:30 PM, priority over everything else:** mocks live. `mock_robot` accepts commands
+      and emits plausible poses; `mock_patient` walks a scripted path into an exit zone;
+      `mock_mic` replays audio. Announce it in chat the second it works.
+- [ ] **E2, 4:00 PM:** tape the area, calibrate the homography, **emit real `person_track` from a
+      real human.** `11-perception.md` steps 1–4. This unblocks the pacing detector, the
+      lead-away geometry, the dashboard, and Metric 3.
+- [ ] **E1:** STT streaming with long endpointing; TTS playing; barge-in working; the six policy
+      rules in the system prompt; Tier 0 lines identified.
+- [ ] **E3:** event stream rendering live; zone drawing; **one real Twilio SMS to a real phone**
+      (do this early — trial-account and carrier surprises are common and always slower than
+      you expect).
+- [ ] **E4:** five states implemented, transitions driven by mock events; impersonation guard in.
 
-### Hours 12–20 — Real hardware
+**Gate, 6:00 PM — the one that predicts whether you finish:** the full spine runs end to end
+with the **mock robot and a real person walking the taped area.** Someone paces, agitation
+rises, the orchestrator enters LEAD, the voice speaks, escalation fires, the phone buzzes, the
+dashboard shows all of it.
 
-- [ ] **E2 + E4:** swap mock robot for real robot. Expect this to be uglier than planned; it
-      always is. Budget the whole block for it.
-- [ ] **E2:** lead-away controller on hardware, safety envelope enforced, tested with a human
-      playing the patient.
-- [ ] **E1 + E4:** voice running on the robot's actual audio path, not a laptop.
-- [ ] **E3:** onboarding wizard, escalation ladder with acknowledge.
-- [ ] **All:** first informal run-through at hour 19. Rough is fine. Find the surprises.
+If that isn't running at 6 PM, **stop adding features and fix it.** Nothing downstream matters.
 
-**Gate at hour 20 — the cut decision.** E4 calls it. Spine green on real hardware? Build Tier 1.
-Not green? Everything stops except the spine, and the demo uses the mock robot with the real
-one doing a simpler beat. A mock-robot demo that runs flawlessly beats a real-robot demo that
-fails, every time, and it is *not* embarrassing — you say "the navigation stack is running
-against our simulator right now because the expo floor isn't a home; here's the hardware video."
+### 6:00 PM – 11:00 PM · Real hardware (H6.25–H11.25)
 
-### Hours 20–28 — Tier 1 and evidence
+Five hours for the riskiest work, while everyone is still awake enough to do it. Eat during
+this block, at your desks, in shifts.
 
-- [ ] **E2:** pacing detection from trajectory
-- [ ] **E1:** repeated-question detection; prosody into agitation state
-- [ ] **E1 + E2:** Calm Mode
-- [ ] **E3:** morning report — cheap, and it lands
-- [ ] **All:** the four metrics in `07-evaluation.md`. Do not skip this. It is the highest
-      value-per-hour work available in this block and almost no other team will have done it.
-- [ ] **E4:** demo runner, one-key reset, fallback modes wired
+- [ ] **E2 + E4:** swap `mock_robot` for the real one. This is always uglier than planned.
+      Budget the whole block.
+- [ ] **E2:** lead-away controller on hardware; safety envelope enforced in the controller; yield
+      reflex on raw LiDAR range; tested with a human playing the patient.
+- [ ] **E2, if the above is green:** the LiDAR cluster tracker (`11-perception.md` Tracker C), so
+      the robot can track the person through 360° while leading away from them.
+- [ ] **E1 + E4:** voice on the robot's actual audio path, not a laptop. Tier 0 lines rendered to
+      disk in the consented voice.
+- [ ] **E3:** escalation ladder with acknowledge; morning report.
+- [ ] **All, 10:15 PM:** first informal run-through. Rough is fine. Find the surprises now.
 
-**Gate at hour 28: feature freeze.** Anything not working now is cut. No exceptions, no "it's
-almost done." "Almost done" at hour 28 is how teams end up with a broken demo at hour 34.
+**Gate, 11:00 PM — the cut. E4 calls it, and the team agreed at noon that E4 has this authority.**
 
-### Hours 28–32 — Rehearse and record
+- **Spine green on hardware?** Build Tier 1 overnight.
+- **Not green?** The robot is out of the critical path. The demo is the camera tracker plus the
+  mock robot, and the real robot does one simple scripted beat if it can. Say it plainly at the
+  table: *"navigation is running against our simulator right now because a convention hall
+  isn't a home — here's the hardware video."* A demo that runs flawlessly beats one that might
+  work, every time, and judges see dead hardware all day.
 
-- [ ] **Hour 29:** full table demo, timed, all four present. Then again.
-- [ ] **Hour 30: record the backup video.** Hard deadline. Screen recording of the dashboard plus
-      phone video of the robot, 90 seconds, narrated. If the robot dies at hour 33 — batteries
-      fail, SDK wedges, someone trips over it — the video is the entire difference between
-      demoing and not demoing. Record it while everything works, not while panicking.
-- [ ] **Hour 31:** slides. Six of them, listed below.
+### 11:00 PM – 3:00 AM · Tier 1 and evidence (H11.25–H15.25)
+
+Sleep rotation starts here. **Two people sleep 2:00–5:00 AM, the other two 5:00–8:00 AM.** This
+is not optional: hacking ends at 11:45 AM and you are pitching all Sunday afternoon. A team
+that has been awake for 30 hours pitches badly, and the pitch is a large fraction of the score.
+
+- [ ] **E2:** pacing detection from trajectory, then **Metric 3 — twenty trials, ten positive,
+      ten negative.** Run it before the taped area gets disturbed. This is the number behind
+      your only novel claim.
+- [ ] **E1:** repeated-question detection; prosody into the agitation state; then **Metric 1 —
+      forty degraded-speech utterances and WER against a baseline.** Needs no robot and no
+      floor space; it is the perfect task for whoever is blocked.
+- [ ] **E1 + E2:** Calm Mode.
+- [ ] **E3:** morning report if it isn't done. It's cheap and it lands.
+- [ ] **E4:** demo runner, one-key reset, fallback modes wired and *each one rehearsed once*.
+- [ ] Metrics 2 and 4 only if they fall out of the logs for free. Do not schedule them.
+
+**Gate, 5:00 AM — feature freeze.** Anything not working is cut. No exceptions, no "almost
+done." "Almost done" at 5 AM is how teams get a broken demo at 11.
+
+### 5:00 AM – 8:00 AM · Rehearse, record, write
+
+- [ ] **6:00 AM — record the backup video. Hard deadline, non-negotiable.** Ninety seconds:
+      screen recording of the dashboard through a full event, plus phone video of the robot
+      doing the lead-away somewhere quiet. Narrated. **Record it while everything still works.**
+      You cannot record a working demo after it stops working, and that is exactly when you
+      need it.
+- [ ] Full table demo, timed, twice.
+- [ ] Six slides (listed below). One hour, no more.
+- [ ] **Devpost submission drafted.** Not at 11:30. Lead with the 2 AM scene; include the safety
+      envelope table and the numbers.
 - [ ] Reset procedure tested cold by someone who didn't write it.
 
-### Hours 32–36 — Polish, submit, sleep
+### 8:00 AM – 11:45 AM · Rehearse, submit, set up
 
-- [ ] Devpost submission written **early**. Submission deadlines are real and unforgiving.
-- [ ] Table setup: taped floor footprint, laptop angle, mic placement, charged batteries, spare
-      battery, phone on the table for the SMS to land on visibly.
-- [ ] Five more rehearsals. Everyone can deliver the 90 seconds solo — judges split up, and
-      whoever is standing there when a judge arrives has to be able to do the whole thing.
-- [ ] One person sleeps 3 hours while the others finish, then swaps. A team that's been awake
-      34 hours pitches badly, and the pitch is a large fraction of the score.
+- [ ] **Submit by 10:30 AM at the latest.** Submission deadlines are real and unforgiving, and
+      the site gets slow in the last twenty minutes.
+- [ ] Table setup: taped footprint, camera on its tripod and *re-calibrated in the actual demo
+      spot*, laptop angle, lav mic, charged batteries, spare battery, phone face-up where the
+      judge can see the SMS land.
+- [ ] Five more rehearsals. **Everyone can deliver the 90 seconds solo** — judges split up, and
+      whoever is standing there has to do the whole thing.
+- [ ] Both fallback levels rehearsed once each, today, not theoretically.
+- [ ] Batteries on the charger. Plural.
 
 ## The six slides
 
 1. **The 2 AM story.** One person, one night, one specific scene. No bullet points.
-2. **Why alarms and trackers don't solve it.** The table from `02-blueprint.md` §2.
-3. **What Lantern does.** The state machine diagram. Ten seconds.
+2. **Why alarms and trackers don't solve it.** `02-blueprint.md` §2 plus the named products from
+   `13-landscape.md`.
+3. **What Lantern does.** The state machine. Ten seconds.
 4. **Lead, don't block.** The safety envelope table with real numbers. This is the slide that
    separates you from the other robot teams.
-5. **Familiar voice, not impersonation.** The consent flow.
-6. **What we measured.** The four numbers, including the false positives.
+5. **Familiar voice, not impersonation.** The consent flow, and the guard being code rather than
+   a prompt.
+6. **What we measured.** The two real numbers, including the false positives.
 
-Note what isn't there: no team slide, no market-size slide, no roadmap. At a table you get
-90 seconds of attention. Spend it on the demo and these six.
+No team slide, no market-size slide, no roadmap. At a table you get 90 seconds.
 
 ## Standing rules
 
-- **Commit and push every two hours.** Hardware hackathons eat laptops.
-- **Nobody works on something not in Tier 0 while Tier 0 is red.**
-- **The safety envelope is not adjustable for demo purposes.** If the demo needs the robot
-  closer than 1.5 m, the demo changes, not the limit. It's also the thing a judge is most
-  likely to test by stepping toward the robot themselves.
-- **When you're stuck for 30 minutes, say so out loud.** Silent blocking is what turns a
-  two-hour problem into a ten-hour one.
-- **E4 has the authority to cut.** Agree to this at hour 0 so it isn't a negotiation at hour 20.
+- **Commit and push every hour.** Hackathons eat laptops.
+- **Cite open-source as you use it.** `CREDITS.md`, updated when you add the dependency, not
+  reconstructed at 11 AM. HackMIT requires it (`10-second-pass.md` P1-8).
+- **Nobody works on something outside the spine while the spine is red.**
+- **The safety envelope is not adjustable for demo purposes.** If the demo wants the robot
+  closer than 1.5 m, the demo changes. A judge is likely to test it by stepping toward the
+  robot themselves.
+- **When you're stuck for 20 minutes, say so out loud.** Silent blocking turns a one-hour
+  problem into a six-hour one, and at 24 hours you do not have a six-hour problem to spare.
+- **E4 has the authority to cut.** Agreed at noon so it isn't a negotiation at 11 PM.
