@@ -3,13 +3,8 @@ import { AlertBanner } from './AlertBanner'
 import { CheckinComposer } from './CheckinComposer'
 import { MapView } from './Map'
 import { MorningReport } from './MorningReport'
-import { ShareQR } from './ShareQR'
 import { StatePanel } from './StatePanel'
 import { Timeline } from './Timeline'
-
-async function resetDemo() {
-  await fetch('/api/reset', { method: 'POST' })
-}
 
 export function Dashboard() {
   return (
@@ -26,13 +21,9 @@ export function Dashboard() {
             <p className="eyebrow mt-1">Night Watch</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <ShareQR />
             <Link className="btn-ghost !min-h-10 !py-2" to="/onboarding">
               Edit home
             </Link>
-            <button type="button" className="btn-primary !min-h-10 !py-2" onClick={resetDemo}>
-              Reset
-            </button>
           </div>
         </div>
       </nav>
