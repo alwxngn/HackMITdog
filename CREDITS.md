@@ -31,3 +31,12 @@
 - [Deepgram](https://developers.deepgram.com/) — optional hosted speech recognition, using the REST API.
 - [ElevenLabs](https://elevenlabs.io/docs) — optional hosted speech synthesis, using the REST API.
 - Browser Web Speech, MediaRecorder and Web Audio APIs — phone capture and playback; support varies by browser.
+
+## Bus + orchestrator (E4)
+
+| Dependency | License | Use |
+|---|---|---|
+| [FastAPI](https://github.com/fastapi/fastapi) | MIT | Bus hub HTTP/WS |
+| [Uvicorn](https://github.com/encode/uvicorn) | BSD-3-Clause | Bus hub server |
+| [httpx](https://github.com/encode/httpx) | BSD-3-Clause | Bridge cloud ingest |
+| [websockets](https://github.com/python-websockets/websockets) | BSD-3-Clause | Bridge cloud WS + mock_robot hub |

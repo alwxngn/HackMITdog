@@ -17,3 +17,9 @@
 - Map coordinates: metres, origin = SW corner of taped area, +x east
   (`docs/16-e3-portal.md`).
 - Human attention: escalation ladder timers + ack cancellation — not UI polish.
+
+## E4 /orchestrator + /bus
+
+- Own `/orchestrator` and `/bus`. Portal stays in `/cloud`; bridge via `POST /api/ingest`.
+- Spine on mocks: `cd orchestrator && python run_spine.py` (cloud API must be on :8000).
+- Mocks speak `04-interfaces` only. No Unitree/DimOS in this folder.

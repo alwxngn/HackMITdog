@@ -51,10 +51,13 @@ hub = Hub()
 
 async def on_bus_message(msg: dict[str, Any]) -> None:
     store.append(msg)
-    if msg.get("type") == "alert":
-        await escalation.on_alert(msg)
-    if msg.get("type") == "caregiver_ack":
-        escalation.cancel((msg.get("payload") or {}).get("alert_id", ""))
+    try:
+        if msg.get("type") == "alert":
+            await escalation.on_alert(msg)
+        if msg.get("type") == "caregiver_ack":
+            escalation.cancel((msg.get("payload") or {}).get("alert_id", ""))
+    except Exception:
+        logger.exception("escalation handler failed on %s", msg.get("type"))
     await hub.broadcast(msg)
 
 
@@ -276,6 +279,12 @@ async def api_ingest(msg: dict[str, Any]):
     msg.setdefault("source", msg.get("source", "mock"))
     await bus.ingest(msg)
     return {"ok": True}
+
+
+@app.get("/api/outbound")
+async def api_outbound():
+    """E4 bridge fallback: drain cloud→bus publishes (ack/checkin/config)."""
+    return {"messages": bus.drain_outbound_nowait()}
 
 
 if __name__ == "__main__":

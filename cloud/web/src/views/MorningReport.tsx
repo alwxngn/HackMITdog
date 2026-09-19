@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { episodeLine } from '../lib/copy'
 import type { MorningReport as Report } from '../lib/types'
 
 export function MorningReport() {
@@ -18,31 +19,29 @@ export function MorningReport() {
   if (!report) return null
 
   return (
-    <div className="card">
+    <div className="card-cream">
       <div className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-[18px] tracking-[-0.03em]">Morning report</h2>
-        <button
-          type="button"
-          className="text-[13px] text-[var(--color-forest-ink)] underline"
-          onClick={load}
-        >
-          refresh
+        <div>
+          <p className="eyebrow mb-2">Overnight</p>
+          <h2>Last night</h2>
+        </div>
+        <button type="button" className="text-[13px] text-[var(--color-forest-ink)] underline" onClick={load}>
+          Refresh
         </button>
       </div>
-      <p className="text-[18px] text-[var(--color-forest-ink)]">
-        {report.summary}
-      </p>
-      <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-charcoal)]">
-        {report.episodes.map((e, i) => (
-          <li key={i} className="flex gap-2">
-            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[var(--color-forest-ink)]" />
-            <span>
-              {e.peak_state} · {e.duration_s}s · {e.resolution || 'open'}
-              {e.reason ? ` — ${e.reason}` : ''}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <p className="text-[16px] text-[var(--color-forest-ink)]">{report.summary}</p>
+      {report.episodes.length === 0 ? (
+        <p className="mt-3 text-[14px] text-[var(--color-charcoal)]">No restless stretches recorded.</p>
+      ) : (
+        <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-charcoal)]">
+          {report.episodes.map((e, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--color-forest-ink)]" />
+              <span>{episodeLine(e)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

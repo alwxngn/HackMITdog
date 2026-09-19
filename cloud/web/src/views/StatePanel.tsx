@@ -1,26 +1,26 @@
+import { statusDetail, statusHeadline } from '../lib/copy'
 import { useProjection } from '../hooks/useProjection'
 
 export function StatePanel() {
   const p = useProjection()
   const a = p.agent_state
-  const tracker = p.person_track?.tracker
+  const name =
+    (p.config.patient as { preferred_name?: string; name?: string } | undefined)?.preferred_name ||
+    (p.config.patient as { name?: string } | undefined)?.name
 
   return (
-    <div className="card-metric h-full">
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <span className="pill">{a.state}</span>
-        <span className="pill uppercase">{a.agitation}</span>
-        {tracker && <span className="pill">tracker: {tracker}</span>}
-        {p.robot_status?.state === 'yielded' && <span className="pill">yielded</span>}
-      </div>
-      <p className="font-[family-name:var(--font-faire-octave)] text-[40px] font-light leading-[1.2] text-[var(--color-forest-ink)]">
-        {a.reason}
+    <section className="card-metric">
+      <p className="eyebrow mb-3">{name ? `${name} · now` : 'Right now'}</p>
+      <h1 className="text-[32px] leading-[1.2] lg:text-[40px]">{statusHeadline(a)}</h1>
+      <p className="mt-3 max-w-2xl text-[16px] leading-[1.5] text-[var(--color-charcoal)]">
+        {statusDetail(a)}
+        {p.robot_status?.state === 'yielded' ? ' Someone walked by, so Lantern paused.' : ''}
       </p>
-      {p.last_transcript && (
+      {p.last_transcript?.text && (
         <p className="mt-4 text-[14px] text-[var(--color-charcoal)]">
-          heard: “{p.last_transcript.text}”
+          Last heard: “{p.last_transcript.text}”
         </p>
       )}
-    </div>
+    </section>
   )
 }

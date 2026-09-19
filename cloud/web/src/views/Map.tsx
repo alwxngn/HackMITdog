@@ -12,30 +12,26 @@ export function MapView() {
   }
 
   return (
-    <div className="card-slate h-full">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[18px]">Floor</h2>
-        <span className="text-[13px] text-[var(--color-charcoal)]">
-          {live ? 'live tracking' : 'map'} · metres
-          {p.map_ready?.map_id ? ` · ${p.map_ready.map_id}` : ''}
-        </span>
-      </div>
-
-      <div className="mb-3 flex flex-wrap gap-3 text-[12px]">
-        {(['safe', 'watch', 'exit'] as const).map((c) => (
-          <span key={c} className="inline-flex items-center gap-1.5 text-[var(--color-charcoal)]">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: PAINT_STROKE[c] }}
-            />
-            {PAINT_LABEL[c]}
-          </span>
-        ))}
+    <div className="card-slate lg:min-h-[calc(100vh-8rem)]">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow mb-2">Home</p>
+          <h2>Where they are</h2>
+        </div>
+        <div className="flex flex-wrap gap-3 text-[12px] text-[var(--color-charcoal)]">
+          {(['safe', 'watch', 'exit'] as const).map((c) => (
+            <span key={c} className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: PAINT_STROKE[c] }} />
+              {PAINT_LABEL[c]}
+            </span>
+          ))}
+          {live && <span className="pill !py-1">Live tracking</span>}
+        </div>
       </div>
 
       <svg
         viewBox={`0 0 ${SVG.width} ${SVG.height}`}
-        className="h-auto w-full max-w-full rounded-[14px] bg-[var(--color-cream-paper)]"
+        className="h-auto w-full min-h-[280px] rounded-[14px] bg-[var(--color-cream-paper)] lg:min-h-[520px]"
       >
         <rect
           x={SVG.pad}

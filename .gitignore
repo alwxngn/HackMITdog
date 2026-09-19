@@ -3,6 +3,11 @@ cloud/web/node_modules/
 cloud/web/dist/
 cloud/data/
 cloud/.env
+bus/.venv/
+bus/bus_events.jsonl
+orchestrator/.venv/
+orchestrator/spine_events.jsonl
+orchestrator/bus_events.jsonl
 __pycache__/
 *.pyc
 .DS_Store
