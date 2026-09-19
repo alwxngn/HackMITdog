@@ -7,6 +7,10 @@ name = "hackmitdog"
 version = "0.1.0"
 requires-python = ">=3.12"
 
+[tool.setuptools]
+packages = ["hackmitdog", "hackmitdog.aegis", "orchestrator"]
+
 [project.entry-points."dimos.blueprints"]
 behaviors = "hackmitdog.behaviors:DogBehaviors"
 aegis-go2 = "hackmitdog.aegis.blueprint:aegis_go2_skills"
+safety-sim = "orchestrator.safety_sim:safety_agentic_sim"

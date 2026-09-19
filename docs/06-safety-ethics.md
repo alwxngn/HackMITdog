@@ -139,10 +139,11 @@ someone asks.
 - **Local-first where practical.** VAD and pacing detection run on the Jetson. Only speech
   segments leave the device.
 - **Family, not platform.** Data belongs to the household. No training on patient audio.
-- **Location follows the same rule (Tier 2).** Live GPS/location streaming to the caregiver only
-  runs during a flagged episode — a `dont_go` breach or a separated walk — never as a standing
-  background feed. When the episode resolves, the stream stops. It's the same "family, not
-  platform" boundary as the audio rule, applied to where someone is instead of what they said.
+- **Location follows the same rule (Tier 2).** Live location streaming to the caregiver — the
+  robot's own `pose`/breadcrumb stream, not GPS — only runs during a flagged episode — a
+  `dont_go` breach or a separated walk — never as a standing background feed. When the episode
+  resolves, the stream stops. It's the same "family, not platform" boundary as the audio rule,
+  applied to where someone is instead of what they said.
 
 One slide. Seven bullets. It takes fifteen seconds and it closes a line of questioning.
 
@@ -186,7 +187,7 @@ precisely to see whether you've thought about it.
 | Robot battery dies overnight | Silent failure — the dangerous one | Dashboard shows battery; low battery is itself a caregiver alert |
 | Person walks faster than the robot, or out of sensor range, outdoors (Tier 2) | Robot loses the follow | Immediate escalation the moment the track is lost, not a silent retry — a lost track outdoors is worse than a lost track at home |
 | Robot says "would you still like to go home?" and gets no answer (Tier 2) | Ambiguous consent | Treat silence as "not yet" — stay in `FOLLOW`, keep company, re-ask on a timer, never assume yes |
-| Real deployment has no GPS signal (indoors, dense urban canyon) (Tier 2) | `GUIDE_HOME` can't localize | Fall back to `FOLLOW` + escalate; say plainly this is a known limitation of consumer GPS, not hidden |
+| Odometry drift on a long real walk, or the door marker is blocked/obscured on arrival (Tier 2) | `GUIDE_HOME` retrace lands near but not exactly at the door | Robot keeps closing distance on the last known breadcrumb and asks the person to confirm/help; if it can't resolve, fall back to `FOLLOW` + escalate rather than guessing |
 
 That last row matters more than it looks. A safety device that fails silently is worse than no
 device, because the family has stopped listening for the door. Having noticed that is exactly

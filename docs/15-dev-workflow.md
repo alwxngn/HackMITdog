@@ -43,8 +43,9 @@ regardless of which subsystem it's working in:
   any cloned voice, yield reflex is a controller-level reflex not a state transition).
 - The subsystem boundary from §1: "you are working in `/robot`; read `/bus` and `/docs`, don't
   write outside `/robot` without flagging it to a human first."
-- Where the mocks are (`mock_robot`, `mock_patient`, `mock_mic`, and Tier 2's `mock_gps`) and
-  the instruction to run against them before declaring anything done.
+- Where the mocks are (`mock_robot`, `mock_patient`, `mock_mic` — Tier 2's `GUIDE_HOME` reuses
+  `mock_robot` rather than needing a fourth) and the instruction to run against them before
+  declaring anything done.
 
 This is the only piece of "implementation" that's fair game to write before hacking opens —
 it's configuration for how you'll work, not project code. Draft it this week; don't touch

@@ -150,8 +150,9 @@ and the team was right to flag that as incomplete. The completed policy:
    A person who has actually left the house is a materially different situation from one still
    pacing the hallway, and the ladder should reflect that severity jump.
 4. **Stream live location to the emergency contact continuously**, not as a one-time alert. This
-   is a real, ongoing `pose`/`gps_position` feed to the dashboard for the duration of the
-   episode — the caregiver should be able to watch the dot move, not just receive a single pin.
+   is a real, ongoing `pose` feed to the dashboard for the duration of the episode — the same
+   odometry-based `x`/`y`/`theta` stream the breadcrumb/guide-home mechanism runs on (see below)
+   — so the caregiver can watch the dot move, not just receive a single pin.
 5. **Keep talking, keep offering to help, never coerce.** The robot's speaker keeps redirecting
    ("It's cold out, let's go back") without ever physically closing the standoff distance to
    force compliance.
@@ -189,35 +190,59 @@ one state machine, not two products."*
 
 ## 8. Set home / set a route (cheap for "home," Tier 2 for "route")
 
-**Home** is a single anchor point — indoors, the taped area's origin corner; outdoors,
-whatever coordinate frame the navigation stack uses (see the GPS caveat below). One field in
-`config_update`, set once during onboarding. Cheap.
+**Home** is not a caregiver-set coordinate — it's whatever breadcrumb the walk started from,
+recorded automatically the moment the walk begins (see below). The only actual onboarding step
+is physical: tape an ArUco marker at the real front door, once, the same kind of one-time setup
+as taping the demo area's calibration corners. Cheap, and it's an install step, not a
+`config_update` field.
 
-**A preferred route** (an ordered list of waypoints the caregiver draws, e.g. "the block she
-always used to walk") is real scope: a route-following controller, replanning around obstacles,
-and a UI to draw it. Tier 2, and only worth it if `GUIDE_HOME` (point-to-point) is already
-solid — a route is a nice-to-have on top of a working "go home" capability, not a prerequisite
-for one. If it doesn't get built, the honest line is *"the patient can walk wherever; going
-home always works; a fixed preferred route is the obvious next step."*
+**A preferred route** is cheaper than it used to be, because the machinery already exists: a
+"preferred route" is just a *saved* breadcrumb trail from a past walk, replayed forward instead
+of the current trail replayed backward. No separate route-drawing UI, no separate
+route-following controller — it's the same reverse-replay mechanism `GUIDE_HOME` already has,
+pointed at a stored trail instead of the live one. Still Tier 2 — saving, naming, and picking a
+trail is real UI work — but it's an application of existing machinery, not new navigation. If it
+doesn't get built, the honest line is *"the patient can walk wherever; going home always works;
+replaying a favorite walk is the obvious next step, and it reuses the same retrace code."*
 
-## The GPS problem, said out loud before a judge finds it
+## Getting home without GPS: breadcrumb retrace + a marker at the door
 
-**GPS does not work indoors, at all — not badly, not intermittently, not at all.** A convention
-hall has no sky view. This means the outdoor half of this feature (§6 steps 3–7, §7) **cannot
-be demonstrated live at the venue with real GPS**, for the same structural reason `05-demo.md`
-already ruled out live SLAM: the venue is not the environment the feature is designed for.
+**We don't use GPS at all, indoors or outdoors — not mocked, not real.** GPS doesn't work
+indoors, but that turns out not to matter, because there's a simpler mechanism that works
+everywhere and needs no satellite fix at all: the robot already knows how far it's walked and in
+what direction from its own odometry (leg odometry + IMU). That's exactly what the `pose`
+message (`x`, `y`, `theta`, 10 Hz) already carries — there is no new sensor to add.
 
-This is not a reason to cut it from the pitch — it's a reason to demo it exactly the way the
-existing plan already demos indoor tracking: **behind the schema, with a mock producing the
-signal.** A `mock_gps` scenario emits a scripted `gps_position` stream (walk away from home,
-wander, drift outside the radius, respond to "take me home") exactly the way `mock_patient`
-already scripts `person_track`. The orchestrator, the `FOLLOW`/`GUIDE_HOME` states, the
-dashboard's live map, and the caregiver alert all run against that mock identically to how they'd
-run against a real GPS module outdoors. Say the sentence: *"Real GPS doesn't work inside a
-convention center — nothing does. What you're seeing is the same orchestrator and the same
-dashboard running against a scripted location feed, exactly like our indoor demo runs against a
-mocked robot when the hardware's charging."* That's a strength, not a hedge — it's the schema
-argument from `04-interfaces.md` applied a second time.
+**The mechanism:**
+
+1. The moment a walk starts (voluntary `WALK`, or the `dont_go` breach that opens `LEAD`), the
+   orchestrator starts recording the robot's own `pose` stream into a **breadcrumb list** — a
+   waypoint every ~0.5–1 m of travel, not every tick, so a long walk doesn't produce an
+   unmanageable trail. `home` is simply the first breadcrumb, not a configured point.
+2. **"Take me home" = walk the breadcrumb list in reverse.** `guide_home` becomes a sequence of
+   `goto` waypoints back through the recorded trail, under the same envelope as `lead_to`
+   (announce, standoff, speed cap). This is not path planning — it's undoing what was just
+   done, which is why it's cheap and correct by construction: whichever way the patient walked
+   out is, by definition, walkable back.
+3. **Optional, Tier 2, not required for the core claim:** a shortcut pass over the breadcrumb
+   list — if two non-adjacent points have clear line-of-sight, drop the points between them —
+   turns "retraces the path" into "finds a shorter way back" when the outbound walk looped or
+   backtracked. Ship step 2 first; this is a strict improvement on top of it, not a dependency.
+4. **Drift correction at the door.** Pure odometry drifts over distance — fine for a demo-length
+   walk, not something to trust on a real 30-minute outdoor walk. Fix: the ArUco marker from §8,
+   picked up by the robot's existing camera (already doing person-tracking, `11-perception.md`)
+   once it's back in range. The last leg of `GUIDE_HOME` switches from breadcrumb-following to
+   marker-relative homing (`solvePnP` gives exact distance and bearing to the marker), which
+   corrects whatever odometry error accumulated on the way home. One small, deterministic vision
+   check at the very end — not continuous tracking, not SLAM.
+
+**This is a strictly better position than the GPS version of this plan.** The old plan needed
+`mock_gps` because real GPS cannot be demonstrated indoors at all, full stop. Breadcrumb retrace
+has no such constraint — the mechanism doesn't care whether it's indoors or outdoors, so **it can
+be demoed live, for real, in the taped area**, the same way indoor person-tracking already is.
+Walk the "patient" in a loop inside the tape, say "take me home," and the robot actually retraces
+its own recorded path and performs the marker correction — no scripted feed standing in for a
+capability that can't be shown.
 
 ---
 
@@ -231,9 +256,9 @@ argument from `04-interfaces.md` applied a second time.
 | Reminders (water/food/walk prompt, conversation starters) | **1** | A timer against a schedule; suppressed by `agent_state`. |
 | Zone label rename (`dont_go` display, `kind` field) | **1** | Metadata addition to an existing schema. |
 | Wandering completion: breach alert severity, continuous location stream | **1** | Closes a real gap; mostly wiring that already exists (`alert`, `pose`) differently. |
-| `FOLLOW` state, re-confirm, `GUIDE_HOME` (mocked GPS) | **2** | New states, new mock, genuinely novel work. Build once the Tier 0 spine is green. |
+| `FOLLOW` state, re-confirm, `GUIDE_HOME` (breadcrumb retrace) | **2** | New states, new controller logic, genuinely novel work — but demoable live, not mocked. Build once the Tier 0 spine is green. |
 | Day-walk entry into the shared follow/guide-home machinery | **2** | Depends entirely on the above existing first. |
-| Preferred route (vs. point-to-point home) | **2, optional** | Nice-to-have on top of a working point-to-point `GUIDE_HOME`. |
+| Preferred route (vs. point-to-point home) | **2, optional** | Nice-to-have on top of a working point-to-point `GUIDE_HOME` — a saved trail replayed forward, same retrace mechanism. |
 
 Everything in Tier 1 here is genuinely cheap — mostly additive fields on schemas that already
 exist, which is exactly the kind of scope this plan can absorb without threatening the spine.
@@ -246,10 +271,11 @@ isn't, and never let it be the thing the climax depends on.
 - `02-blueprint.md` — pillars, state machine, escalation ladder, and the tier list all get the
   additions above.
 - `03-build-plan.md` — ownership gains a line each for E1 (companionship prompt, check-in relay,
-  reminders), E2/E4 (`FOLLOW`/`GUIDE_HOME`, `mock_gps`), E3 (schedule/habits fields, zone label,
-  live map during `FOLLOW`, home/route setting).
+  reminders), E2/E4 (`FOLLOW`/`GUIDE_HOME`, breadcrumb retrace, ArUco final-approach detection),
+  E3 (schedule/habits fields, zone label, live map during `FOLLOW`, home/route setting).
 - `04-interfaces.md` — new message types and field additions, listed in full there.
 - `06-safety-ethics.md` — the completed wandering policy and the re-confirmation rule are safety
   policy, not features, and belong in the envelope table.
-- `05-demo.md` and `09-judge-qa.md` — the GPS-mock explanation above is a rehearsed line, not an
-  improvised one.
+- `05-demo.md` and `09-judge-qa.md` — the breadcrumb-retrace explanation above is a rehearsed
+  line, not an improvised one, and it replaces the old GPS-mock defense with something stronger:
+  this feature can be demoed live.
