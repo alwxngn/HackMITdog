@@ -1,12 +1,16 @@
-# Lantern — HackMIT planning repo
+# Lantern — HackMIT project
 
-Planning and scoping documents for a voice-native quadruped companion for in-home
+Planning documents and an initial mobile voice prototype for a voice-native quadruped companion for in-home
 dementia care. (Working name: **Lantern**. Previously "Project Aegis" — see
 [`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name) for why the name changed.)
 
-This repo holds the **plan**, not the code — deliberately. HackMIT allows you to plan in
-advance but requires all project code to be written during the hacking window, so nothing here
-is implementation and nothing should become implementation until hacking opens. See
+The original planning documents are in `docs/`. The first implementation is now in
+[`voice/`](voice/README.md): a caregiver page sends a check-in to a paired mobile browser,
+which speaks for Lantern and accepts a spoken or typed patient reply. See the
+[setup guide](voice/README.md) for running locally, connecting a physical phone over HTTPS,
+and enabling Deepgram/ElevenLabs. Replies are scripted in this first version.
+
+The planning rules about writing project code during the hacking window remain documented in
 [`docs/10-second-pass.md`](docs/10-second-pass.md) P1-8.
 
 It exists so that four engineers can agree on scope, interfaces, and the demo before anyone
