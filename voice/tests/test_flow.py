@@ -140,6 +140,23 @@ class CheckinTests(unittest.TestCase):
                 asyncio.run(providers.synthesize('Hello'))
             self.assertEqual(caught.exception.status_code, 503)
 
+    def test_speech_retry_reuses_audio_and_rechecks_consent(self):
+        env = {'ELEVENLABS_API_KEY':'test', 'ELEVENLABS_VOICE_ID':'test', 'ELEVENLABS_VOICE_CONSENT':'true'}
+        with patch.dict(os.environ, env), patch('voice.providers.synthesize', new=AsyncMock(return_value=b'mp3')) as synth:
+            with self.phone() as ws:
+                self.ready(ws)
+                self.checkin()
+                speech = ws.receive_json()['payload']; ws.receive_json()
+                path = f"/api/sessions/{self.id}/speech/{speech['utterance_id']}"
+                first = self.client.post(path, headers=self.phone_headers)
+                second = self.client.post(path, headers=self.phone_headers)
+                self.assertEqual(first.content, b'mp3')
+                self.assertEqual(second.content, b'mp3')
+                self.assertEqual(first.headers['content-type'], 'audio/mpeg')
+                synth.assert_awaited_once()
+                with patch.dict(os.environ, {'ELEVENLABS_VOICE_CONSENT':'false'}):
+                    self.assertEqual(self.client.post(path, headers=self.phone_headers).status_code, 503)
+
     def test_html_is_available_and_name_input_is_validated(self):
         self.assertEqual(self.client.get('/').status_code, 200)
         self.assertEqual(self.client.get('/phone').status_code, 200)

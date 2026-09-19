@@ -8,7 +8,9 @@ function render(message) {
   if (message.type !== 'snapshot') return;
   state = message;
   $('connection').textContent = message.phone_ready ? '● Phone ready' : message.phone_online ? '○ Tap Start on the phone' : '○ Phone offline';
-  $('mode').textContent = `${message.capabilities.tts === 'browser' ? 'Phone voice' : 'ElevenLabs voice'} · Scripted conversation`;
+  $('mode').textContent = `${message.capabilities.stt === 'deepgram' ? 'Deepgram recognition' : 'Browser recognition'} · ${message.capabilities.tts === 'browser' ? 'Phone voice' : 'ElevenLabs voice'} · Scripted conversation`;
+  $('provider-note').textContent = (message.configuration_notes || []).join(' ');
+  $('provider-note').hidden = !message.configuration_notes?.length;
   $('checkin-title').textContent = `Say hello to ${message.profile.patient}`;
   const statuses = {sent: 'Sent · waiting for phone playback', speaking: 'Lantern is speaking…', delivered: 'Delivered · waiting for a reply', responded: 'Reply received', interrupted: 'Message interrupted on the phone', failed: 'Audio did not play. Check the phone.', unavailable: 'Phone disconnected before delivery was confirmed.'};
   $('delivery').textContent = message.checkin ? statuses[message.checkin.status] || message.checkin.status : 'Your check-in will start a conversation.';

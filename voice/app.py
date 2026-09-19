@@ -63,6 +63,7 @@ class Session:
     turns: deque = field(default_factory=lambda: deque(maxlen=100))
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     audio_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    speech_cache: tuple[str, bytes] | None = None
 
     def record(self, kind, payload, source="voice"):
         self.events.append({"type": kind, "ts": time.time(), "source": source,
@@ -73,7 +74,8 @@ class Session:
         return {"type": "snapshot", "session_id": self.id, "profile": self.profile.model_dump(),
                 "phone_online": self.phone is not None, "phone_ready": self.ready,
                 "checkin": self.checkin, "utterance": self.utterance,
-                "events": list(self.events), "capabilities": providers.capabilities()}
+                "events": list(self.events), "capabilities": providers.capabilities(),
+                "configuration_notes": providers.configuration_notes()}
 
     async def publish(self):
         message = self.snapshot()
@@ -125,7 +127,8 @@ async def phone_page():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "capabilities": providers.capabilities()}
+    return {"status": "ok", "capabilities": providers.capabilities(),
+            "configuration_notes": providers.configuration_notes()}
 
 
 @app.post("/api/sessions", status_code=201)
@@ -145,6 +148,7 @@ async def say(session, text, origin, attribution=None):
     payload = {"utterance_id": secrets.token_urlsafe(12), "text": text, "voice_id": None,
                "tone": "warm", "interruptible": True, "attribution": attribution, "origin": origin}
     session.utterance = {**payload, "state": "pending"}
+    session.speech_cache = None
     session.record("say", payload, "orchestrator")
     try:
         await asyncio.wait_for(session.phone.send_json({"type": "say", "payload": payload}), 3)
@@ -294,5 +298,15 @@ async def speech(session_id: str, utterance_id: str, request: Request):
     if not current or current["utterance_id"] != utterance_id or current["state"] not in {"pending", "speaking", "failed"}:
         raise HTTPException(409, "This utterance is no longer active.")
     async with session.audio_lock:
-        audio = await providers.synthesize(current["text"])
+        if providers.capabilities()["tts"] != "elevenlabs":
+            raise HTTPException(503, "The selected ElevenLabs voice is not enabled.")
+        if session.utterance is not current or current["state"] not in {"pending", "speaking", "failed"}:
+            raise HTTPException(409, "This utterance is no longer active.")
+        if session.speech_cache and session.speech_cache[0] == utterance_id:
+            audio = session.speech_cache[1]
+        else:
+            audio = await providers.synthesize(current["text"])
+            if session.utterance is not current or current["state"] not in {"pending", "speaking", "failed"}:
+                raise HTTPException(409, "This utterance was interrupted.")
+            session.speech_cache = (utterance_id, audio)
     return Response(audio, media_type="audio/mpeg")
