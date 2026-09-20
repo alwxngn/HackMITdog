@@ -1,10 +1,51 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProjection } from '../hooks/useProjection'
 
+interface SpeakerStatus {
+  phone_online: boolean
+  phone_ready: boolean
+}
+
 export function DemoWalk() {
-  const { demo } = useProjection()
+  const { demo, config } = useProjection()
+  const watching = (config.night_watch_enabled as boolean | undefined) ?? false
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [speaker, setSpeaker] = useState<SpeakerStatus | null>(null)
+  const [testNote, setTestNote] = useState('')
+
+  // Is the phone on the dog paired and started? Poll so the card stays honest.
+  useEffect(() => {
+    let cancelled = false
+    const poll = () =>
+      fetch('/api/speaker')
+        .then((r) => r.json())
+        .then((s: SpeakerStatus) => !cancelled && setSpeaker(s))
+        .catch(() => !cancelled && setSpeaker(null))
+    void poll()
+    const id = setInterval(poll, 3000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
+  async function testSpeaker() {
+    setTestNote('')
+    try {
+      const r = await fetch('/api/speaker/test', { method: 'POST' })
+      const d = (await r.json()) as { on_phone?: boolean }
+      setTestNote(d.on_phone ? 'Sent — you should hear it on the phone.' : 'No phone is started, so it only appears in the timeline.')
+    } catch {
+      setTestNote('Could not reach Lantern.')
+    }
+  }
+
+  const speakerLine = speaker?.phone_ready
+    ? { dot: 'var(--color-safe)', text: 'Speaker phone ready' }
+    : speaker?.phone_online
+      ? { dot: 'var(--color-watch)', text: 'Phone paired — tap Start Lantern on it' }
+      : { dot: 'var(--color-tint)', text: 'No speaker phone connected' }
 
   async function call(path: string) {
     setBusy(true)
@@ -27,8 +68,19 @@ export function DemoWalk() {
 
   return (
     <section className="card-cream">
-      <p className="eyebrow mb-2">Demo</p>
-      <h2>Walk-through</h2>
+      <p className="flex items-center gap-2 text-[13px] text-[var(--color-ink-2)]">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: speakerLine.dot }} />
+        <span className="min-w-0 flex-1">{speakerLine.text}</span>
+        <button type="button" className="shrink-0 underline" onClick={testSpeaker}>
+          Test speaker
+        </button>
+      </p>
+      {!watching && (
+        <p className="mt-2 text-[13px] text-[var(--color-watch)]">
+          Night Watch is off, so the zones are ignored and nothing will alert. Turn it on to see the warnings.
+        </p>
+      )}
+      {testNote && <p className="mt-1 text-[12px] text-[var(--color-ink-2)]">{testNote}</p>}
       {demo.running ? (
         <>
           <p className="mt-3 text-[14px] text-[var(--color-ink)]">
@@ -49,10 +101,6 @@ export function DemoWalk() {
         </>
       ) : (
         <>
-          <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">
-            Simulates the person walking from the safe zone into the warning zone, then the Don’t-go zone, and out of
-            the house.
-          </p>
           <button type="button" className="btn-primary mt-4" disabled={busy} onClick={() => call('/api/demo/walk')}>
             Run demo walk
           </button>

@@ -20,7 +20,7 @@ TTZ_LEAD_S = float(os.getenv("TTZ_LEAD_S", "8"))
 
 
 class StateMachine:
-    def __init__(self, bus: Bus, *, patient_name: str = "Arthur") -> None:
+    def __init__(self, bus: Bus, *, patient_name: str = "Susan") -> None:
         self.bus = bus
         self.patient_name = patient_name
         self.state = "IDLE"
@@ -383,7 +383,7 @@ class StateMachine:
         headline = headline or f"{self.patient_name} is heading for the front door"
         detail = (
             f"Redirection attempted for {int(LEAD_TO_ESCALATE_S)}s. "
-            f"He's near {zone}."
+            f"They're near {zone}."
         )
         channels = ["sms", "push"]
         if level >= 3:

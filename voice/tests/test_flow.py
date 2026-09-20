@@ -16,7 +16,7 @@ class CheckinTests(unittest.TestCase):
     def setUp(self):
         sessions.clear()
         self.client = TestClient(app)
-        self.credentials = self.client.post('/api/sessions', json={'patient': 'Arthur', 'caregiver': 'Sarah'}).json()
+        self.credentials = self.client.post('/api/sessions', json={'patient': 'Susan', 'caregiver': 'Sarah'}).json()
         self.id = self.credentials['session_id']
         self.headers = {'Authorization': 'Bearer ' + self.credentials['caregiver_token']}
         self.phone_headers = {'Authorization': 'Bearer ' + self.credentials['phone_token']}

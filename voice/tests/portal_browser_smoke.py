@@ -28,7 +28,7 @@ with sync_playwright() as p:
     expect(phone.locator('#start')).to_be_enabled()
     phone.locator('#start').click()
     expect(panel.get_by_role('button', name='Send to robot')).to_be_enabled()
-    panel.get_by_label('Check-in message').fill('Hello Arthur. How are you feeling today?')
+    panel.get_by_label('Check-in message').fill('Hello Susan. How are you feeling today?')
     with phone.expect_response(lambda response: '/speech/' in response.url, timeout=60000) as audio_response:
         panel.get_by_role('button', name='Send to robot').click()
     response = audio_response.value
@@ -50,7 +50,7 @@ with sync_playwright() as p:
     expect(phone.locator('#record')).to_have_text('Finish and send reply')
     phone.wait_for_timeout((phone.evaluate('window.__duration') + 0.5) * 1000)
     phone.locator('#record').click()
-    expect(panel.get_by_test_id('checkin-reply')).to_contain_text('Arthur', timeout=60000)
+    expect(panel.get_by_test_id('checkin-reply')).to_contain_text('Susan', timeout=60000)
     expect(panel.get_by_role('status')).to_have_text('Reply received', timeout=60000)
     expect(phone.locator('#activity')).to_contain_text('Your turn', timeout=60000)
     phone.screenshot(path='test-results/portal-phone.png', full_page=True)
@@ -58,7 +58,7 @@ with sync_playwright() as p:
     panel.get_by_role('button', name='Close').click()
     caregiver.goto('http://127.0.0.1:5173/watch')
     expect(caregiver.get_by_role('heading', name='Tonight, at a glance')).to_be_visible()
-    expect(caregiver.get_by_test_id('checkin-reply')).to_contain_text('Arthur')
+    expect(caregiver.get_by_test_id('checkin-reply')).to_contain_text('Susan')
     timeline = caregiver.locator('div.card').filter(has=caregiver.get_by_role('heading', name='Timeline', exact=True))
     expect(timeline).to_contain_text('patient:')
     expect(timeline).to_contain_text('How are you feeling today?')

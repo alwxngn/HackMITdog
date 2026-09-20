@@ -65,7 +65,7 @@ def build_morning_report() -> dict[str, Any]:
 
 def _summary(episodes: list[dict[str, Any]]) -> str:
     if not episodes:
-        return "Quiet night. No events."
+        return "A quiet night. Everything was calm."
     n = len(episodes)
     resolved = sum(1 for e in episodes if e.get("resolution") and e["resolution"] != "open")
     parts = []

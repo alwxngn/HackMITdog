@@ -22,6 +22,7 @@ from escalation import escalation
 import notify
 from report import build_morning_report
 from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
+from speaker import speaker
 from store import store
 
 logging.basicConfig(level=logging.INFO)
@@ -56,7 +57,7 @@ hub = Hub()
 
 def _night_watch_enabled() -> bool:
     cfg = store.projection.get("config") or {}
-    return bool(cfg.get("night_watch_enabled", True))
+    return bool(cfg.get("night_watch_enabled", False))
 
 
 def _zone_class(zone_id: str | None) -> str | None:
@@ -74,13 +75,16 @@ def _is_night_watch_trigger(msg: dict[str, Any]) -> bool:
 
     if t == "zone_event":
         cls = p.get("zone_class") or p.get("class") or _zone_class(p.get("zone") or p.get("zone_id"))
-        return cls == "exit"
+        return cls in ("exit", "watch")
 
     if t == "alert":
-        if p.get("context") == "night_breach":
+        if p.get("context") in ("night_breach", "zone_watch"):
             return True
         cls = _zone_class((p.get("person_position") or {}).get("zone") or p.get("zone"))
-        return cls == "exit" or int(p.get("level", 0)) >= 5
+        return cls in ("exit", "watch") or int(p.get("level", 0)) >= 5
+
+    if t == "agent_state":
+        return p.get("state") in ("ATTEND", "LEAD", "ESCALATE", "EMERGENCY")
 
     return False
 
@@ -98,6 +102,10 @@ async def on_bus_message(msg: dict[str, Any]) -> None:
             escalation.cancel((msg.get("payload") or {}).get("alert_id", ""))
     except Exception:
         logger.exception("escalation handler failed on %s", msg.get("type"))
+    try:
+        await speaker.on_message(msg)
+    except Exception:
+        logger.exception("speaker failed on %s", msg.get("type"))
     await hub.broadcast(msg)
 
 
@@ -285,6 +293,7 @@ async def api_map_scan(body: dict[str, Any] | None = None):
     body = body or {}
     request_id = body.get("request_id") or f"ms_{uuid.uuid4().hex[:8]}"
     mode = (body.get("mode") or os.getenv("MAP_SCAN_MODE", "demo")).strip().lower()
+    expected_duration_s = float(os.getenv("LANTERN_MAP_DURATION_S", "180"))
 
     req = {
         "type": "map_scan_request",
@@ -307,14 +316,43 @@ async def api_map_scan(body: dict[str, Any] | None = None):
             "payload": map_ready_payload,
         }
         await bus.ingest(ready)
-        return {"ok": True, "mode": "demo", "request_id": request_id, "map_ready": ready["payload"]}
+        return {
+            "ok": True,
+            "mode": "demo",
+            "request_id": request_id,
+            "expected_duration_s": 2,
+            "map_ready": ready["payload"],
+        }
 
     return {
         "ok": True,
         "mode": "live",
         "request_id": request_id,
+        "expected_duration_s": expected_duration_s,
         "hint": "Waiting for E2 map_ready on the bus (POST /api/ingest)",
     }
+
+
+@app.post("/api/map-scan/stop")
+async def api_map_scan_stop(body: dict[str, Any] | None = None):
+    """Stop active exploration and ask E2 to export the map collected so far."""
+    body = body or {}
+    request_id = str(body.get("request_id") or "")
+    pending = store.projection.get("map_scan_pending") or {}
+    if not request_id or pending.get("request_id") != request_id:
+        return JSONResponse({"ok": False, "error": "No matching map scan is active."}, status_code=409)
+    await bus.publish({
+        "type": "command",
+        "ts": time.time(),
+        "source": "cloud",
+        "seq": 0,
+        "payload": {
+            "command_id": f"map_stop_{uuid.uuid4().hex[:8]}",
+            "action": "stop",
+            "args": {"operation": "map_scan", "request_id": request_id},
+        },
+    })
+    return {"ok": True, "request_id": request_id, "status": "stopping"}
 
 
 @app.get("/api/map-scan/status")
@@ -338,13 +376,14 @@ async def api_reset():
 async def _reset_live() -> None:
     """Clear live state between demo runs but keep the painted zones and patient setup."""
     escalation.cancel_all()
+    speaker.reset()
     store.reset(keep_setup=True)
     await hub.broadcast(store.snapshot())
 
 
 @app.post("/api/demo/walk")
 async def api_demo_walk():
-    """Scripted walk: safe → warning → Don't-go → out of the house (no orchestrator needed)."""
+    """Scripted walk: safe → warning → danger → out of the house (no orchestrator needed)."""
     result = await demo.start(_reset_live)
     if not result["ok"]:
         return JSONResponse(result, status_code=409)
@@ -357,10 +396,53 @@ async def api_demo_stop():
     return {"ok": True}
 
 
+@app.get("/api/speaker")
+async def api_speaker():
+    """Is a phone paired and started to act as Lantern's speaker?"""
+    return speaker.status()
+
+
+@app.post("/api/speaker/test")
+async def api_speaker_test():
+    name, _ = speaker._patient()
+    on_phone = await speaker.speak(f"Hi {name}, this is Lantern. Can you hear me?")
+    return {"ok": True, "on_phone": on_phone}
+
+
+# Demo-only fake numbers (reserved 555-01xx range) so "Call help" isn't empty before setup is finished.
+_PRESET_PHONES = {"jenny": "(617) 555-0101", "mark": "(617) 555-0102", "javiar": "(617) 555-0103"}
+
+
+def _preset_phone(name: str) -> str | None:
+    return _PRESET_PHONES.get((name or "").strip().lower())
+
+
 @app.get("/api/contacts")
 async def api_contacts():
-    """Emergency contacts from the escalation ladder, with the numbers alerts already use."""
-    rules = (store.projection.get("config") or {}).get("escalation") or []
+    """People saved during onboarding; falls back to the escalation ladder's names."""
+    cfg = store.projection.get("config") or {}
+    people = [p for p in (cfg.get("people") or []) if isinstance(p, dict) and p.get("name")]
+    if people:
+        # emergency contacts first, keeping the order they were entered in
+        people.sort(key=lambda p: p.get("kind") != "emergency")
+
+        def role(p: dict[str, Any]) -> str:
+            rel = p.get("relationship") or "Contact"
+            return rel if p.get("kind") == "emergency" else f"{rel} (household)"
+
+        return {
+            "contacts": [
+                {
+                    "name": p["name"],
+                    "role": role(p),
+                    "phone": (p.get("phone") or "").strip() or _preset_phone(p["name"]),
+                    "kind": p.get("kind"),
+                }
+                for p in people
+            ]
+        }
+
+    rules = cfg.get("escalation") or []
     names: list[str] = []
     for rule in rules:
         name = rule.get("contact")
@@ -372,7 +454,7 @@ async def api_contacts():
             {
                 "name": name.capitalize(),
                 "role": roles[i] if i < len(roles) else "Contact",
-                "phone": notify._to_number(name),
+                "phone": notify._to_number(name) or _preset_phone(name),
             }
             for i, name in enumerate(names)
         ]

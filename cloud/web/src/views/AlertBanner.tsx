@@ -82,9 +82,9 @@ export function AlertBanner({ onOpenCamera, cameraOpen, onTrack, onCallHelp }: P
           <button
             type="button"
             className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[13px] font-medium text-[var(--color-ink)]"
-            onClick={() => ack(a.alert_id, 'im_coming')}
+            onClick={() => ack(a.alert_id, 'dismiss')}
           >
-            I’ll handle it
+            Dismiss
           </button>
         </div>
       </div>
@@ -129,12 +129,9 @@ export function AlertBanner({ onOpenCamera, cameraOpen, onTrack, onCallHelp }: P
           <button
             type="button"
             className={onTrack && a.live_tracking ? 'btn-ghost' : 'btn-primary'}
-            onClick={() => ack(a.alert_id, 'im_coming')}
+            onClick={() => ack(a.alert_id, 'dismiss')}
           >
-            I’ll handle it
-          </button>
-          <button type="button" className="btn-ghost" onClick={() => ack(a.alert_id, 'false_alarm')}>
-            False alarm
+            Dismiss
           </button>
           <button
             type="button"

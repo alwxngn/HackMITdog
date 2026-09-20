@@ -1,4 +1,4 @@
-"""Scripted demo walk: safe zone → warning zone → Don't-go zone → out of the house.
+"""Scripted demo walk: safe zone → warning zone → danger zone → out of the house.
 
 Emits the same envelopes the real spine does (person_track, zone_event, agent_state,
 alert, say, pose, ...) straight into the cloud bus, so the portal, SMS/voice
@@ -39,7 +39,7 @@ OUTSIDE_PATH: list[tuple[float, float]] = [
 STEPS = [
     "Resting in the safe zone",
     "In the warning zone",
-    "In the Don't-go zone",
+    "In the danger zone",
     "Left the house",
     "Live tracking",
 ]
@@ -80,15 +80,6 @@ class DemoWalk:
         if problem:
             return {"ok": False, "error": problem}
         await reset()
-        if not (store.projection.get("config") or {}).get("night_watch_enabled", True):
-            await bus.publish(
-                {
-                    "type": "config_update",
-                    "ts": time.time(),
-                    "source": "cloud",
-                    "payload": {"night_watch_enabled": True},
-                }
-            )
         self._task = asyncio.create_task(self._run())
         return {"ok": True}
 
@@ -117,7 +108,7 @@ class DemoWalk:
 
         exit_zone, watch_zone, safe_zone = first("exit"), first("watch"), first("safe")
         if not exit_zone:
-            return "Paint a Don't-go zone first (Settings → Edit home)."
+            return "Paint a danger zone first (Settings → Edit home)."
         self.exit_c = _centroid(exit_zone["polygon"])
         self.watch_c = _centroid(watch_zone["polygon"]) if watch_zone else None
         self.start_c = _centroid(safe_zone["polygon"]) if safe_zone else (self.w * 0.25, self.h * 0.5)
@@ -129,8 +120,7 @@ class DemoWalk:
 
         cfg = proj.get("config") or {}
         patient = cfg.get("patient") or {}
-        self.name = patient.get("preferred_name") or patient.get("name") or "Arthur"
-        self.attribution = (cfg.get("voice") or {}).get("attribution_name") or "Sarah"
+        self.name = patient.get("preferred_name") or patient.get("name") or "Susan"
         home = patient.get("home") or {}
         if home.get("lat") is not None and home.get("lon") is not None:
             self.home_latlon = (float(home["lat"]), float(home["lon"]))
@@ -149,8 +139,17 @@ class DemoWalk:
         self.zone_cls = ""
         self.agent_state = "IDLE"
         self.alert_n = 0
-        self.say_n = 0
         return None
+
+    @staticmethod
+    def _place(zone: dict[str, Any], generic: str) -> str:
+        """A zone's own name, unless it is just the generic 'Warning'/'Danger' label."""
+        label = zone.get("label") or ""
+        return generic if label.lower() in {"", "warning", "danger", "watch", "don't go"} else label
+
+    def _enabled(self) -> bool:
+        """Danger zones are only enforced while Night Watch is on."""
+        return bool((store.projection.get("config") or {}).get("night_watch_enabled", False))
 
     # ---- geometry -----------------------------------------------------------
 
@@ -235,44 +234,6 @@ class DemoWalk:
             },
             "orchestrator",
         )
-
-    def _phone_session(self) -> Any | None:
-        try:
-            from voice.app import sessions
-        except Exception:
-            return None
-        ready = [s for s in sessions.values() if s.phone is not None and s.ready]
-        return max(ready, key=lambda s: s.created) if ready else None
-
-    async def _speak(self, text: str) -> None:
-        """Speak on the paired phone (Lantern's speaker) if one is ready, else just log it."""
-        attribution = f"{self.attribution} recorded this for you"
-        session = self._phone_session()
-        if session is not None:
-            try:
-                from voice.app import say
-
-                await say(session, text, "policy", attribution)
-                await session.publish()
-                return
-            except Exception:
-                logger.exception("phone speech failed — falling back to portal-only say")
-        self.say_n += 1
-        utterance_id = f"demo_u{self.say_n}"
-        await self._emit(
-            "say",
-            {
-                "utterance_id": utterance_id,
-                "text": text,
-                "voice_id": "sarah_clone_v1",
-                "tone": "soothing",
-                "interruptible": True,
-                "attribution": attribution,
-                "origin": "policy",
-            },
-            "orchestrator",
-        )
-        await self._emit("speech_state", {"state": "speaking", "utterance_id": utterance_id}, "voice")
 
     # ---- movement -----------------------------------------------------------
 
@@ -376,8 +337,10 @@ class DemoWalk:
 
     async def _on_watch(self, zone: dict[str, Any]) -> None:
         await self._status(1)
-        label = zone.get("label") or "the hallway"
-        await self._state("ATTEND", f"{self.name} is in the warning zone ({label})", "unsettled")
+        if not self._enabled():
+            return await self._hold(4.0)
+        label = self._place(zone, "the warning zone")
+        await self._state("ATTEND", f"{self.name} is in the warning zone", "unsettled")
         await self._alert(
             1,
             f"{self.name} is in the warning zone",
@@ -390,19 +353,21 @@ class DemoWalk:
 
     async def _on_exit(self, zone: dict[str, Any]) -> None:
         await self._status(2)
-        label = zone.get("label") or "the front door"
-        await self._state("LEAD", f"{self.name} reached the Don't-go zone", "agitated")
+        if not self._enabled():
+            return await self._hold(8.0)
+        label = self._place(zone, "the danger zone")
+        await self._state("LEAD", f"{self.name} reached the danger zone", "agitated")
         await self._emit(
             "command",
             {"command_id": "demo_cmd_1", "action": "lead_to", "args": {"zone_id": "bedroom", "speed_max": 0.3, "standoff_m": 1.5}},
             "orchestrator",
         )
-        await self._speak(f"{self.name}, it's the middle of the night. Let's go back to bed.")
+        # Lantern's speaker (speaker.py) reacts to this zone change and says "let's go home".
         await asyncio.sleep(1.0)
         await self._alert(
             2,
-            f"{self.name} is in the Don't-go zone",
-            f"At {label}. Lantern asked them to go back to bed, but they haven't turned around.",
+            f"{self.name} is in the danger zone",
+            f"At {label}. Lantern asked them to go home, but they haven't turned around.",
             requires_ack=True,
             channels=["sms", "push"],
             context="night_breach",
@@ -411,6 +376,8 @@ class DemoWalk:
 
     async def _on_outside(self, zone: dict[str, Any]) -> None:
         await self._status(3)
+        if not self._enabled():
+            return
         await self._state("EMERGENCY", f"{self.name} left the house", "agitated")
         await self._alert(
             5,

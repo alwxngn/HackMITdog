@@ -27,29 +27,29 @@ in that order.
 
 ## The 90-second table demo
 
-Someone plays Arthur. Someone narrates. The laptop shows the dashboard. A phone sits face-up on
+Someone plays Susan. Someone narrates. The laptop shows the dashboard. A phone sits face-up on
 the table where the judge can see it.
 
-**0:00–0:10 — The hook.** *"It's 2 AM. Arthur has dementia. He's about to try to leave the house
+**0:00–0:10 — The hook.** *"It's 2 AM. Susan has dementia. He's about to try to leave the house
 — and the way his daughter finds out today is a door alarm, after he's already outside."*
 
 Set the scene before anything moves. Judges who don't have the frame don't understand what
 they're watching.
 
-**0:10–0:25 — Pacing.** Arthur walks back and forth across the taped area. Point at the
+**0:10–0:25 — Pacing.** Susan walks back and forth across the taped area. Point at the
 dashboard: agitation moves `calm` → `unsettled`, with the reason string rendering live —
 *"3 direction reversals in 90 s."*
 
 *"Nothing has happened yet. No door has opened. But it already knows something's starting."*
 
 **0:25–0:45 — Attend and converse.** The robot announces from where it is, then approaches to
-the front-sector standoff. Arthur mumbles *"where am I supposed to be"*. Transcript appears.
-The robot answers in the familiar voice: *"It's night time, Arthur. You're home. Sarah recorded
+the front-sector standoff. Susan mumbles *"where am I supposed to be"*. Transcript appears.
+The robot answers in the familiar voice: *"It's night time, Susan. You're home. Sarah recorded
 this for you."*
 
 *"It never corrects him, never tests his memory, never claims to be his daughter."*
 
-**0:45–1:05 — Lead away.** Arthur turns toward the taped exit zone. Agitation goes `agitated`,
+**0:45–1:05 — Lead away.** Susan turns toward the taped exit zone. Agitation goes `agitated`,
 state goes `LEAD`. The robot moves to a point ahead and to the side — **never into the
 doorway** — and walks slowly toward the safe zone while talking.
 
@@ -62,8 +62,8 @@ his field of view, and if he walks at it, it gets out of the way."*
 **Invite the judge to test it.** "Walk at it." They do. It yields. `robot_status: yielded`
 appears in the log. That ten seconds does more for you than any slide.
 
-**1:05–1:20 — Escalate.** Arthur ignores the robot. Twenty seconds elapse. The phone on the
-table lights up: *"Arthur is heading for the front door."* Dashboard goes to alert. The judge
+**1:05–1:20 — Escalate.** Susan ignores the robot. Twenty seconds elapse. The phone on the
+table lights up: *"Susan is heading for the front door."* Dashboard goes to alert. The judge
 can pick up the phone.
 
 *"SMS first, then an actual phone call after sixty seconds — texts don't wake people at 2 AM."*
@@ -83,7 +83,7 @@ Don't build this into the 90-second script — it competes with the 2 AM story f
 attention, and the 2 AM story wins that fight every time. Use it only when a judge lingers past
 the report, or explicitly asks "what does it do the rest of the time?"
 
-*"It's not only a night-watch device."* Arthur asks it something ordinary — "what did I used to
+*"It's not only a night-watch device."* Susan asks it something ordinary — "what did I used to
 do for work" — and it answers from his own profile, same voice, same policy rules, no agitation
 involved. Then, if `FOLLOW`/`GUIDE_HOME` are wired: *"And during the day, he can just go for a
 walk — no fixed route."* Walk him away from the taped "home" corner, narrate the radius

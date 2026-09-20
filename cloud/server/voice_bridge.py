@@ -27,7 +27,7 @@ async def forward_voice_event(event):
 
 def patient_name():
     patient = store.projection.get("config", {}).get("patient", {})
-    return patient.get("preferred_name") or patient.get("name") or "Arthur"
+    return patient.get("preferred_name") or patient.get("name") or "Susan"
 
 
 def patient_voice_id():

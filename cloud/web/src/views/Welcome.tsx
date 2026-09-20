@@ -1,39 +1,52 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { DogMascot } from '../components/DogMascot'
 import { KineticTextReveal } from '../components/KineticTextReveal'
+import { PawBackdrop } from '../components/PawBackdrop'
+import { PhoneFrame } from '../components/PhoneFrame'
+
+const CREAM = '#fbf3df'
 
 export function Welcome() {
-  const [stage, setStage] = useState<'mark' | 'invite'>('mark')
+  const [ready, setReady] = useState(false)
 
   return (
-    <div className="flex min-h-full items-center justify-center px-6 py-16">
-      <div className="w-full max-w-[720px] rounded-[28px] bg-[var(--color-surface)] shadow-[var(--shadow-card)] px-8 py-16 text-center md:px-16 md:py-24">
-        {stage === 'mark' && (
-          <h1 className="text-[44px] leading-[1.05] tracking-[-0.04em] md:text-[64px]">
-            <KineticTextReveal
-              text="Lantern"
-              splitBy="characters"
-              stagger={0.06}
-              onRevealComplete={() => setStage('invite')}
-            />
-          </h1>
-        )}
+    <PhoneFrame className="items-center justify-center bg-[var(--color-brand-mid)] px-8 py-16 text-center">
+      <PawBackdrop />
+      <div className="relative flex w-full flex-col items-center gap-5">
+        <DogMascot color={CREAM} className="h-[150px] w-[188px]" />
+        <h1
+          className="text-[40px] font-bold uppercase leading-none tracking-[0.08em] md:text-[52px]"
+          style={{ color: CREAM }}
+        >
+          <KineticTextReveal
+            text="Lantern"
+            splitBy="characters"
+            stagger={0.06}
+            onRevealComplete={() => setReady(true)}
+          />
+        </h1>
 
-        {stage === 'invite' && (
-          <div className="space-y-8">
-            <p className="eyebrow">Night Watch</p>
-            <h1 className="text-[28px] leading-[1.15] tracking-[-0.03em] md:text-[48px]">
-              <KineticTextReveal text="Begin onboarding" splitBy="words" stagger={0.09} />
-            </h1>
-            <p className="mx-auto max-w-md text-[14px] text-[var(--color-ink-2)]">
-              Set up the home map, then watch from this screen.
-            </p>
-            <Link className="btn-primary" to="/onboarding">
-              Continue
-            </Link>
-          </div>
-        )}
+        <div
+          className={`flex flex-col items-center gap-5 transition-all duration-700 ${
+            ready ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+          }`}
+        >
+          <p className="max-w-[340px] text-[15px] font-medium text-white/90">
+            A gentle watch over the ones you love. Set up the home, build a daily routine, and let Lantern keep
+            them company.
+          </p>
+          <Link
+            className="btn-primary mt-1 !min-w-[220px] !bg-[#fbf3df] !text-[var(--color-ink)] hover:!bg-white"
+            to="/onboarding"
+          >
+            Get started
+          </Link>
+          <Link className="text-[13px] font-semibold text-white underline underline-offset-4" to="/watch">
+            I already set things up
+          </Link>
+        </div>
       </div>
-    </div>
+    </PhoneFrame>
   )
 }

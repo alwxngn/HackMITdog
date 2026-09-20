@@ -112,6 +112,27 @@ class EventStore:
             cfg = self.projection["config"]
             for key, val in p.items():
                 cfg[key] = val
+            if p.get("night_watch_enabled") is False:
+                alert = self.projection["open_alert"]
+                if alert and alert.get("context") in ("night_breach", "zone_watch"):
+                    self.projection["open_alert"] = None
+                self.projection["live_tracking"] = False
+                self.projection["agent_state"] = {
+                    **self.projection["agent_state"],
+                    "state": "IDLE",
+                    "agitation": "calm",
+                    "reason": "night watch off",
+                    "since_ts": time.time(),
+                }
+            elif (
+                p.get("night_watch_enabled") is True
+                and self.projection["agent_state"].get("reason") == "night watch off"
+            ):
+                self.projection["agent_state"] = {
+                    **self.projection["agent_state"],
+                    "reason": "night watch idle",
+                    "since_ts": time.time(),
+                }
             if "zones" in p:
                 self.projection["zones"] = p["zones"]
         elif t == "speech_state":

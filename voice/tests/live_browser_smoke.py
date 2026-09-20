@@ -22,7 +22,7 @@ with sync_playwright() as p:
     phone.goto(caregiver.locator('#phone-link').input_value())
     phone.locator('#start').click()
     expect(caregiver.locator('#send')).to_be_enabled()
-    caregiver.locator('#message').fill('Hello Arthur. How are you feeling today?')
+    caregiver.locator('#message').fill('Hello Susan. How are you feeling today?')
     with phone.expect_response(lambda response: '/speech/' in response.url, timeout=60000) as audio_response:
         caregiver.locator('#send').click()
     audio = audio_response.value
@@ -51,7 +51,7 @@ with sync_playwright() as p:
     response = transcript_response.value
     assert response.status == 200, response.text()
     transcript = response.json()['text']
-    assert 'arthur' in transcript.lower(), transcript
+    assert 'susan' in transcript.lower(), transcript
     expect(caregiver.locator('#delivery')).to_have_text('Reply received', timeout=60000)
     expect(phone.locator('#activity')).to_contain_text('Your turn', timeout=60000)
     assert not errors, errors

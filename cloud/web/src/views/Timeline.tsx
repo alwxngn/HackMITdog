@@ -17,7 +17,7 @@ export function Timeline() {
       <h2 className="mb-5">What happened</h2>
       <ul className="flex-1 space-y-4 overflow-y-auto text-[14px]">
         {lines.length === 0 && (
-          <li className="text-[var(--color-ink-2)]">Nothing to show yet tonight.</li>
+          <li className="text-[var(--color-ink-2)]">Nothing to report. It’s been a calm night so far.</li>
         )}
         {lines.map(({ msg, text, i }) => {
           const isAlert = msg.type === 'alert'

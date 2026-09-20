@@ -102,5 +102,9 @@ python robot/dimos_map_bridge.py \
 
 The bridge writes the PLY into the cloud server's `artifacts/maps` directory
 when both processes run on the same machine, then posts `map_ready` to the
-cloud API. The portal polls for that event and shows the resulting artifact in
-the 3-D map view.
+cloud API. The portal stays on the mapping screen until that event arrives and
+shows estimated progress while the robot explores. **Stop & use current map**
+publishes the frozen robot `command` action `stop`; the bridge calls DimOS
+`end_exploration`, after which `map_room` exports the freshest partial map and
+posts its normal `map_ready`. Pause/resume is intentionally not shown because
+the current explorer does not support resuming the same scan session.
