@@ -1,5 +1,5 @@
 import { polygonToPoints, SVG, worldToSvg, type MapBounds } from '../lib/frame'
-import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE } from '../lib/zonePaint'
+import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE, zoneName } from '../lib/zonePaint'
 import type { Zone } from '../lib/types'
 import { useProjection } from '../hooks/useProjection'
 import { DEMO_HOME_MAP_ID } from '../lib/demoHome'
@@ -20,7 +20,7 @@ function zoneLabels(zones: Zone[], bounds: MapBounds) {
     const xs = pts.map(([x]) => x)
     const ys = pts.map(([, y]) => y)
     const mid = worldToSvg((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, bounds)
-    return { key, text: zs[0].label || zs[0].id, ...mid }
+    return { key, text: zoneName(zs[0]), ...mid }
   })
 }
 

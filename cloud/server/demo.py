@@ -1,4 +1,4 @@
-"""Scripted demo walk: safe zone → warning zone → Don't-go zone → out of the house.
+"""Scripted demo walk: safe zone → warning zone → danger zone → out of the house.
 
 Emits the same envelopes the real spine does (person_track, zone_event, agent_state,
 alert, say, pose, ...) straight into the cloud bus, so the portal, SMS/voice
@@ -39,7 +39,7 @@ OUTSIDE_PATH: list[tuple[float, float]] = [
 STEPS = [
     "Resting in the safe zone",
     "In the warning zone",
-    "In the Don't-go zone",
+    "In the danger zone",
     "Left the house",
     "Live tracking",
 ]
@@ -80,15 +80,6 @@ class DemoWalk:
         if problem:
             return {"ok": False, "error": problem}
         await reset()
-        if not (store.projection.get("config") or {}).get("night_watch_enabled", True):
-            await bus.publish(
-                {
-                    "type": "config_update",
-                    "ts": time.time(),
-                    "source": "cloud",
-                    "payload": {"night_watch_enabled": True},
-                }
-            )
         self._task = asyncio.create_task(self._run())
         return {"ok": True}
 
@@ -117,7 +108,7 @@ class DemoWalk:
 
         exit_zone, watch_zone, safe_zone = first("exit"), first("watch"), first("safe")
         if not exit_zone:
-            return "Paint a Don't-go zone first (Settings → Edit home)."
+            return "Paint a danger zone first (Settings → Edit home)."
         self.exit_c = _centroid(exit_zone["polygon"])
         self.watch_c = _centroid(watch_zone["polygon"]) if watch_zone else None
         self.start_c = _centroid(safe_zone["polygon"]) if safe_zone else (self.w * 0.25, self.h * 0.5)
@@ -149,6 +140,10 @@ class DemoWalk:
         self.agent_state = "IDLE"
         self.alert_n = 0
         return None
+
+    def _enabled(self) -> bool:
+        """Danger zones are only enforced while Night Watch is on."""
+        return bool((store.projection.get("config") or {}).get("night_watch_enabled", True))
 
     # ---- geometry -----------------------------------------------------------
 
@@ -336,6 +331,8 @@ class DemoWalk:
 
     async def _on_watch(self, zone: dict[str, Any]) -> None:
         await self._status(1)
+        if not self._enabled():
+            return await self._hold(4.0)
         label = zone.get("label") or "the hallway"
         await self._state("ATTEND", f"{self.name} is in the warning zone ({label})", "unsettled")
         await self._alert(
@@ -350,8 +347,10 @@ class DemoWalk:
 
     async def _on_exit(self, zone: dict[str, Any]) -> None:
         await self._status(2)
+        if not self._enabled():
+            return await self._hold(8.0)
         label = zone.get("label") or "the front door"
-        await self._state("LEAD", f"{self.name} reached the Don't-go zone", "agitated")
+        await self._state("LEAD", f"{self.name} reached the danger zone", "agitated")
         await self._emit(
             "command",
             {"command_id": "demo_cmd_1", "action": "lead_to", "args": {"zone_id": "bedroom", "speed_max": 0.3, "standoff_m": 1.5}},
@@ -361,7 +360,7 @@ class DemoWalk:
         await asyncio.sleep(1.0)
         await self._alert(
             2,
-            f"{self.name} is in the Don't-go zone",
+            f"{self.name} is in the danger zone",
             f"At {label}. Lantern asked them to go home, but they haven't turned around.",
             requires_ack=True,
             channels=["sms", "push"],
@@ -371,6 +370,8 @@ class DemoWalk:
 
     async def _on_outside(self, zone: dict[str, Any]) -> None:
         await self._status(3)
+        if not self._enabled():
+            return
         await self._state("EMERGENCY", f"{self.name} left the house", "agitated")
         await self._alert(
             5,

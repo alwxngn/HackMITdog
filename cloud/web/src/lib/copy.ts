@@ -1,4 +1,5 @@
 import type { AgentState, Envelope, PersonTrack, Zone } from './types'
+import { zoneName } from './zonePaint'
 
 const STATE_TITLE: Record<string, string> = {
   IDLE: 'All is quiet',
@@ -49,13 +50,13 @@ export function zoneContext(track: PersonTrack | null, zones: Zone[]): ZoneConte
   if (!track) return null
   if (track.zone === 'outside') return { cls: 'outside', label: 'Outside' }
   const z = zones.find((zone) => zone.id === track.zone)
-  return z ? { cls: z.class, label: z.label || z.id } : null
+  return z ? { cls: z.class, label: zoneName(z) } : null
 }
 
 export function statusHeadline(a: AgentState, zone?: ZoneContext | null, name?: string): string {
   const who = name ? `${name} is` : 'They are'
   if (zone?.cls === 'outside') return name ? `${name} has left the house` : 'They have left the house'
-  if (zone?.cls === 'exit') return `${who} in the Don't-go zone`
+  if (zone?.cls === 'exit') return `${who} in the danger zone`
   if (zone?.cls === 'watch') return `${who} in the warning zone`
   return STATE_TITLE[a.state] || 'Lantern is with them'
 }
@@ -104,7 +105,7 @@ export function timelineLine(msg: Envelope): string | null {
       if (ev === 'approaching') return null
       if (ev === 'enter' || ev === 'entered') {
         if (cls === 'watch') return `Entered the warning zone (${label}).`
-        if (cls === 'exit') return "Reached the Don't-go zone."
+        if (cls === 'exit') return 'Reached the danger zone.'
         return `Near ${label}.`
       }
       if (ev === 'exit' || ev === 'exited' || ev === 'left') return `Left ${label}.`

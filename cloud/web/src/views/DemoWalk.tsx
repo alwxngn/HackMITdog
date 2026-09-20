@@ -7,7 +7,8 @@ interface SpeakerStatus {
 }
 
 export function DemoWalk() {
-  const { demo } = useProjection()
+  const { demo, config } = useProjection()
+  const watching = (config.night_watch_enabled as boolean | undefined) ?? true
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [speaker, setSpeaker] = useState<SpeakerStatus | null>(null)
@@ -76,6 +77,11 @@ export function DemoWalk() {
           Test speaker
         </button>
       </p>
+      {!watching && (
+        <p className="mt-2 text-[13px] text-[var(--color-watch)]">
+          Night Watch is off, so the zones are ignored and nothing will alert. Turn it on to see the warnings.
+        </p>
+      )}
       {testNote && <p className="mt-1 text-[12px] text-[var(--color-ink-2)]">{testNote}</p>}
       {demo.running ? (
         <>
@@ -98,7 +104,7 @@ export function DemoWalk() {
       ) : (
         <>
           <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">
-            Simulates the person walking from the safe zone into the warning zone, then the Don’t-go zone, and out of
+            Simulates the person walking from the safe zone into the warning zone, then the danger zone, and out of
             the house.
           </p>
           <button type="button" className="btn-primary mt-4" disabled={busy} onClick={() => call('/api/demo/walk')}>

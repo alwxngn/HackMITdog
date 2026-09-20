@@ -72,6 +72,18 @@ export function handleBusMessage(msg: Envelope) {
     next.live_tracking = false
   } else if (t === 'config_update') {
     next.config = { ...next.config, ...p }
+    if (p.night_watch_enabled === false) {
+      const ctx = next.open_alert?.context
+      if (ctx === 'night_breach' || ctx === 'zone_watch') next.open_alert = null
+      next.live_tracking = false
+      next.agent_state = {
+        ...next.agent_state,
+        state: 'IDLE',
+        agitation: 'calm',
+        reason: 'night watch off',
+        since_ts: msg.ts,
+      }
+    }
     if (Array.isArray((p as { zones?: unknown }).zones)) {
       next.zones = (p as { zones: Projection['zones'] }).zones
     }

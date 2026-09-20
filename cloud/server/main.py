@@ -73,13 +73,16 @@ def _is_night_watch_trigger(msg: dict[str, Any]) -> bool:
 
     if t == "zone_event":
         cls = p.get("zone_class") or p.get("class") or _zone_class(p.get("zone") or p.get("zone_id"))
-        return cls == "exit"
+        return cls in ("exit", "watch")
 
     if t == "alert":
-        if p.get("context") == "night_breach":
+        if p.get("context") in ("night_breach", "zone_watch"):
             return True
         cls = _zone_class((p.get("person_position") or {}).get("zone") or p.get("zone"))
-        return cls == "exit" or int(p.get("level", 0)) >= 5
+        return cls in ("exit", "watch") or int(p.get("level", 0)) >= 5
+
+    if t == "agent_state":
+        return p.get("state") in ("ATTEND", "LEAD", "ESCALATE", "EMERGENCY")
 
     return False
 
@@ -299,7 +302,7 @@ async def _reset_live() -> None:
 
 @app.post("/api/demo/walk")
 async def api_demo_walk():
-    """Scripted walk: safe → warning → Don't-go → out of the house (no orchestrator needed)."""
+    """Scripted walk: safe → warning → danger → out of the house (no orchestrator needed)."""
     result = await demo.start(_reset_live)
     if not result["ok"]:
         return JSONResponse(result, status_code=409)

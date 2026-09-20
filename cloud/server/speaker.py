@@ -4,7 +4,7 @@ Watches person_track / zone_event and, when the patient drifts toward danger, sa
 calm line out loud on the phone that rides on the dog:
 
   warning zone      → "It's late. Let's go back to bed."
-  Don't-go zone     → "Let's go home."
+  danger zone       → "Let's go home."
   outside the house → "Let's go home."  (repeated, softly, while they keep walking)
 
 It works for real tracker data and for the scripted demo walk alike, and falls back to

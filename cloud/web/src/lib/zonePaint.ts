@@ -4,8 +4,8 @@ export type PaintClass = 'safe' | 'watch' | 'exit'
 
 export const PAINT_LABEL: Record<PaintClass, string> = {
   safe: 'Safe',
-  watch: 'Watch',
-  exit: "Don't go",
+  watch: 'Warning',
+  exit: 'Danger',
 }
 
 export const PAINT_FILL: Record<PaintClass, string> = {
@@ -18,6 +18,13 @@ export const PAINT_STROKE: Record<PaintClass, string> = {
   safe: '#16a06b',
   watch: '#c78a08',
   exit: '#d63b41',
+}
+
+const OLD_LABELS = new Set(["Don't go", 'Watch'])
+
+/** Display name for a zone; older saved zones still say "Watch" / "Don't go". */
+export function zoneName(z: Pick<Zone, 'class' | 'label' | 'id'>): string {
+  return !z.label || OLD_LABELS.has(z.label) ? PAINT_LABEL[z.class] : z.label
 }
 
 const CLASS_CODE: Record<PaintClass, number> = { safe: 0, watch: 1, exit: 2 }
