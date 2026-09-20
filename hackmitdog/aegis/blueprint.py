@@ -87,6 +87,18 @@ from hackmitdog.aegis.person import PersonSkills
 # attribute 'follow_person'"/"'stop_following'"), so don't remove this line.
 # camera_info=GO2Connection.camera_info_static matches the exact invocation
 # DimOS's own _common_agentic.py uses for the stock container.
+#
+# ConfigurableFollowSkillContainer itself contributes ZERO MCP-exposed tools
+# (see follow_control.py's _rpc_only) -- its follow_person/stop_following are
+# de-skilled on purpose. Confirmed the hard way once already: with them left
+# as inherited @skill methods, McpServer.on_system_modules flattened both
+# PersonSkills.follow_person and ConfigurableFollowSkillContainer.follow_person
+# into one skills_by_name dict keyed by function name with no collision
+# handling, and the agent ended up calling DimOS's raw one -- which falls back
+# to an Alibaba-backed VL query whenever it's called without initial_bbox,
+# defeating the entire point of PersonSkills.follow_person's Alibaba-free
+# local-YOLO wrapper. Do not remove _rpc_only's stripping without also solving
+# that collision some other way.
 aegis_go2_skills = autoconnect(
     unitree_go2_spatial,
     LocationSkills.blueprint(),

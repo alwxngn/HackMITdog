@@ -28,6 +28,7 @@ person following.
 
 from __future__ import annotations
 
+import functools
 from typing import Any
 
 from dimos.agents.skills.person_follow import Config as _PersonFollowConfig
@@ -35,6 +36,49 @@ from dimos.agents.skills.person_follow import PersonFollowSkillContainer
 from dimos.core.core import rpc
 from dimos.navigation.visual_servoing.detection_navigation import DetectionNavigation
 from dimos.utils.logging_config import setup_logger
+
+
+def _rpc_only(func: Any) -> Any:
+    """Re-wrap an inherited `@skill`-decorated method as plain-`@rpc`-only.
+
+    `Module.get_skills()` (`dimos/core/module.py`) discovers MCP-exposed
+    tools via `hasattr(getattr(self, name), "__skill__")` on the *bound*
+    method actually resolved at runtime, the same late-binding pattern that
+    makes `Module.rpcs` require `start`/`set_follow_distance` above to
+    re-apply `@rpc` on override. Left alone, this class would inherit
+    `PersonFollowSkillContainer.follow_person`/`.stop_following` still
+    carrying DimOS's own `__skill__` marker, so BOTH this container and
+    `hackmitdog.aegis.person.PersonSkills` would register a same-named
+    `follow_person` MCP tool. `McpServer.on_system_modules`
+    (`dimos/agents/mcp/mcp_server.py`) flattens every deployed module's
+    skills into one `skills_by_name = {s.func_name: s for s in ...}` dict
+    with no collision handling -- whichever module is enumerated last wins,
+    silently shadowing the other. That is exactly how a live run ended up
+    calling DimOS's raw `follow_person` (which falls through to the
+    Alibaba-backed VL query path when `initial_bbox` is omitted) instead of
+    `PersonSkills.follow_person` (which never touches Alibaba) despite the
+    Aegis wrapper existing and working correctly.
+
+    This helper strips `__skill__` (so `get_skills()` skips it -- only
+    `PersonSkills`'s wrapper stays MCP-visible) while re-applying `@rpc` (so
+    `PersonSkills._person_follow.follow_person(...)`/`.stop_following()`,
+    which call this over the RPC layer keyed by `__rpc__` rather than
+    through `@skill`, keep working unchanged).
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return func(*args, **kwargs)
+
+    # functools.wraps copies func.__dict__ onto wrapper, which would bring
+    # DimOS's __skill__/__skill_uses__/__skill_lifecycle__ markers right back
+    # -- the whole point of this helper is to NOT have those. Strip them
+    # after wraps() runs, then apply plain @rpc.
+    for attr in ("__skill__", "__skill_uses__", "__skill_lifecycle__"):
+        if hasattr(wrapper, attr):
+            delattr(wrapper, attr)
+
+    return rpc(wrapper)
 
 logger = setup_logger()
 
@@ -53,15 +97,33 @@ class ConfigurableFollowSkillContainer(PersonFollowSkillContainer):
     """`PersonFollowSkillContainer` with a real, configurable standoff distance.
 
     Identical to DimOS's own container in every other respect (same VL
-    detection, same EdgeTAM tracker, same 20 Hz loop, same `follow_person`/
-    `stop_following` skills, same capability handling) -- only the two
-    distance-control constants on the underlying `VisualServoing2D`/
-    `DetectionNavigation` objects are overridden here, from
-    `config.target_distance_m`/`config.min_distance_m` instead of DimOS's
-    hardcoded 1.5 m / 0.8 m.
+    detection, same EdgeTAM tracker, same 20 Hz loop, same capability
+    handling) -- only two things differ:
+
+    1. The distance-control constants on the underlying `VisualServoing2D`/
+       `DetectionNavigation` objects are overridden here, from
+       `config.target_distance_m`/`config.min_distance_m` instead of DimOS's
+       hardcoded 1.5 m / 0.8 m.
+    2. `follow_person`/`stop_following` are inherited as plain RPC methods
+       ONLY, not MCP-exposed `@skill`s (see `_rpc_only`) -- this module is
+       deployed purely as `hackmitdog.aegis.person.PersonSkills`'s internal
+       `_person_follow` dependency, and must never be independently
+       agent-callable, or its inherited `follow_person` (which falls back to
+       an Alibaba-backed VL query when called without `initial_bbox`) would
+       collide with and potentially shadow `PersonSkills.follow_person`
+       (which never does) in `McpServer`'s flat `skills_by_name` dict.
     """
 
     config: ConfigurableFollowConfig
+
+    # De-skill DimOS's inherited `follow_person`/`stop_following` -- see
+    # `_rpc_only`'s docstring above. These stay callable exactly as before
+    # from `PersonSkills` (which uses them as plain RPC calls), they just
+    # stop being independently registered as MCP tools, so the agent only
+    # ever sees one `follow_person` (the Aegis wrapper in `person.py`, which
+    # never requires ALIBABA_API_KEY).
+    follow_person = _rpc_only(PersonFollowSkillContainer.follow_person)
+    stop_following = _rpc_only(PersonFollowSkillContainer.stop_following)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
