@@ -60,6 +60,16 @@ from dimos.robot.unitree.go2.blueprints.smart.unitree_go2_spatial import (
 )
 from dimos.robot.unitree.go2.connection import GO2Connection
 
+from hackmitdog.aegis import mps_worker_fix
+
+# Must run before `dimos run` starts any worker process. On macOS this
+# switches DimOS's module workers from forkserver to spawn, without which
+# Metal/MPS shader compilation fails inside every worker and `follow_person`
+# cannot start its EdgeTAM tracker at all. No-op on other platforms. See
+# hackmitdog/aegis/mps_worker_fix.py for the full explanation and the
+# measurements behind it.
+mps_worker_fix.apply()
+
 from hackmitdog.aegis.danger_zone import DangerZoneSkills
 from hackmitdog.aegis.follow_control import ConfigurableFollowSkillContainer
 from hackmitdog.aegis.guided_walk import GuidedWalkSkills
