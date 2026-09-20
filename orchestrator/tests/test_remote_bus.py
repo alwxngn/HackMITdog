@@ -34,6 +34,20 @@ class RemoteBusTests(unittest.IsolatedAsyncioTestCase):
         await bus._dispatch_if_new(message)
         self.assertEqual(received, [message])
 
+    async def test_remote_marker_is_only_set_during_inbound_dispatch(self):
+        bus = RemoteBus("ws://127.0.0.1:9000/ws")
+        seen = []
+
+        async def handler(message):
+            seen.append(bus.is_remote_message(message))
+
+        bus.subscribe(handler)
+        incoming = {"type": "transcript", "source": "voice", "seq": 4, "ts": 12.0, "payload": {}}
+        await bus._dispatch_if_new(incoming)
+
+        self.assertEqual(seen, [True])
+        self.assertFalse(bus.is_remote_message(incoming))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,6 +37,7 @@ class RemoteBus:
         self._ready = asyncio.Event()
         self._stopping = False
         self._sent_keys: set[tuple[Any, ...]] = set()
+        self._remote_keys: set[tuple[Any, ...]] = set()
         self.log_path = Path(log_path) if log_path else None
 
     def subscribe(self, handler: MessageHandler) -> None:
@@ -126,7 +127,16 @@ class RemoteBus:
     async def _dispatch_if_new(self, msg: dict[str, Any]) -> None:
         if self._key(msg) in self._sent_keys:
             return
-        await self.emit(msg)
+        key = self._key(msg)
+        self._remote_keys.add(key)
+        try:
+            await self.emit(msg)
+        finally:
+            self._remote_keys.discard(key)
+
+    def is_remote_message(self, msg: dict[str, Any]) -> bool:
+        """Return whether ``msg`` is currently being delivered from the hub."""
+        return self._key(msg) in self._remote_keys
 
     def _append_log(self, msg: dict[str, Any]) -> None:
         if not self.log_path:
