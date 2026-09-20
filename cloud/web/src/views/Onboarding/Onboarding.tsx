@@ -129,7 +129,10 @@ export function Onboarding() {
       const r = await fetch('/api/map-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(forceDemo ? { mode: 'demo' } : {}),
+        // The primary button always requests the robot. The demo button is
+        // explicit, so live mapping does not silently depend on a server env
+        // default being changed first.
+        body: JSON.stringify({ mode: forceDemo ? 'demo' : 'live' }),
       })
       const data = await r.json()
       setScanMode(data.mode === 'live' ? 'live' : 'demo')
@@ -142,7 +145,9 @@ export function Onboarding() {
         return
       }
       // live: poll until E2 POSTs map_ready to /api/ingest
-      const deadline = Date.now() + 120_000
+      // A real frontier scan can take several minutes; keep polling while
+      // DimOS explores instead of timing out after the demo-length window.
+      const deadline = Date.now() + 360_000
       while (Date.now() < deadline) {
         if (scanAbort.aborted) return
         const st = await fetch('/api/map-scan/status').then((x) => x.json())
@@ -155,7 +160,7 @@ export function Onboarding() {
         await new Promise((res) => setTimeout(res, 800))
       }
       setScanError(
-        'Timed out waiting for robot map_ready (2 min). Keep MAP_SCAN_MODE=live, have E2 POST /api/ingest, or use demo floorplan.',
+        'Timed out waiting for robot map_ready (6 min). Keep MAP_SCAN_MODE=live, keep the DimOS map bridge running, or use the demo map.',
       )
       setScanning(false)
     } catch (e) {
@@ -353,8 +358,11 @@ export function Onboarding() {
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-primary" onClick={() => startScan(true)}>
+              <button type="button" className="btn-primary" onClick={() => startScan(false)}>
                 Start mapping
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => startScan(true)}>
+                Use demo map
               </button>
               {map && (
                 <button type="button" className="btn-ghost" onClick={() => setStep(3)}>

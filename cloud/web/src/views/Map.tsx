@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { polygonToPoints, SVG, worldToSvg, type MapBounds } from '../lib/frame'
 import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE, zoneName } from '../lib/zonePaint'
 import type { Zone } from '../lib/types'
 import { useProjection } from '../hooks/useProjection'
 import { DEMO_HOME_MAP_ID } from '../lib/demoHome'
 import { HomeFloor, HomeStructures } from './HomeScene'
+import { Map3D } from './Map3D'
 
 /** One label per painted region (or per zone), centred on the region's bounding box. */
 function zoneLabels(zones: Zone[], bounds: MapBounds) {
@@ -29,6 +31,7 @@ export function MapView() {
   // Zones only exist while Night Watch is on; off hides them (and the legend).
   const zonesOn = (p.config.night_watch_enabled as boolean | undefined) ?? true
   const zones = zonesOn ? p.zones : []
+  const [view, setView] = useState<'map' | '3d'>('map')
   const live = p.live_tracking || Boolean(p.open_alert?.live_tracking)
   const bounds: MapBounds = {
     width: p.map_ready?.width_m ?? 2,
@@ -61,7 +64,14 @@ export function MapView() {
         </div>
       </div>
 
-      <svg
+      <div className="mb-4 flex gap-2" role="tablist" aria-label="Map views">
+        <button type="button" role="tab" aria-selected={view === 'map'} className={`pill !py-2 ${view === 'map' ? 'bg-[var(--color-ink)] text-[var(--color-surface)]' : ''}`} onClick={() => setView('map')}>2D zones</button>
+        <button type="button" role="tab" aria-selected={view === '3d'} className={`pill !py-2 ${view === '3d' ? 'bg-[var(--color-ink)] text-[var(--color-surface)]' : ''}`} onClick={() => setView('3d')}>3D scan</button>
+      </div>
+
+      {view === '3d' && <Map3D url={p.map_ready?.artifact_url} />}
+
+      {view === 'map' && <svg
         viewBox={`0 0 ${SVG.width} ${SVG.height}`}
         className="h-auto w-full rounded-[14px] bg-[var(--color-surface)]"
       >
@@ -181,7 +191,7 @@ export function MapView() {
             </g>
           )
         })()}
-      </svg>
+      </svg>}
     </div>
   )
 }
