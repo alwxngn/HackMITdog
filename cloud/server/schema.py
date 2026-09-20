@@ -134,7 +134,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "patient": {
         "name": "Susan",
-        "preferred_name": "Susan",
+        "preferred_name": "",
         "calming_topics": ["fishing at Moosehead", "Bella the dog"],
         "avoid_topics": ["the loss of a spouse"],
         "music_url": "/media/susan_playlist.mp3",

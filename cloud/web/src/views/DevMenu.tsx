@@ -1,18 +1,14 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Switch } from '../components/Switch'
 import { useProjection } from '../hooks/useProjection'
 import { setNightWatch } from '../lib/nightWatch'
 import { DemoWalk } from './DemoWalk'
 
 /**
- * Presenter/dev tools that live beside the phone, not inside it. Shown only on wide
- * screens where there is room next to the phone-width column; hidden on a real phone.
+ * Presenter/dev tools live beside the phone, not inside it. Shown only on wide screens
+ * where there is room next to the phone-width column; hidden on a real phone.
  */
-export function DevMenu() {
-  const p = useProjection()
-  const [error, setError] = useState('')
-  const on = (p.config.night_watch_enabled as boolean | undefined) ?? false
-
+export function DevMenuShell({ children }: { children: ReactNode }) {
   return (
     <aside
       aria-label="Developer menu"
@@ -20,7 +16,18 @@ export function DevMenu() {
       style={{ left: 'calc(50% + 254px)' }}
     >
       <p className="eyebrow px-1">Developer menu</p>
+      {children}
+    </aside>
+  )
+}
 
+export function DevMenu() {
+  const p = useProjection()
+  const [error, setError] = useState('')
+  const on = (p.config.night_watch_enabled as boolean | undefined) ?? false
+
+  return (
+    <DevMenuShell>
       <section className="card !p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -39,6 +46,6 @@ export function DevMenu() {
       </section>
 
       <DemoWalk />
-    </aside>
+    </DevMenuShell>
   )
 }

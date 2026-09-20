@@ -11,6 +11,7 @@ import { Wave } from '../../components/Wave'
 import { useRoutine } from '../../hooks/useRoutine'
 import { DEFAULT_ROUTINE } from '../../lib/routine'
 import { emergencyReady, seedPeople, withDemoMember, type Person } from '../../lib/people'
+import { DevMenuShell } from '../DevMenu'
 import { PeopleEditor } from './PeopleEditor'
 import { ZonePainter } from './ZonePainter'
 import { RoutineEditor } from '../RoutineEditor'
@@ -37,7 +38,7 @@ export function Onboarding() {
   })
   const [patient, setPatient] = useState({
     name: 'Susan',
-    preferred_name: 'Susan',
+    preferred_name: '',
     calming_topics: 'fishing at Moosehead, Bella the dog',
     avoid_topics: "the loss of a spouse",
   })
@@ -286,6 +287,7 @@ export function Onboarding() {
   ]
 
   return (
+    <>
     <PhoneFrame className="bg-[var(--color-brand-mid)] pb-10">
       <PawBackdrop />
       <header className="relative">
@@ -293,11 +295,6 @@ export function Onboarding() {
           <div className="flex w-full flex-col items-center gap-2 text-center">
             <DogMascot color="var(--color-brand)" className="h-[74px] w-[92px]" />
             <p className="text-[22px] font-bold uppercase tracking-[0.1em] text-[var(--color-brand)]">Lantern</p>
-          </div>
-          <div className="text-right">
-            <Link className="text-[12px] font-semibold text-[var(--color-ink-2)] underline underline-offset-4" to="/watch">
-              Skip to app
-            </Link>
           </div>
         </div>
         <Wave color="#fff" className="-mt-px block h-[36px] w-full" />
@@ -357,9 +354,10 @@ export function Onboarding() {
             />
           </label>
           <label className="block text-[14px] text-[var(--color-ink-2)]">
-            Preferred name
+            Preferred name <span className="text-[var(--color-ink-2)]/70">(optional)</span>
             <input
               className="input-field mt-1"
+              placeholder="Optional: a nickname they like"
               value={patient.preferred_name}
               onChange={(e) => setPatient({ ...patient, preferred_name: e.target.value })}
             />
@@ -409,7 +407,7 @@ export function Onboarding() {
             {voiceStatus && <p className="text-[13px] text-[var(--color-ink)]">{voiceStatus}</p>}
           </div>
           <button type="button" className="btn-primary" onClick={() => setStep(2)}>
-            Next — Map home
+            Next: Map home
           </button>
         </div>
       )}
@@ -491,7 +489,7 @@ export function Onboarding() {
               Save &amp; open Home
             </button>
             <button type="button" className="btn-ghost" onClick={() => setStep(4)}>
-              Next — Routine
+              Next: Routine
             </button>
           </div>
           {saved && <p className="text-[14px] text-[var(--color-ink)]">{saved}</p>}
@@ -570,7 +568,7 @@ export function Onboarding() {
               disabled={routineCount === 0}
               onClick={() => setStep(5)}
             >
-              Next — People
+              Next: People
             </button>
             <p
               role={routineCount === 0 && saved === '' ? 'status' : undefined}
@@ -611,5 +609,13 @@ export function Onboarding() {
       )}
       </div>
     </PhoneFrame>
+    <DevMenuShell>
+      <section className="card !p-5">
+        <Link to="/watch" className="btn-ghost w-full">
+          Skip to app
+        </Link>
+      </section>
+    </DevMenuShell>
+    </>
   )
 }
