@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type TabId = 'home' | 'checkin' | 'activity' | 'settings'
+export type TabId = 'home' | 'routine' | 'checkin' | 'activity' | 'settings'
 
 const stroke = {
   fill: 'none',
@@ -18,6 +18,17 @@ const TABS: { id: TabId; label: string; icon: ReactNode }[] = [
       <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" {...stroke}>
         <path d="M4 11.2 12 4l8 7.2" />
         <path d="M6 9.8V19a1 1 0 0 0 1 1h3.5v-5.5h3V20H17a1 1 0 0 0 1-1V9.8" />
+      </svg>
+    ),
+  },
+  {
+    id: 'routine',
+    label: 'Routine',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" {...stroke}>
+        <rect x="4" y="5.5" width="16" height="14.5" rx="3" />
+        <path d="M8 3.5v4M16 3.5v4M4 10h16" />
+        <path d="m9 15 2 2 4-4" />
       </svg>
     ),
   },
@@ -69,7 +80,7 @@ export function TabIsland({ active, onChange, badge }: Props) {
       className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pointer-events-none"
       style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
     >
-      <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-[var(--color-ink)] p-1.5 shadow-[0_14px_34px_-10px_rgba(5,7,10,0.55)]">
+      <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-[var(--color-ink)] p-1.5 shadow-[0_18px_30px_-12px_rgba(21,58,59,0.6)]">
         {TABS.map((t) => {
           const on = t.id === active
           return (
@@ -79,16 +90,16 @@ export function TabIsland({ active, onChange, badge }: Props) {
               aria-label={t.label}
               aria-current={on ? 'page' : undefined}
               onClick={() => onChange(t.id)}
-              className={`relative flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full transition-all duration-300 ease-out ${
+              className={`relative flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full transition-all duration-300 ease-out ${
                 on
-                  ? 'bg-[var(--color-surface)] px-4 text-[var(--color-ink)]'
+                  ? 'bg-[var(--color-accent)] px-4 text-[var(--color-ink)]'
                   : 'w-11 text-[var(--color-tint)] hover:text-[var(--color-surface)]'
               }`}
             >
               {t.icon}
-              {on && <span className="text-[13px] font-medium whitespace-nowrap">{t.label}</span>}
+              {on && <span className="text-[13px] font-semibold whitespace-nowrap">{t.label}</span>}
               {badge === t.id && !on && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-tint)] ring-2 ring-[var(--color-ink)]" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-accent)] ring-2 ring-[var(--color-ink)]" />
               )}
             </button>
           )

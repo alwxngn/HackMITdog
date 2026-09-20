@@ -8,7 +8,7 @@ interface SpeakerStatus {
 
 export function DemoWalk() {
   const { demo, config } = useProjection()
-  const watching = (config.night_watch_enabled as boolean | undefined) ?? true
+  const watching = (config.night_watch_enabled as boolean | undefined) ?? false
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [speaker, setSpeaker] = useState<SpeakerStatus | null>(null)

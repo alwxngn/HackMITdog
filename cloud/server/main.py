@@ -57,7 +57,7 @@ hub = Hub()
 
 def _night_watch_enabled() -> bool:
     cfg = store.projection.get("config") or {}
-    return bool(cfg.get("night_watch_enabled", True))
+    return bool(cfg.get("night_watch_enabled", False))
 
 
 def _zone_class(zone_id: str | None) -> str | None:
@@ -379,10 +379,40 @@ async def api_speaker_test():
     return {"ok": True, "on_phone": on_phone}
 
 
+# Demo-only fake numbers (reserved 555-01xx range) so "Call help" isn't empty before setup is finished.
+_PRESET_PHONES = {"jenny": "(617) 555-0101", "mark": "(617) 555-0102", "javiar": "(617) 555-0103"}
+
+
+def _preset_phone(name: str) -> str | None:
+    return _PRESET_PHONES.get((name or "").strip().lower())
+
+
 @app.get("/api/contacts")
 async def api_contacts():
-    """Emergency contacts from the escalation ladder, with the numbers alerts already use."""
-    rules = (store.projection.get("config") or {}).get("escalation") or []
+    """People saved during onboarding; falls back to the escalation ladder's names."""
+    cfg = store.projection.get("config") or {}
+    people = [p for p in (cfg.get("people") or []) if isinstance(p, dict) and p.get("name")]
+    if people:
+        # emergency contacts first, keeping the order they were entered in
+        people.sort(key=lambda p: p.get("kind") != "emergency")
+
+        def role(p: dict[str, Any]) -> str:
+            rel = p.get("relationship") or "Contact"
+            return rel if p.get("kind") == "emergency" else f"{rel} (household)"
+
+        return {
+            "contacts": [
+                {
+                    "name": p["name"],
+                    "role": role(p),
+                    "phone": (p.get("phone") or "").strip() or _preset_phone(p["name"]),
+                    "kind": p.get("kind"),
+                }
+                for p in people
+            ]
+        }
+
+    rules = cfg.get("escalation") or []
     names: list[str] = []
     for rule in rules:
         name = rule.get("contact")
@@ -394,7 +424,7 @@ async def api_contacts():
             {
                 "name": name.capitalize(),
                 "role": roles[i] if i < len(roles) else "Contact",
-                "phone": notify._to_number(name),
+                "phone": notify._to_number(name) or _preset_phone(name),
             }
             for i, name in enumerate(names)
         ]

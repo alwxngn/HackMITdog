@@ -26,7 +26,7 @@ export function SpeakerPhone() {
   useEffect(() => {
     let cancelled = false
     if (link) {
-      QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0e1116', light: '#ffffff' } }).then((src) => {
+      QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#153a3b', light: '#ffffff' } }).then((src) => {
         if (!cancelled) setQr(src)
       })
     }

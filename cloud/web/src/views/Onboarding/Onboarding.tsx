@@ -4,9 +4,18 @@ import { DEMO_MAP, type MapReadyPayload } from '../../lib/demoFloorplan'
 import { DEMO_HOME_PIN } from '../../lib/demoHome'
 import { useProjection } from '../../hooks/useProjection'
 import type { Zone } from '../../lib/types'
+import { DogMascot } from '../../components/DogMascot'
+import { PhoneFrame } from '../../components/PhoneFrame'
+import { PawBackdrop } from '../../components/PawBackdrop'
+import { Wave } from '../../components/Wave'
+import { useRoutine } from '../../hooks/useRoutine'
+import { DEFAULT_ROUTINE } from '../../lib/routine'
+import { emergencyReady, seedPeople, withDemoMember, type Person } from '../../lib/people'
+import { PeopleEditor } from './PeopleEditor'
 import { ZonePainter } from './ZonePainter'
+import { RoutineEditor } from '../RoutineEditor'
 
-type Step = 1 | 2 | 3 | 4
+type Step = 1 | 2 | 3 | 4 | 5
 
 export function Onboarding() {
   const navigate = useNavigate()
@@ -39,8 +48,30 @@ export function Onboarding() {
     walk_end: '16:30',
     notes: 'likes the porch after lunch',
   })
-  const [contacts, setContacts] = useState({ primary: 'jenny', secondary: 'mark' })
+  const [people, setPeople] = useState<Person[]>(() => {
+    const saved = projection.config.people as Person[] | undefined
+    return saved && saved.length > 0 ? withDemoMember(saved) : []
+  })
+  const emergencyCount = people.filter(emergencyReady).length
+
+  // First visit: start from the family the server already knows numbers for.
+  useEffect(() => {
+    if (people.length > 0) return
+    let cancelled = false
+    fetch('/api/contacts')
+      .then((r) => r.json())
+      .then((d: { contacts?: { name: string; phone: string | null }[] }) => {
+        if (!cancelled) setPeople((cur) => (cur.length > 0 ? cur : seedPeople(d.contacts ?? [])))
+      })
+      .catch(() => !cancelled && setPeople((cur) => (cur.length > 0 ? cur : seedPeople([]))))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [saved, setSaved] = useState('')
+  const routine = useRoutine(DEFAULT_ROUTINE)
+  const routineCount = routine.items.filter((i) => i.enabled).length
   const [voiceRecording, setVoiceRecording] = useState(false)
   const [voiceBusy, setVoiceBusy] = useState(false)
   const [voiceStatus, setVoiceStatus] = useState('')
@@ -179,7 +210,21 @@ export function Onboarding() {
   }
 
   async function finish() {
+    if (routineCount === 0) {
+      setStep(4)
+      setSaved('')
+      return
+    }
+    if (emergencyCount === 0) {
+      setStep(5)
+      setSaved('')
+      return
+    }
     if (!map) return
+    const emergency = people.filter(emergencyReady)
+    const key = (p: Person) => p.name.trim().split(/\s+/)[0].toLowerCase()
+    const primary = key(emergency[0])
+    const secondary = emergency[1] ? key(emergency[1]) : primary
     const body = {
       zones: zones.length
         ? zones
@@ -208,17 +253,19 @@ export function Onboarding() {
         route_id: null,
       },
       escalation: [
-        { level: 2, contact: contacts.primary, channel: 'sms', after_s: 0 },
-        { level: 3, contact: contacts.primary, channel: 'voice_call', after_s: 60 },
-        { level: 4, contact: contacts.secondary, channel: 'voice_call', after_s: 120 },
+        { level: 2, contact: primary, channel: 'sms', after_s: 0 },
+        { level: 3, contact: primary, channel: 'voice_call', after_s: 60 },
+        { level: 4, contact: secondary, channel: 'voice_call', after_s: 120 },
         {
           level: 5,
-          contact: contacts.primary,
+          contact: primary,
           channel: 'voice_call',
           after_s: 0,
           trigger: 'dont_go_breach',
         },
       ],
+      routine: routine.items,
+      people: people.map((p) => ({ ...p, name: p.name.trim(), phone: p.phone.trim() })),
       map_id: map.map_id,
     }
     const r = await fetch('/api/config', {
@@ -234,27 +281,39 @@ export function Onboarding() {
     { n: 1, label: 'Patient' },
     { n: 2, label: 'Map home' },
     { n: 3, label: 'Paint zones' },
-    { n: 4, label: 'Schedule' },
+    { n: 4, label: 'Routine' },
+    { n: 5, label: 'People' },
   ]
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6 p-4 pb-24 md:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="eyebrow">Lantern</p>
-          <h1 className="mt-2 text-[40px] md:text-[56px]">Onboarding</h1>
+    <PhoneFrame className="bg-[var(--color-brand-mid)] pb-10">
+      <PawBackdrop />
+      <header className="relative">
+        <div className="bg-white px-5 pb-1 pt-7">
+          <div className="flex w-full flex-col items-center gap-2 text-center">
+            <DogMascot color="var(--color-brand)" className="h-[74px] w-[92px]" />
+            <p className="text-[22px] font-bold uppercase tracking-[0.1em] text-[var(--color-brand)]">Lantern</p>
+          </div>
+          <div className="text-right">
+            <Link className="text-[12px] font-semibold text-[var(--color-ink-2)] underline underline-offset-4" to="/watch">
+              Skip to app
+            </Link>
+          </div>
         </div>
-        <Link className="btn-ghost !min-h-11" to="/watch">
-          Night Watch
-        </Link>
-      </div>
+        <Wave color="#fff" className="-mt-px block h-[36px] w-full" />
+      </header>
+      <div className="relative space-y-5 p-4 pt-2">
+        <div className="text-white">
+          <p className="eyebrow !text-white/80">Set up</p>
+          <h1 className="mt-1 text-[26px] !text-white">Let’s get to know your home</h1>
+        </div>
 
       <div className="flex flex-wrap gap-2">
         {steps.map((s) => (
           <button
             key={s.n}
             type="button"
-            className={`pill min-h-10 px-4 ${step === s.n ? 'bg-[var(--color-ink)] text-[var(--color-surface)]' : ''}`}
+            className={`pill min-h-10 cursor-pointer px-4 ${step === s.n ? '!border-transparent !bg-[var(--color-ink)] !text-white' : '!border-transparent'}`}
             onClick={() => {
               if (s.n === 3 && !map) return
               setStep(s.n)
@@ -266,7 +325,7 @@ export function Onboarding() {
       </div>
 
       {step === 1 && (
-        <div className="card max-w-lg space-y-3">
+        <div className="card space-y-3">
           <h2 className="text-[18px]">Who are we caring for?</h2>
           <label className="block text-[14px] text-[var(--color-ink-2)]">
             Name
@@ -335,7 +394,7 @@ export function Onboarding() {
       )}
 
       {step === 2 && (
-        <div className="card max-w-xl space-y-4">
+        <div className="card space-y-4">
           <h2 className="text-[18px]">Map your home</h2>
           <p className="text-[14px] text-[var(--color-ink-2)]">
             Eventually Lantern will walk through the house and map it on its own. That isn&apos;t
@@ -411,7 +470,7 @@ export function Onboarding() {
               Save &amp; open Home
             </button>
             <button type="button" className="btn-ghost" onClick={() => setStep(4)}>
-              Next — Schedule
+              Next — Routine
             </button>
           </div>
           {saved && <p className="text-[14px] text-[var(--color-ink)]">{saved}</p>}
@@ -419,73 +478,117 @@ export function Onboarding() {
       )}
 
       {step === 4 && (
-        <div className="card max-w-md space-y-3">
-          <h2 className="text-[18px]">Schedule & contacts</h2>
-          <label className="block text-[14px] text-[var(--color-ink-2)]">
-            Wake time
-            <input
-              className="input-field mt-1"
-              value={schedule.wake_time}
-              onChange={(e) => setSchedule({ ...schedule, wake_time: e.target.value })}
-            />
-          </label>
-          <label className="block text-[14px] text-[var(--color-ink-2)]">
-            Meals
-            <input
-              className="input-field mt-1"
-              value={schedule.meals}
-              onChange={(e) => setSchedule({ ...schedule, meals: e.target.value })}
-            />
-          </label>
-          <div className="flex gap-2">
-            <label className="block flex-1 text-[14px] text-[var(--color-ink-2)]">
-              Walk start
-              <input
-                className="input-field mt-1"
-                value={schedule.walk_start}
-                onChange={(e) => setSchedule({ ...schedule, walk_start: e.target.value })}
-              />
-            </label>
-            <label className="block flex-1 text-[14px] text-[var(--color-ink-2)]">
-              Walk end
-              <input
-                className="input-field mt-1"
-                value={schedule.walk_end}
-                onChange={(e) => setSchedule({ ...schedule, walk_end: e.target.value })}
-              />
-            </label>
+        <div className="card space-y-5">
+          <div>
+            <h2 className="text-[20px]">Build {patient.preferred_name || patient.name || 'their'}’s daily routine</h2>
+            <p className="mt-1 text-[14px]">
+              A predictable day helps with memory. Lantern uses this to remind, check in and notice when
+              something is off. Add the key moments, then choose which days they happen.
+            </p>
           </div>
-          <label className="block text-[14px] text-[var(--color-ink-2)]">
-            Notes
-            <textarea
-              className="input-field mt-1"
-              rows={2}
-              value={schedule.notes}
-              onChange={(e) => setSchedule({ ...schedule, notes: e.target.value })}
-            />
-          </label>
-          <label className="block text-[14px] text-[var(--color-ink-2)]">
-            Primary contact
-            <input
-              className="input-field mt-1"
-              value={contacts.primary}
-              onChange={(e) => setContacts({ ...contacts, primary: e.target.value })}
-            />
-          </label>
-          <label className="block text-[14px] text-[var(--color-ink-2)]">
-            Secondary contact
-            <input
-              className="input-field mt-1"
-              value={contacts.secondary}
-              onChange={(e) => setContacts({ ...contacts, secondary: e.target.value })}
-            />
-          </label>
-          <button type="button" className="btn-primary w-full sm:w-auto" onClick={finish}>
-            Finish — publish config
-          </button>
+          <RoutineEditor items={routine.items} onChange={routine.save} suggestions />
+
+          <section aria-label="Day basics" className="space-y-3 border-t border-dashed border-[var(--color-line)] pt-5">
+            <div>
+              <h3 className="text-[16px]">Day basics</h3>
+              <p className="mt-0.5 text-[13px]">The anchors Lantern plans around.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-[13px]">
+                Wake time
+                <input
+                  className="input-field mt-1"
+                  type="time"
+                  value={schedule.wake_time}
+                  onChange={(e) => setSchedule({ ...schedule, wake_time: e.target.value })}
+                />
+              </label>
+              <label className="block text-[13px]">
+                Meals
+                <input
+                  className="input-field mt-1"
+                  placeholder="08:00, 12:30, 18:00"
+                  value={schedule.meals}
+                  onChange={(e) => setSchedule({ ...schedule, meals: e.target.value })}
+                />
+              </label>
+              <label className="block text-[13px]">
+                Walk starts
+                <input
+                  className="input-field mt-1"
+                  type="time"
+                  value={schedule.walk_start}
+                  onChange={(e) => setSchedule({ ...schedule, walk_start: e.target.value })}
+                />
+              </label>
+              <label className="block text-[13px]">
+                Walk ends
+                <input
+                  className="input-field mt-1"
+                  type="time"
+                  value={schedule.walk_end}
+                  onChange={(e) => setSchedule({ ...schedule, walk_end: e.target.value })}
+                />
+              </label>
+            </div>
+            <label className="block text-[13px]">
+              Notes for Lantern
+              <textarea
+                className="input-field mt-1"
+                rows={2}
+                value={schedule.notes}
+                onChange={(e) => setSchedule({ ...schedule, notes: e.target.value })}
+              />
+            </label>
+          </section>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={routineCount === 0}
+              onClick={() => setStep(5)}
+            >
+              Next — People
+            </button>
+            <p
+              role={routineCount === 0 && saved === '' ? 'status' : undefined}
+              className={`text-[13px] font-medium ${routineCount === 0 ? 'text-[var(--color-danger)]' : ''}`}
+            >
+              {routineCount === 0
+                ? 'Add at least one routine item to continue.'
+                : routineCount < 3
+                  ? `${routineCount} added. Three or more gives Lantern a good picture of the day.`
+                  : `${routineCount} items in the routine. Nice.`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {step === 5 && (
+        <div className="card space-y-5">
+          <div>
+            <h2 className="text-[20px]">Who should Lantern know?</h2>
+            <p className="mt-1 text-[14px]">
+              Add the people who get alerts, and the people in the home. For each one, give a phone number and
+              how they’re related to {patient.preferred_name || patient.name || 'them'}.
+            </p>
+          </div>
+          <PeopleEditor people={people} onChange={setPeople} />
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-primary w-full sm:w-auto" disabled={emergencyCount === 0} onClick={finish}>
+              Finish profile
+            </button>
+            <p className={`text-[13px] font-medium ${emergencyCount === 0 ? 'text-[var(--color-danger)]' : ''}`}>
+              {emergencyCount === 0
+                ? 'Add at least one emergency contact with a phone number.'
+                : `${emergencyCount} emergency contact${emergencyCount === 1 ? '' : 's'} ready.`}
+            </p>
+          </div>
           {saved && <p className="text-[14px] text-[var(--color-ink)]">{saved}</p>}
         </div>
       )}
-    </div>
+      </div>
+    </PhoneFrame>
   )
 }

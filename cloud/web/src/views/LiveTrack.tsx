@@ -105,15 +105,15 @@ export function LiveTrack({ open, onToggle, onCallHelp }: Props) {
         <>
           <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full rounded-[14px] bg-[var(--color-surface)]">
             {Array.from({ length: 7 }, (_, i) => (
-              <line key={`v${i}`} x1={(W / 6) * i} y1={0} x2={(W / 6) * i} y2={H} stroke="#eef1f4" strokeWidth={1} />
+              <line key={`v${i}`} x1={(W / 6) * i} y1={0} x2={(W / 6) * i} y2={H} stroke="#e9f1ef" strokeWidth={1} />
             ))}
             {Array.from({ length: 6 }, (_, i) => (
-              <line key={`h${i}`} x1={0} y1={(H / 5) * i} x2={W} y2={(H / 5) * i} stroke="#eef1f4" strokeWidth={1} />
+              <line key={`h${i}`} x1={0} y1={(H / 5) * i} x2={W} y2={(H / 5) * i} stroke="#e9f1ef" strokeWidth={1} />
             ))}
 
             <polyline
               fill="none"
-              stroke="#2563ff"
+              stroke="#f0883e"
               strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -122,35 +122,35 @@ export function LiveTrack({ open, onToggle, onCallHelp }: Props) {
             />
 
             <g>
-              <circle cx={home.x} cy={home.y} r={8} fill="#0e1116" stroke="#fff" strokeWidth={2} />
-              <text x={home.x + 12} y={home.y + 4} fontSize={11} fontWeight={600} fill="#0e1116" fontFamily="Inter, sans-serif">
+              <circle cx={home.x} cy={home.y} r={8} fill="#153a3b" stroke="#fff" strokeWidth={2} />
+              <text x={home.x + 12} y={home.y + 4} fontSize={11} fontWeight={600} fill="#153a3b" fontFamily="Inter, sans-serif">
                 home
               </text>
             </g>
 
             {pup && (
               <g>
-                <circle cx={pup.x} cy={pup.y} r={7} fill="#2563ff" stroke="#fff" strokeWidth={2} />
-                <text x={pup.x - 12} y={pup.y + 4} textAnchor="end" fontSize={11} fontWeight={600} fill="#0e1116" fontFamily="Inter, sans-serif">
+                <circle cx={pup.x} cy={pup.y} r={7} fill="#f0883e" stroke="#fff" strokeWidth={2} />
+                <text x={pup.x - 12} y={pup.y + 4} textAnchor="end" fontSize={11} fontWeight={600} fill="#153a3b" fontFamily="Inter, sans-serif">
                   Lantern
                 </text>
               </g>
             )}
 
             <g>
-              <circle cx={me.x} cy={me.y} r={10} fill="#e5484d" opacity={0.25}>
+              <circle cx={me.x} cy={me.y} r={10} fill="#e5626a" opacity={0.25}>
                 <animate attributeName="r" values="10;22;10" dur="1.6s" repeatCount="indefinite" />
                 <animate attributeName="opacity" values="0.3;0;0.3" dur="1.6s" repeatCount="indefinite" />
               </circle>
-              <circle cx={me.x} cy={me.y} r={9} fill="#e5484d" stroke="#fff" strokeWidth={2.5} />
-              <text x={me.x - 14} y={me.y - 14} textAnchor="end" fontSize={12} fontWeight={600} fill="#0e1116" fontFamily="Inter, sans-serif" stroke="#fff" strokeWidth={3} paintOrder="stroke">
+              <circle cx={me.x} cy={me.y} r={9} fill="#e5626a" stroke="#fff" strokeWidth={2.5} />
+              <text x={me.x - 14} y={me.y - 14} textAnchor="end" fontSize={12} fontWeight={600} fill="#153a3b" fontFamily="Inter, sans-serif" stroke="#fff" strokeWidth={3} paintOrder="stroke">
                 {who}
               </text>
             </g>
 
             <g>
-              <line x1={PAD} y1={H - 18} x2={PAD + barM * scale} y2={H - 18} stroke="#0e1116" strokeWidth={2} />
-              <text x={PAD} y={H - 24} fontSize={10} fill="#4a5560" fontFamily="Inter, sans-serif">
+              <line x1={PAD} y1={H - 18} x2={PAD + barM * scale} y2={H - 18} stroke="#153a3b" strokeWidth={2} />
+              <text x={PAD} y={H - 24} fontSize={10} fill="#51696a" fontFamily="Inter, sans-serif">
                 {barM} m
               </text>
             </g>

@@ -44,12 +44,12 @@ export interface Door {
 }
 
 export const TONES: Record<Tone, { top: string; front: string }> = {
-  wall: { top: '#ffffff', front: '#ccd3db' },
-  wood: { top: '#c3cbd4', front: '#97a2ae' },
-  soft: { top: '#eef1f5', front: '#c6cdd5' },
-  water: { top: '#d3e3f6', front: '#a3bcd9' },
-  plant: { top: '#5fb58a', front: '#357f5d' },
-  ink: { top: '#586170', front: '#343b47' },
+  wall: { top: '#ffffff', front: '#2b5f60' },
+  wood: { top: '#d9e8e4', front: '#9fc6bf' },
+  soft: { top: '#f7f3ea', front: '#ded6c4' },
+  water: { top: '#d3e8ef', front: '#9cc3cf' },
+  plant: { top: '#7ccaa6', front: '#3f8f73' },
+  ink: { top: '#4c7f80', front: '#2b5f60' },
 }
 
 const T = 0.055
@@ -172,11 +172,11 @@ export const DEMO_FURNITURE: Block[] = [
 ]
 
 export const DEMO_RUGS: Rug[] = [
-  { x: 0.1, y: 0.25, w: 0.72, d: 0.72, r: 0.03, fill: '#dde3ea' },
-  { x: 0.4, y: 1.42, w: 0.32, d: 0.16, r: 0.02, fill: '#d3e2f3' },
-  { x: 1.05, y: 1.2, w: 0.57, d: 0.28, r: 0.03, fill: '#dde3ea' },
-  { x: 1.3, y: 0.4, w: 0.35, d: 0.45, r: 0.03, fill: '#dde3ea' },
-  { x: 1.78, y: 0.12, w: 0.2, d: 0.26, r: 0.02, fill: '#c5cdd6' },
+  { x: 0.1, y: 0.25, w: 0.72, d: 0.72, r: 0.03, fill: '#e2efec' },
+  { x: 0.4, y: 1.42, w: 0.32, d: 0.16, r: 0.02, fill: '#d5e7e4' },
+  { x: 1.05, y: 1.2, w: 0.57, d: 0.28, r: 0.03, fill: '#e2efec' },
+  { x: 1.3, y: 0.4, w: 0.35, d: 0.45, r: 0.03, fill: '#e2efec' },
+  { x: 1.78, y: 0.12, w: 0.2, d: 0.26, r: 0.02, fill: '#c9e0dc' },
 ]
 
 export const DEMO_DOORS: Door[] = [

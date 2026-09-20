@@ -6,7 +6,7 @@ async function toDataUrl(text: string): Promise<string> {
   return QRCode.toDataURL(text, {
     margin: 1,
     width: 160,
-    color: { dark: '#0e1116', light: '#ffffff' },
+    color: { dark: '#153a3b', light: '#ffffff' },
   })
 }
 

@@ -3,7 +3,7 @@ import { polygonToPoints, SVG, worldToSvg, type MapBounds } from '../lib/frame'
 import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE, zoneName } from '../lib/zonePaint'
 import type { Zone } from '../lib/types'
 import { useProjection } from '../hooks/useProjection'
-import { DEMO_HOME_MAP_ID } from '../lib/demoHome'
+import { DEMO_HOME_MAP_ID, DEMO_HOME_PIN } from '../lib/demoHome'
 import { HomeFloor, HomeStructures } from './HomeScene'
 import { Map3D } from './Map3D'
 
@@ -29,7 +29,7 @@ function zoneLabels(zones: Zone[], bounds: MapBounds) {
 export function MapView() {
   const p = useProjection()
   // Zones only exist while Night Watch is on; off hides them (and the legend).
-  const zonesOn = (p.config.night_watch_enabled as boolean | undefined) ?? true
+  const zonesOn = (p.config.night_watch_enabled as boolean | undefined) ?? false
   const zones = zonesOn ? p.zones : []
   const [view, setView] = useState<'map' | '3d'>('map')
   const live = p.live_tracking || Boolean(p.open_alert?.live_tracking)
@@ -44,11 +44,8 @@ export function MapView() {
 
   return (
     <div className="card-slate !p-5">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow mb-2">Home</p>
-          <h2>Where they are</h2>
-        </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2>Home</h2>
         <div className="flex flex-wrap gap-3 text-[12px] text-[var(--color-ink-2)]">
           {zonesOn ? (
             (['safe', 'watch', 'exit'] as const).map((c) => (
@@ -92,7 +89,7 @@ export function MapView() {
                 key={r.id}
                 points={polygonToPoints(r.polygon, bounds)}
                 fill="none"
-                stroke="#0e1116"
+                stroke="#153a3b"
                 strokeWidth={1}
                 strokeDasharray="4 3"
               />
@@ -104,7 +101,7 @@ export function MapView() {
             key={z.id}
             points={polygonToPoints(z.polygon, bounds)}
             fill={PAINT_FILL[z.class] || 'rgba(255,255,255,0.08)'}
-            stroke={showHome ? undefined : PAINT_STROKE[z.class] || '#0e1116'}
+            stroke={showHome ? undefined : PAINT_STROKE[z.class] || '#153a3b'}
             strokeWidth={z.class === 'safe' || showHome ? 0 : 1.5}
             shapeRendering="crispEdges"
             opacity={z.class === 'safe' ? 0.5 : 1}
@@ -118,7 +115,7 @@ export function MapView() {
             x={l.cx}
             y={l.cy + 4}
             textAnchor="middle"
-            fill="#0e1116"
+            fill="#153a3b"
             fontSize={11}
             fontWeight={600}
             fontFamily="Inter, sans-serif"
@@ -134,7 +131,7 @@ export function MapView() {
         {live && p.person_trail.filter((t) => inside(t.x, t.y)).length > 1 && (
           <polyline
             fill="none"
-            stroke="#2563ff"
+            stroke="#f0883e"
             strokeWidth={2.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -155,9 +152,9 @@ export function MapView() {
             const { cx, cy } = worldToSvg(p.pose.x, p.pose.y, bounds)
             return (
               <g>
-                <circle cx={cx} cy={cy} r={17} fill="#2563ff" opacity={0.16} />
-                <circle cx={cx} cy={cy} r={9} fill="#2563ff" stroke="#ffffff" strokeWidth={2} />
-                <text x={cx + 14} y={cy + 4} fill="#0e1116" fontSize={11} fontWeight={600} fontFamily="Inter, sans-serif">
+                <circle cx={cx} cy={cy} r={17} fill="#f0883e" opacity={0.16} />
+                <circle cx={cx} cy={cy} r={9} fill="#f0883e" stroke="#ffffff" strokeWidth={2} />
+                <text x={cx + 14} y={cy + 4} fill="#153a3b" fontSize={11} fontWeight={600} fontFamily="Inter, sans-serif">
                   Lantern
                 </text>
               </g>
@@ -170,8 +167,8 @@ export function MapView() {
             const { cx, cy } = worldToSvg(p.person_track.x, p.person_track.y, bounds)
             return (
               <g>
-                <circle cx={cx} cy={cy} r={12} fill="#e5484d" stroke="#ffffff" strokeWidth={2} />
-                <text x={cx + 14} y={cy + 4} fill="#0e1116" fontSize={12} fontWeight={600} fontFamily="Inter, sans-serif">
+                <circle cx={cx} cy={cy} r={12} fill="#e5626a" stroke="#ffffff" strokeWidth={2} />
+                <text x={cx + 14} y={cy + 4} fill="#153a3b" fontSize={12} fontWeight={600} fontFamily="Inter, sans-serif">
                   person
                 </text>
               </g>
@@ -179,13 +176,16 @@ export function MapView() {
           })()}
 
         {(() => {
-          const home = (p.config.patient as { home?: { x: number; y: number } } | undefined)?.home
+          const saved = (p.config.patient as { home?: { x: number; y: number } } | undefined)?.home
+          // (0, 0) is the server default for "not placed yet"
+          const placed = saved && (saved.x !== 0 || saved.y !== 0) ? saved : null
+          const home = placed ?? (showHome ? DEMO_HOME_PIN : null)
           if (!home) return null
           const { cx, cy } = worldToSvg(home.x, home.y, bounds)
           return (
             <g>
-              <circle cx={cx} cy={cy} r={8} fill="#0e1116" stroke="#ffffff" strokeWidth={2} />
-              <text x={cx + 12} y={cy + 4} fill="#0e1116" fontSize={10} fontWeight={600} fontFamily="Inter, sans-serif">
+              <circle cx={cx} cy={cy} r={8} fill="#153a3b" stroke="#ffffff" strokeWidth={2} />
+              <text x={cx + 12} y={cy + 4} fill="#153a3b" fontSize={10} fontWeight={600} fontFamily="Inter, sans-serif">
                 home
               </text>
             </g>

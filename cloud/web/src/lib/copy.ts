@@ -114,6 +114,7 @@ export function timelineLine(msg: Envelope): string | null {
     }
     case 'caregiver_ack': {
       const action = String(p.action || '')
+      if (action === 'dismiss') return 'You dismissed an alert.'
       if (action === 'im_coming') return 'You said you’ll handle it.'
       if (action === 'false_alarm') return 'Marked as a false alarm.'
       if (action === 'call_help') return 'You reached out for help.'

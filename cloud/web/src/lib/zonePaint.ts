@@ -9,15 +9,15 @@ export const PAINT_LABEL: Record<PaintClass, string> = {
 }
 
 export const PAINT_FILL: Record<PaintClass, string> = {
-  safe: 'rgba(22,160,107,0.30)',
-  watch: 'rgba(217,154,11,0.38)',
-  exit: 'rgba(229,72,77,0.34)',
+  safe: 'rgba(58,169,129,0.38)',
+  watch: 'rgba(240,180,69,0.50)',
+  exit: 'rgba(229,98,106,0.45)',
 }
 
 export const PAINT_STROKE: Record<PaintClass, string> = {
-  safe: '#16a06b',
-  watch: '#c78a08',
-  exit: '#d63b41',
+  safe: '#2a8f6c',
+  watch: '#d29a1f',
+  exit: '#d94f58',
 }
 
 const OLD_LABELS = new Set(["Don't go", 'Watch'])

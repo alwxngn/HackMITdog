@@ -2,27 +2,39 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { timelineLine, zoneContext } from '../lib/copy'
 import { useProjection } from '../hooks/useProjection'
-import { patchConfig } from '../lib/store'
+import { Hero } from '../components/Hero'
+import { PhoneFrame } from '../components/PhoneFrame'
 import { AlertBanner } from './AlertBanner'
 import { CheckinComposer } from './CheckinComposer'
-import { DemoWalk } from './DemoWalk'
+import { DevMenu } from './DevMenu'
 import { DogCamera } from './DogCamera'
 import { EmergencyContacts } from './EmergencyContacts'
 import { LiveTrack } from './LiveTrack'
 import { MapView } from './Map'
 import { MorningReport } from './MorningReport'
+import { RoutineTab } from './Routine'
 import { SpeakerPhone } from './SpeakerPhone'
 import { StatePanel } from './StatePanel'
 import { TabIsland, type TabId } from './TabIsland'
 import { Timeline } from './Timeline'
 
-function PageHeader({ eyebrow, title, blurb }: { eyebrow: string; title: string; blurb?: string }) {
+function PageHeader({
+  eyebrow,
+  title,
+  blurb,
+  mood,
+}: {
+  eyebrow: string
+  title: string
+  blurb?: string
+  mood?: 'happy' | 'sleepy' | 'alert'
+}) {
   return (
-    <header className="pb-1 pt-2">
-      <p className="eyebrow mb-1">{eyebrow}</p>
-      <h1 className="text-[30px] leading-[1.1]">{title}</h1>
-      {blurb && <p className="mt-2 text-[14px] leading-[1.5] text-[var(--color-ink-2)]">{blurb}</p>}
-    </header>
+    <Hero mood={mood} avatar={84}>
+      <p className="eyebrow mb-1.5 !text-[var(--color-tint)]">{eyebrow}</p>
+      <h1 className="text-[30px] leading-[1.08] !text-white">{title}</h1>
+      {blurb && <p className="mt-2 text-[14px] font-semibold leading-[1.5] text-[#a8cdc8]">{blurb}</p>}
+    </Hero>
   )
 }
 
@@ -35,10 +47,9 @@ export function Dashboard() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [trackOpen, setTrackOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [watchError, setWatchError] = useState('')
   const p = useProjection()
 
-  const nightWatchEnabled = (p.config.night_watch_enabled as boolean | undefined) ?? true
+  const nightWatchEnabled = (p.config.night_watch_enabled as boolean | undefined) ?? false
   const outside = nightWatchEnabled && zoneContext(p.person_track, p.zones)?.cls === 'outside'
   const patient = p.config.patient as { preferred_name?: string; name?: string } | undefined
   const name = patient?.preferred_name || patient?.name
@@ -47,21 +58,6 @@ export function Dashboard() {
     .reverse()
     .map((msg) => ({ msg, text: timelineLine(msg) }))
     .find((r) => r.text)
-
-  async function setNightWatch(enabled: boolean) {
-    setWatchError('')
-    try {
-      const r = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ night_watch_enabled: enabled }),
-      })
-      if (!r.ok) throw new Error(String(r.status))
-      patchConfig({ night_watch_enabled: enabled })
-    } catch {
-      setWatchError('Couldn’t reach Lantern. Check that the server is running.')
-    }
-  }
 
   // Collapse the map once they are back inside so the next run starts tidy.
   const [wasOutside, setWasOutside] = useState(false)
@@ -81,151 +77,122 @@ export function Dashboard() {
     window.scrollTo({ top: 0 })
   }
 
+  const topBar = (
+    <div className="flex items-center justify-between">
+      <span className="pill !gap-2.5 !py-1.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+        Night Watch is set for 9 PM - 7 AM
+      </span>
+    </div>
+  )
+
   return (
-    <div className="min-h-full">
-      <main className="mx-auto w-full max-w-[460px] px-4 pb-32 pt-5">
-        {tab === 'home' && (
-          <Screen>
-            <div className="flex items-center justify-between pb-1">
-              <div>
-                <Link
-                  to="/"
-                  className="inline-flex items-center gap-2 font-[family-name:var(--font-display)] text-[22px] font-semibold leading-none tracking-[-0.03em] text-[var(--color-ink)]"
-                >
-                  <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[var(--color-ink)]">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-accent)] shadow-[0_0_10px_2px_rgba(37,99,255,0.7)]" />
-                  </span>
-                  Lantern
-                </Link>
-                <p className="eyebrow mt-2">{name ? `Looking after ${name}` : 'Night Watch'}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={nightWatchEnabled}
-                aria-label="Night Watch"
-                onClick={() => setNightWatch(!nightWatchEnabled)}
-                className="pill !gap-2.5 !py-2 shadow-[var(--shadow-card)]"
-              >
-                Night Watch
-                <span
-                  className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-                    nightWatchEnabled ? 'bg-[var(--color-safe)]' : 'bg-[var(--color-tint)]'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-[var(--color-surface)] shadow transition-all ${
-                      nightWatchEnabled ? 'left-[18px]' : 'left-0.5'
-                    }`}
-                  />
-                </span>
-              </button>
-            </div>
-
-            {watchError && (
-              <p role="alert" className="text-[13px] text-[var(--color-danger)]">
-                {watchError}
-              </p>
-            )}
-
-            <StatePanel />
-            {outside && (
-              <LiveTrack open={trackOpen} onToggle={() => setTrackOpen((v) => !v)} onCallHelp={() => setHelpOpen(true)} />
-            )}
-            <MapView />
-            <DogCamera
-              open={cameraOpen}
-              onOpen={() => setCameraOpen(true)}
-              onClose={() => setCameraOpen(false)}
-            />
-
-            {latest && (
-              <button
-                type="button"
-                onClick={() => go('activity')}
-                className="card-cream flex cursor-pointer items-center justify-between gap-4 !p-5 text-left"
-              >
-                <span>
-                  <span className="eyebrow mb-1 block">Latest</span>
-                  <span className="block text-[14px]">{latest.text}</span>
-                </span>
-                <span aria-hidden className="text-[var(--color-ink)]">→</span>
-              </button>
-            )}
-
-            <DemoWalk />
-          </Screen>
+    <>
+      <PhoneFrame className="bg-[var(--color-bg)]">
+        {tab === 'home' && <StatePanel top={topBar} />}
+        {tab === 'routine' && (
+          <PageHeader
+            eyebrow="Daily rhythm"
+            title="Routine"
+            blurb={`A steady day helps with memory. ${name ? `${name}’s` : 'Their'} plan, at a glance.`}
+          />
         )}
-
         {tab === 'checkin' && (
-          <Screen>
-            <PageHeader
-              eyebrow="Stay close"
-              title={name ? `Check in on ${name}` : 'Check in'}
-              blurb={`Send a message and Lantern will say it out loud in the voice of someone ${name || 'they'} love${name ? 's' : ''}. Their reply shows up here.`}
-            />
-            <CheckinComposer onOpenSettings={() => go('settings')} />
-          </Screen>
+          <PageHeader
+            eyebrow="Stay close"
+            title={name ? `Check in on ${name}` : 'Check in'}
+            blurb={`Send a message and Lantern will say it out loud in the voice of someone ${name || 'they'} love${name ? 's' : ''}.`}
+          />
         )}
-
         {tab === 'activity' && (
-          <Screen>
-            <PageHeader
-              eyebrow="A look back"
-              title="Activity"
-              blurb={name ? `How ${name}’s nights have been, and anything Lantern noticed.` : 'How the nights have been, and anything Lantern noticed.'}
-            />
-            <MorningReport />
-            <Timeline />
-          </Screen>
+          <PageHeader
+            eyebrow="A look back"
+            title="Activity"
+            blurb={name ? `How ${name}’s nights have been, and anything Lantern noticed.` : 'How the nights have been.'}
+          />
         )}
+        {tab === 'settings' && <PageHeader eyebrow="Make it yours" title="Settings" mood="sleepy" />}
 
-        {tab === 'settings' && (
-          <Screen>
-            <PageHeader eyebrow="Make it yours" title="Settings" />
-            <div className="card flex flex-col divide-y divide-[var(--color-line)] !p-0">
-              <div className="flex items-center justify-between gap-4 p-5">
-                <div>
-                  <p className="text-[16px] text-[var(--color-ink)]">Night Watch</p>
-                  <p className="text-[13px]">Lantern watches the zones you set and lets you know if they need you.</p>
-                </div>
+        <main className="px-4 pb-32 pt-5">
+          {tab === 'home' && (
+            <Screen>
+              {outside && (
+                <LiveTrack open={trackOpen} onToggle={() => setTrackOpen((v) => !v)} onCallHelp={() => setHelpOpen(true)} />
+              )}
+              <MapView />
+              <DogCamera
+                open={cameraOpen}
+                onOpen={() => setCameraOpen(true)}
+                onClose={() => setCameraOpen(false)}
+              />
+
+              {latest && (
                 <button
                   type="button"
-                  role="switch"
-                  aria-checked={nightWatchEnabled}
-                  aria-label="Night Watch"
-                  onClick={() => setNightWatch(!nightWatchEnabled)}
-                  className={`relative h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors ${
-                    nightWatchEnabled ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-tint)]'
-                  }`}
+                  onClick={() => go('activity')}
+                  className="card-cream flex cursor-pointer items-center justify-between gap-4 !p-5 text-left"
                 >
-                  <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-[var(--color-surface)] shadow transition-all ${
-                      nightWatchEnabled ? 'left-6' : 'left-1'
-                    }`}
-                  />
+                  <span>
+                    <span className="eyebrow mb-1 block">Latest</span>
+                    <span className="block text-[14px] font-bold text-[var(--color-ink)]">{latest.text}</span>
+                  </span>
+                  <span aria-hidden className="text-[20px] font-bold text-[var(--color-ink)]">→</span>
                 </button>
-              </div>
-              <SpeakerPhone />
-              <Link to="/onboarding" className="flex items-center justify-between gap-4 p-5">
-                <div>
-                  <p className="text-[16px] text-[var(--color-ink)]">Edit home</p>
-                  <p className="text-[13px]">Update rooms, zones and daily routines.</p>
-                </div>
-                <span aria-hidden className="text-[var(--color-ink)]">→</span>
-              </Link>
-              <Link to="/" className="flex items-center justify-between gap-4 p-5">
-                <div>
-                  <p className="text-[16px] text-[var(--color-ink)]">Welcome screen</p>
-                  <p className="text-[13px]">Back to the start.</p>
-                </div>
-                <span aria-hidden className="text-[var(--color-ink)]">→</span>
-              </Link>
-            </div>
-          </Screen>
-        )}
-      </main>
+              )}
 
+            </Screen>
+          )}
+
+          {tab === 'routine' && <RoutineTab name={name} />}
+
+          {tab === 'checkin' && (
+            <Screen>
+              <CheckinComposer onOpenSettings={() => go('settings')} />
+            </Screen>
+          )}
+
+          {tab === 'activity' && (
+            <Screen>
+              <MorningReport />
+              <Timeline />
+            </Screen>
+          )}
+
+          {tab === 'settings' && (
+            <Screen>
+              <div className="card flex flex-col divide-y-2 divide-dashed divide-[var(--color-line)] !p-0">
+                <div className="flex items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-[16px] font-semibold text-[var(--color-ink)]">Night Watch</p>
+                    <p className="text-[13px]">
+                      Set for 9 PM - 7 AM. Lantern watches the zones you set and lets you know if they need you.
+                    </p>
+                  </div>
+                </div>
+                <SpeakerPhone />
+                <Link to="/onboarding" className="flex items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-[16px] font-semibold text-[var(--color-ink)]">Edit home</p>
+                    <p className="text-[13px]">Update rooms, zones and the daily routine.</p>
+                  </div>
+                  <span aria-hidden className="text-[20px] font-bold text-[var(--color-ink)]">→</span>
+                </Link>
+                <Link to="/" className="flex items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-[16px] font-semibold text-[var(--color-ink)]">Welcome screen</p>
+                    <p className="text-[13px]">Back to the start.</p>
+                  </div>
+                  <span aria-hidden className="text-[20px] font-bold text-[var(--color-ink)]">→</span>
+                </Link>
+              </div>
+            </Screen>
+          )}
+        </main>
+      </PhoneFrame>
+
+      <DevMenu />
       <TabIsland active={tab} onChange={go} badge={p.checkin_queue.length > 0 ? 'checkin' : null} />
       <AlertBanner
         onOpenCamera={() => setCameraOpen(true)}
@@ -234,6 +201,6 @@ export function Dashboard() {
         onCallHelp={() => setHelpOpen(true)}
       />
       {helpOpen && <EmergencyContacts onClose={() => setHelpOpen(false)} />}
-    </div>
+    </>
   )
 }

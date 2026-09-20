@@ -106,7 +106,7 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
   const cellW = (SVG.width - SVG.pad * 2) / COLS
   const cellH = (SVG.height - SVG.pad * 2) / ROWS
 
-  const on = 'bg-[var(--color-ink)] !text-[var(--color-surface)]'
+  const on = '!border-transparent !bg-[var(--color-brand)] !text-white'
 
   return (
     <div className="space-y-3">
@@ -115,7 +115,7 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
           <button
             key={c}
             type="button"
-            className={`pill min-h-10 cursor-pointer px-4 shadow-[var(--shadow-card)] ${tool === c ? on : ''}`}
+            className={`pill min-h-10 cursor-pointer px-4 ${tool === c ? on : ''}`}
             onClick={() => setTool(c)}
           >
             <span
@@ -127,7 +127,7 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
         ))}
         <button
           type="button"
-          className={`pill min-h-10 cursor-pointer px-4 shadow-[var(--shadow-card)] ${tool === 'home' ? on : ''}`}
+          className={`pill min-h-10 cursor-pointer px-4 ${tool === 'home' ? on : ''}`}
           onClick={() => setTool('home')}
         >
           Place home
@@ -240,7 +240,7 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
                 key={r.id}
                 points={polygonToPoints(r.polygon, bounds)}
                 fill="none"
-                stroke="#0e1116"
+                stroke="#153a3b"
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
               />
@@ -248,7 +248,7 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
             <polygon
               points={polygonToPoints(map.outline, bounds)}
               fill="none"
-              stroke="#0e1116"
+              stroke="#153a3b"
               strokeWidth={2}
             />
           </>
@@ -258,11 +258,11 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
           const { cx, cy } = worldToSvg(home.x, home.y, bounds)
           return (
             <g pointerEvents="none">
-              <circle cx={cx} cy={cy} r={8} fill="#0e1116" stroke="#ffffff" strokeWidth={2} />
+              <circle cx={cx} cy={cy} r={8} fill="#153a3b" stroke="#ffffff" strokeWidth={2} />
               <text
                 x={cx + 12}
                 y={cy + 4}
-                fill="#0e1116"
+                fill="#153a3b"
                 fontSize={10}
                 fontWeight={600}
                 fontFamily="Inter, sans-serif"

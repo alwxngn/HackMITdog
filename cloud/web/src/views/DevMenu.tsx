@@ -1,3 +1,7 @@
+import { useState } from 'react'
+import { Switch } from '../components/Switch'
+import { useProjection } from '../hooks/useProjection'
+import { setNightWatch } from '../lib/nightWatch'
 import { DemoWalk } from './DemoWalk'
 
 /**
@@ -5,18 +9,35 @@ import { DemoWalk } from './DemoWalk'
  * screens where there is room next to the phone-width column; hidden on a real phone.
  */
 export function DevMenu() {
+  const p = useProjection()
+  const [error, setError] = useState('')
+  const on = (p.config.night_watch_enabled as boolean | undefined) ?? false
+
   return (
     <aside
-      aria-label="Dev menu"
+      aria-label="Developer menu"
       className="fixed top-6 z-20 hidden w-[280px] flex-col gap-3 min-[1120px]:flex"
       style={{ left: 'calc(50% + 254px)' }}
     >
-      <p className="eyebrow inline-flex items-center gap-2 px-1">
-        <span className="rounded-full bg-[var(--color-ink)] px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white">
-          DEV
-        </span>
-        Dev menu
-      </p>
+      <p className="eyebrow px-1">Developer menu</p>
+
+      <section className="card !p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[15px] font-semibold text-[var(--color-ink)]">Night Watch</p>
+            <p className="text-[12px] text-[var(--color-ink-2)]">
+              {on ? 'Warning and danger zones are on' : 'Zones are hidden and ignored'}
+            </p>
+          </div>
+          <Switch on={on} onChange={async (next) => setError((await setNightWatch(next)) ?? '')} label="Night Watch" />
+        </div>
+        {error && (
+          <p role="alert" className="mt-3 text-[12px] text-[var(--color-danger)]">
+            {error}
+          </p>
+        )}
+      </section>
+
       <DemoWalk />
     </aside>
   )

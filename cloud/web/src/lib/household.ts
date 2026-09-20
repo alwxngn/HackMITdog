@@ -11,7 +11,7 @@ export interface HouseholdMember {
 export const HOUSEHOLD: HouseholdMember[] = [
   { name: 'Alex', voiceReady: false },
   { name: 'Ally', voiceReady: false },
-  { name: 'Javier', voiceReady: true },
+  { name: 'Javiar', voiceReady: true },
   { name: 'Lamine', voiceReady: false },
 ]
 
