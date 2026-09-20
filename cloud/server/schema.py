@@ -66,7 +66,32 @@ class Position(BaseModel):
     zone: str | None = None
 
 
+DEFAULT_MAP_READY: dict[str, Any] = {
+    "request_id": "ms_default",
+    "map_id": "demo_home_v1",
+    "origin": {"x": 0.0, "y": 0.0},
+    "width_m": 2.0,
+    "height_m": 2.0,
+    "outline": [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]],
+    "rooms": [
+        {
+            "id": "bedroom",
+            "polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.2], [0.0, 1.2]],
+        },
+        {
+            "id": "hallway",
+            "polygon": [[1.0, 0.3], [1.8, 0.3], [1.8, 1.0], [1.0, 1.0]],
+        },
+        {
+            "id": "front_door",
+            "polygon": [[1.6, 0.0], [2.0, 0.0], [2.0, 0.5], [1.6, 0.5]],
+        },
+    ],
+}
+
+
 DEFAULT_CONFIG: dict[str, Any] = {
+    "night_watch_enabled": True,
     "zones": [
         {
             "id": "bedroom",

@@ -8,7 +8,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
-from schema import DEFAULT_CONFIG
+from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 EVENTS_PATH = DATA_DIR / "events.jsonl"
@@ -45,7 +45,7 @@ class EventStore:
             "last_transcript": None,
             "robot_status": None,
             "checkin_queue": [],
-            "map_ready": None,
+            "map_ready": dict(DEFAULT_MAP_READY),
             "map_scan_pending": None,
         }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DEMO_MAP, type MapReadyPayload } from '../../lib/demoFloorplan'
+import { DEMO_HOME_PIN } from '../../lib/demoHome'
 import { useProjection } from '../../hooks/useProjection'
 import type { Zone } from '../../lib/types'
 import { ZonePainter } from './ZonePainter'
@@ -20,7 +21,11 @@ export function Onboarding() {
     (projection.map_ready as MapReadyPayload | null) || null,
   )
   const [zones, setZones] = useState<Zone[]>([])
-  const [home, setHome] = useState({ x: 0.4, y: 0.4 })
+  const [home, setHome] = useState<{ x: number; y: number }>(() => {
+    const saved = (projection.config.patient as { home?: { x: number; y: number } } | undefined)?.home
+    // server default is the (0, 0) corner, which means "not placed yet"
+    return saved && (saved.x !== 0 || saved.y !== 0) ? { x: saved.x, y: saved.y } : DEMO_HOME_PIN
+  })
   const [patient, setPatient] = useState({
     name: 'Arthur',
     preferred_name: 'Art',
@@ -156,7 +161,7 @@ export function Onboarding() {
 
   const steps: { n: Step; label: string }[] = [
     { n: 1, label: 'Patient' },
-    { n: 2, label: 'Scan home' },
+    { n: 2, label: 'Map home' },
     { n: 3, label: 'Paint zones' },
     { n: 4, label: 'Schedule' },
   ]
@@ -178,7 +183,7 @@ export function Onboarding() {
           <button
             key={s.n}
             type="button"
-            className={`pill min-h-10 px-4 ${step === s.n ? 'bg-[var(--color-forest-ink)] text-[var(--color-cream-paper)]' : ''}`}
+            className={`pill min-h-10 px-4 ${step === s.n ? 'bg-[var(--color-ink)] text-[var(--color-surface)]' : ''}`}
             onClick={() => {
               if (s.n === 3 && !map) return
               setStep(s.n)
@@ -192,7 +197,7 @@ export function Onboarding() {
       {step === 1 && (
         <div className="card max-w-lg space-y-3">
           <h2 className="text-[18px]">Who are we caring for?</h2>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Name
             <input
               className="input-field mt-1"
@@ -200,7 +205,7 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, name: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Preferred name
             <input
               className="input-field mt-1"
@@ -208,7 +213,7 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, preferred_name: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Calming topics (comma-separated)
             <input
               className="input-field mt-1"
@@ -216,7 +221,7 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, calming_topics: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Avoid topics
             <input
               className="input-field mt-1"
@@ -225,28 +230,28 @@ export function Onboarding() {
             />
           </label>
           <button type="button" className="btn-primary" onClick={() => setStep(2)}>
-            Next — Scan home
+            Next — Map home
           </button>
         </div>
       )}
 
       {step === 2 && (
         <div className="card max-w-xl space-y-4">
-          <h2 className="text-[18px]">Scan home with Lantern</h2>
-          <p className="text-[14px] text-[var(--color-charcoal)]">
-            Live mode asks the Go2 for a metre-frame map (E2 posts <code>map_ready</code>). Demo
-            mode loads a schematic — same paint step either way. Frame: origin SW corner, +x east,
-            metres.
+          <h2 className="text-[18px]">Map your home</h2>
+          <p className="text-[14px] text-[var(--color-ink-2)]">
+            Eventually Lantern will walk through the house and map it on its own. That isn&apos;t
+            wired up yet, so for now this step is a placeholder: it loads the demo floor plan, and
+            you can paint Night Watch zones on it in the next step.
           </p>
           {scanning ? (
             <div className="space-y-3">
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--color-mint-veil)]">
-                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-forest-ink)]" />
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--color-panel-2)]">
+                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-ink)]" />
               </div>
-              <p className="text-[14px] text-[var(--color-forest-ink)]">
+              <p className="text-[14px] text-[var(--color-ink)]">
                 {scanMode === 'live'
                   ? `Waiting for robot map… ${scanElapsed}s (E2 → POST /api/ingest map_ready)`
-                  : 'Mapping… loading demo floorplan.'}
+                  : 'Mapping… (placeholder) loading the demo floor plan.'}
               </p>
               <button type="button" className="btn-ghost !min-h-10" onClick={cancelScan}>
                 Cancel
@@ -254,11 +259,8 @@ export function Onboarding() {
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-primary" onClick={() => startScan(false)}>
-                Scan home
-              </button>
-              <button type="button" className="btn-ghost" onClick={() => startScan(true)}>
-                Use demo floorplan
+              <button type="button" className="btn-primary" onClick={() => startScan(true)}>
+                Start mapping
               </button>
               {map && (
                 <button type="button" className="btn-ghost" onClick={() => setStep(3)}>
@@ -268,11 +270,11 @@ export function Onboarding() {
             </div>
           )}
           {scanError && (
-            <p className="text-[14px] text-[var(--color-charcoal)]">
+            <p className="text-[14px] text-[var(--color-ink-2)]">
               {scanError}{' '}
               <button
                 type="button"
-                className="underline text-[var(--color-forest-ink)]"
+                className="underline text-[var(--color-ink)]"
                 onClick={() => startScan(true)}
               >
                 Load demo map
@@ -280,8 +282,8 @@ export function Onboarding() {
             </p>
           )}
           {map && !scanning && (
-            <p className="text-[13px] text-[var(--color-forest-ink)]">
-              Map ready ({map.map_id}, {map.width_m}×{map.height_m} m). Continue to paint zones.
+            <p className="text-[13px] text-[var(--color-ink)]">
+              Floor plan ready ({map.width_m}×{map.height_m} m demo home). Continue to paint zones.
             </p>
           )}
         </div>
@@ -290,22 +292,34 @@ export function Onboarding() {
       {step === 3 && map && (
         <div className="card space-y-4">
           <h2 className="text-[18px]">Paint zones</h2>
-          <p className="text-[14px] text-[var(--color-charcoal)]">
-            Everything starts <span className="text-[var(--color-forest-ink)]">Safe</span>. Paint{' '}
-            <span className="text-[var(--color-forest-ink)]">Watch</span> and{' '}
-            <span className="text-[var(--color-forest-ink)]">Don&apos;t go</span>, then place home.
+          <p className="text-[14px] text-[var(--color-ink-2)]">
+            Everything starts <span className="text-[var(--color-ink)]">Safe</span>. Paint{' '}
+            <span className="text-[var(--color-ink)]">Watch</span> and{' '}
+            <span className="text-[var(--color-ink)]">Don&apos;t go</span>, then place home.
           </p>
-          <ZonePainter map={map} home={home} onHomeChange={setHome} onZonesChange={setZones} />
-          <button type="button" className="btn-primary" onClick={() => setStep(4)}>
-            Next — Schedule
-          </button>
+          <ZonePainter
+            map={map}
+            home={home}
+            initialZones={projection.zones}
+            onHomeChange={setHome}
+            onZonesChange={setZones}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-primary" onClick={finish}>
+              Save &amp; open Home
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setStep(4)}>
+              Next — Schedule
+            </button>
+          </div>
+          {saved && <p className="text-[14px] text-[var(--color-ink)]">{saved}</p>}
         </div>
       )}
 
       {step === 4 && (
         <div className="card max-w-md space-y-3">
           <h2 className="text-[18px]">Schedule & contacts</h2>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Wake time
             <input
               className="input-field mt-1"
@@ -313,7 +327,7 @@ export function Onboarding() {
               onChange={(e) => setSchedule({ ...schedule, wake_time: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Meals
             <input
               className="input-field mt-1"
@@ -322,7 +336,7 @@ export function Onboarding() {
             />
           </label>
           <div className="flex gap-2">
-            <label className="block flex-1 text-[14px] text-[var(--color-charcoal)]">
+            <label className="block flex-1 text-[14px] text-[var(--color-ink-2)]">
               Walk start
               <input
                 className="input-field mt-1"
@@ -330,7 +344,7 @@ export function Onboarding() {
                 onChange={(e) => setSchedule({ ...schedule, walk_start: e.target.value })}
               />
             </label>
-            <label className="block flex-1 text-[14px] text-[var(--color-charcoal)]">
+            <label className="block flex-1 text-[14px] text-[var(--color-ink-2)]">
               Walk end
               <input
                 className="input-field mt-1"
@@ -339,7 +353,7 @@ export function Onboarding() {
               />
             </label>
           </div>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Notes
             <textarea
               className="input-field mt-1"
@@ -348,7 +362,7 @@ export function Onboarding() {
               onChange={(e) => setSchedule({ ...schedule, notes: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Primary contact
             <input
               className="input-field mt-1"
@@ -356,7 +370,7 @@ export function Onboarding() {
               onChange={(e) => setContacts({ ...contacts, primary: e.target.value })}
             />
           </label>
-          <label className="block text-[14px] text-[var(--color-charcoal)]">
+          <label className="block text-[14px] text-[var(--color-ink-2)]">
             Secondary contact
             <input
               className="input-field mt-1"
@@ -367,7 +381,7 @@ export function Onboarding() {
           <button type="button" className="btn-primary w-full sm:w-auto" onClick={finish}>
             Finish — publish config
           </button>
-          {saved && <p className="text-[14px] text-[var(--color-forest-ink)]">{saved}</p>}
+          {saved && <p className="text-[14px] text-[var(--color-ink)]">{saved}</p>}
         </div>
       )}
     </div>

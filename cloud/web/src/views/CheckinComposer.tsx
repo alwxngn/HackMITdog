@@ -29,7 +29,7 @@ export function CheckinComposer() {
 
   useEffect(() => {
     let cancelled = false
-    if (link) QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0f3e17', light: '#fffefc' } }).then(src => { if (!cancelled) setQr(src) })
+    if (link) QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0e1116', light: '#ffffff' } }).then(src => { if (!cancelled) setQr(src) })
     return () => { cancelled = true }
   }, [link])
 
@@ -49,7 +49,7 @@ export function CheckinComposer() {
         Get QR
       </button>
       {showQr && link && (
-        <div className="mb-4 rounded-[14px] border border-[var(--color-border-mist)] p-4 text-center">
+        <div className="mb-4 rounded-[14px] border border-[var(--color-line)] p-4 text-center">
           {qr && <img src={qr} alt="Pair Lantern voice on your phone" className="mx-auto h-40 w-40" />}
           <p className="my-2 break-all text-[12px]">{link}</p>
           <button type="button" className="btn-ghost !min-h-8 !px-2 !py-1 !text-[12px]" onClick={() => {
@@ -78,7 +78,7 @@ export function CheckinComposer() {
         Send
       </button>
       {status && (
-        <p role="status" className="mt-3 text-[13px] text-[var(--color-forest-ink)]">{status}</p>
+        <p role="status" className="mt-3 text-[13px] text-[var(--color-ink)]">{status}</p>
       )}
       {voice.error && <p role="alert" className="mt-3 text-[13px]">{voice.error}</p>}
       {reply && <p className="mt-3 text-[14px]" data-testid="checkin-reply"><strong>{patient}:</strong> {String(reply.payload.text)}</p>}
