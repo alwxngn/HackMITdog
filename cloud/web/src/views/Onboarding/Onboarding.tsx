@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { DEMO_MAP, type MapReadyPayload } from '../../lib/demoFloorplan'
+import type { MapReadyPayload } from '../../lib/demoFloorplan'
 import { DEMO_HOME_PIN } from '../../lib/demoHome'
 import { useProjection } from '../../hooks/useProjection'
 import type { Zone } from '../../lib/types'
@@ -25,8 +25,11 @@ export function Onboarding() {
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState('')
   const [scanMode, setScanMode] = useState<'demo' | 'live' | null>(null)
+  const [scanPhase, setScanPhase] = useState<'idle' | 'running' | 'stopping' | 'stopped' | 'complete' | 'error'>('idle')
   const [scanElapsed, setScanElapsed] = useState(0)
-  const [scanAbort] = useState({ aborted: false })
+  const [scanExpectedSeconds, setScanExpectedSeconds] = useState(180)
+  const [scanRequestId, setScanRequestId] = useState<string | null>(null)
+  const scanLoopStopped = useRef(false)
   const [map, setMap] = useState<MapReadyPayload | null>(
     (projection.map_ready as MapReadyPayload | null) || null,
   )
@@ -141,17 +144,21 @@ export function Onboarding() {
   }
 
   useEffect(() => {
-    if (projection.map_ready) {
-      setMap(projection.map_ready as MapReadyPayload)
+    const ready = projection.map_ready as MapReadyPayload | null
+    if (scanMode === 'live' && scanRequestId && ready?.request_id === scanRequestId) {
+      setMap(ready)
       setScanning(false)
+      setScanPhase('complete')
     }
-  }, [projection.map_ready])
+  }, [projection.map_ready, scanMode, scanRequestId])
 
   async function startScan(forceDemo = false) {
     setScanError('')
     setScanning(true)
+    setScanPhase('running')
     setScanElapsed(0)
-    scanAbort.aborted = false
+    setScanRequestId(null)
+    scanLoopStopped.current = false
     const started = Date.now()
     const tick = window.setInterval(
       () => setScanElapsed(Math.floor((Date.now() - started) / 1000)),
@@ -167,13 +174,16 @@ export function Onboarding() {
         body: JSON.stringify({ mode: forceDemo ? 'demo' : 'live' }),
       })
       const data = await r.json()
+      if (!r.ok) throw new Error(data?.error || `Mapping request failed (HTTP ${r.status}).`)
       setScanMode(data.mode === 'live' ? 'live' : 'demo')
+      setScanRequestId(data.request_id ?? null)
+      setScanExpectedSeconds(Number(data.expected_duration_s) || 180)
       if (data.mode === 'demo' && data.map_ready) {
         await new Promise((res) => setTimeout(res, 1800))
-        if (scanAbort.aborted) return
         setMap(data.map_ready as MapReadyPayload)
         setScanning(false)
-        setStep(3)
+        setScanElapsed(2)
+        setScanPhase('complete')
         return
       }
       // live: poll until E2 POSTs map_ready to /api/ingest
@@ -181,12 +191,12 @@ export function Onboarding() {
       // DimOS explores instead of timing out after the demo-length window.
       const deadline = Date.now() + 360_000
       while (Date.now() < deadline) {
-        if (scanAbort.aborted) return
+        if (scanLoopStopped.current) return
         const st = await fetch('/api/map-scan/status').then((x) => x.json())
-        if (st.map_ready) {
+        if (st.map_ready?.request_id === data.request_id) {
           setMap(st.map_ready as MapReadyPayload)
           setScanning(false)
-          setStep(3)
+          setScanPhase('complete')
           return
         }
         await new Promise((res) => setTimeout(res, 800))
@@ -195,20 +205,40 @@ export function Onboarding() {
         'Timed out waiting for robot map_ready (6 min). Keep MAP_SCAN_MODE=live, keep the DimOS map bridge running, or use the demo map.',
       )
       setScanning(false)
+      setScanPhase('error')
     } catch (e) {
       setScanError(String(e))
       setScanning(false)
-      setMap(DEMO_MAP)
+      setScanPhase('error')
     } finally {
       window.clearInterval(tick)
     }
   }
 
-  function cancelScan() {
-    scanAbort.aborted = true
-    setScanning(false)
-    setScanMode(null)
+  async function stopScan() {
+    if (!scanRequestId || scanPhase === 'stopping') return
+    setScanPhase('stopping')
+    setScanError('')
+    try {
+      const r = await fetch('/api/map-scan/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: scanRequestId }),
+      })
+      const data = await r.json().catch(() => null)
+      if (!r.ok) throw new Error(data?.error || `Could not stop mapping (HTTP ${r.status}).`)
+      scanLoopStopped.current = true
+      setScanning(false)
+      setScanPhase('stopped')
+    } catch (e) {
+      setScanError(String(e))
+      setScanPhase('running')
+    }
   }
+
+  const scanProgress = scanPhase === 'complete'
+    ? 100
+    : Math.min(95, Math.max(4, Math.round((scanElapsed / scanExpectedSeconds) * 100)))
 
   async function finish() {
     if (routineCount === 0) {
@@ -330,8 +360,10 @@ export function Onboarding() {
                 key={s.n}
                 type="button"
                 aria-label={`Go to step ${s.n}: ${s.label}`}
-                className="h-full flex-1 cursor-pointer"
+                disabled={scanning && s.n !== 2}
+                className="h-full flex-1 cursor-pointer disabled:cursor-not-allowed"
                 onClick={() => {
+                  if (scanning && s.n !== 2) return
                   if (s.n === 3 && !map) return
                   setStep(s.n)
                 }}
@@ -415,37 +447,86 @@ export function Onboarding() {
         <div className="card space-y-4">
           <h2 className="text-[18px]">Map your home</h2>
           <p className="text-[14px] text-[var(--color-ink-2)]">
-            Eventually Lantern will walk through the house and map it on its own. That isn&apos;t
-            wired up yet, so for now this step is a placeholder: it loads the demo floor plan, and
-            you can paint Night Watch zones on it in the next step.
+            Lantern walks through the home and builds the floor plan room by room. Keep this screen
+            open while it explores; you can stop early and use the map collected so far.
           </p>
           {scanning ? (
-            <div className="space-y-3">
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--color-panel-2)]">
-                <div className="h-full w-2/3 animate-pulse rounded-full bg-[var(--color-ink)]" />
+            <div className="space-y-4" aria-live="polite">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3 text-[13px] font-semibold text-[var(--color-ink)]">
+                  <span>{scanPhase === 'stopping' ? 'Finishing the current map…' : 'Mapping in progress'}</span>
+                  <span>{scanProgress}% estimated</span>
+                </div>
+                <div
+                  className="h-2.5 overflow-hidden rounded-full bg-[var(--color-panel-2)]"
+                  role="progressbar"
+                  aria-label="Estimated mapping progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={scanProgress}
+                >
+                  <div
+                    className="h-full rounded-full bg-[var(--color-ink)] transition-[width] duration-500"
+                    style={{ width: `${scanProgress}%` }}
+                  />
+                </div>
               </div>
               <p className="text-[14px] text-[var(--color-ink)]">
-                {scanMode === 'live'
-                  ? `Waiting for robot map… ${scanElapsed}s (E2 → POST /api/ingest map_ready)`
-                  : 'Mapping… (placeholder) loading the demo floor plan.'}
+                {scanPhase === 'stopping'
+                  ? 'Lantern is stopping safely and saving everything mapped so far.'
+                  : scanMode === 'live'
+                    ? `Lantern is exploring the home. ${scanElapsed}s elapsed.`
+                    : 'Building the sample home map…'}
               </p>
-              <button type="button" className="btn-ghost !min-h-10" onClick={cancelScan}>
-                Cancel
+              <button
+                type="button"
+                className="btn-ghost !min-h-10"
+                onClick={() => void stopScan()}
+                disabled={!scanRequestId || scanPhase === 'stopping'}
+              >
+                {scanPhase === 'stopping' ? 'Stopping…' : 'Stop & use current map'}
               </button>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-primary" onClick={() => startScan(false)}>
-                Start mapping
-              </button>
-              <button type="button" className="btn-ghost" onClick={() => startScan(true)}>
-                Use demo map
-              </button>
-              {map && (
-                <button type="button" className="btn-ghost" onClick={() => setStep(3)}>
-                  Continue with current map
-                </button>
+            <div className="space-y-3">
+              {scanPhase === 'complete' && map && (
+                <div className="rounded-[16px] bg-[var(--color-panel-2)] p-4">
+                  <p className="text-[15px] font-semibold text-[var(--color-ink)]">Map ready</p>
+                  <p className="mt-1 text-[13px] text-[var(--color-ink-2)]">
+                    {map.width_m}×{map.height_m} m captured. Review it by painting the Night Watch zones next.
+                  </p>
+                </div>
               )}
+              {scanPhase === 'stopped' && (
+                <div className="rounded-[16px] bg-[var(--color-panel-2)] p-4" role="status">
+                  <p className="text-[15px] font-semibold text-[var(--color-ink)]">Mapping stopped</p>
+                  <p className="mt-1 text-[13px] text-[var(--color-ink-2)]">
+                    The stop command was sent. Lantern will show the partial map here when it finishes saving.
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {scanPhase !== 'complete' && (
+                  <button type="button" className="btn-primary" onClick={() => startScan(false)}>
+                    Start mapping
+                  </button>
+                )}
+                {scanPhase !== 'complete' && (
+                  <button type="button" className="btn-ghost" onClick={() => startScan(true)}>
+                    Use demo map
+                  </button>
+                )}
+                {map && scanPhase !== 'stopped' && (
+                  <button type="button" className="btn-primary" onClick={() => setStep(3)}>
+                    Review map & paint zones
+                  </button>
+                )}
+                {scanPhase === 'complete' && (
+                  <button type="button" className="btn-ghost" onClick={() => startScan(false)}>
+                    Map again
+                  </button>
+                )}
+              </div>
             </div>
           )}
           {scanError && (
@@ -458,11 +539,6 @@ export function Onboarding() {
               >
                 Load demo map
               </button>
-            </p>
-          )}
-          {map && !scanning && (
-            <p className="text-[13px] text-[var(--color-ink)]">
-              Floor plan ready ({map.width_m}×{map.height_m} m demo home). Continue to paint zones.
             </p>
           )}
         </div>
