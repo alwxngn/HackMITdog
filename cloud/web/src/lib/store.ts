@@ -56,6 +56,8 @@ function applyConfig(next: Projection, p: Record<string, unknown>, ts: number) {
     if (ctx === 'night_breach' || ctx === 'zone_watch') next.open_alert = null
     next.live_tracking = false
     next.agent_state = { ...next.agent_state, state: 'IDLE', agitation: 'calm', reason: 'night watch off', since_ts: ts }
+  } else if (p.night_watch_enabled === true && next.agent_state.reason === 'night watch off') {
+    next.agent_state = { ...next.agent_state, reason: 'night watch idle', since_ts: ts }
   }
 }
 

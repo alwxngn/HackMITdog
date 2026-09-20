@@ -124,6 +124,15 @@ class EventStore:
                     "reason": "night watch off",
                     "since_ts": time.time(),
                 }
+            elif (
+                p.get("night_watch_enabled") is True
+                and self.projection["agent_state"].get("reason") == "night watch off"
+            ):
+                self.projection["agent_state"] = {
+                    **self.projection["agent_state"],
+                    "reason": "night watch idle",
+                    "since_ts": time.time(),
+                }
             if "zones" in p:
                 self.projection["zones"] = p["zones"]
         elif t == "speech_state":
