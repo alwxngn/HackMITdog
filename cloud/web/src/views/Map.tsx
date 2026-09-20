@@ -1,5 +1,5 @@
 import { polygonToPoints, SVG, worldToSvg, type MapBounds } from '../lib/frame'
-import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE } from '../lib/zonePaint'
+import { PAINT_FILL, PAINT_LABEL, PAINT_STROKE, zoneName } from '../lib/zonePaint'
 import type { Zone } from '../lib/types'
 import { useProjection } from '../hooks/useProjection'
 import { DEMO_HOME_MAP_ID } from '../lib/demoHome'
@@ -20,12 +20,15 @@ function zoneLabels(zones: Zone[], bounds: MapBounds) {
     const xs = pts.map(([x]) => x)
     const ys = pts.map(([, y]) => y)
     const mid = worldToSvg((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, bounds)
-    return { key, text: zs[0].label || zs[0].id, ...mid }
+    return { key, text: zoneName(zs[0]), ...mid }
   })
 }
 
 export function MapView() {
   const p = useProjection()
+  // Zones only exist while Night Watch is on; off hides them (and the legend).
+  const zonesOn = (p.config.night_watch_enabled as boolean | undefined) ?? true
+  const zones = zonesOn ? p.zones : []
   const live = p.live_tracking || Boolean(p.open_alert?.live_tracking)
   const bounds: MapBounds = {
     width: p.map_ready?.width_m ?? 2,
@@ -44,12 +47,16 @@ export function MapView() {
           <h2>Where they are</h2>
         </div>
         <div className="flex flex-wrap gap-3 text-[12px] text-[var(--color-ink-2)]">
-          {(['safe', 'watch', 'exit'] as const).map((c) => (
-            <span key={c} className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: PAINT_STROKE[c] }} />
-              {PAINT_LABEL[c]}
-            </span>
-          ))}
+          {zonesOn ? (
+            (['safe', 'watch', 'exit'] as const).map((c) => (
+              <span key={c} className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: PAINT_STROKE[c] }} />
+                {PAINT_LABEL[c]}
+              </span>
+            ))
+          ) : (
+            <span>Night Watch off · zones hidden</span>
+          )}
           {live && <span className="pill !py-1">Live tracking</span>}
         </div>
       </div>
@@ -82,7 +89,7 @@ export function MapView() {
             ))}
           </>
         )}
-        {p.zones.map((z: Zone) => (
+        {zones.map((z: Zone) => (
           <polygon
             key={z.id}
             points={polygonToPoints(z.polygon, bounds)}
@@ -95,7 +102,7 @@ export function MapView() {
         ))}
 
         {showHome && <HomeStructures bounds={bounds} />}
-        {zoneLabels(p.zones, bounds).map((l) => (
+        {zoneLabels(zones, bounds).map((l) => (
           <text
             key={l.key}
             x={l.cx}

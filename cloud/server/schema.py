@@ -110,7 +110,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         {
             "id": "front_door",
             "class": "exit",
-            "label": "Don't go",
+            "label": "Danger",
             "kind": "door",
             "polygon": [[1.6, 0.0], [2.0, 0.0], [2.0, 0.5], [1.6, 0.5]],
         },

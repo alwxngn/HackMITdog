@@ -20,7 +20,8 @@ export function StatePanel() {
     (p.config.patient as { preferred_name?: string; name?: string } | undefined)?.preferred_name ||
     (p.config.patient as { name?: string } | undefined)?.name
 
-  const zone = zoneContext(p.person_track, p.zones)
+  const watching = (p.config.night_watch_enabled as boolean | undefined) ?? true
+  const zone = watching ? zoneContext(p.person_track, p.zones) : null
   const zoneTone =
     zone?.cls === 'outside' || zone?.cls === 'exit'
       ? 'var(--color-danger)'

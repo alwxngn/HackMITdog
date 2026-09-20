@@ -294,8 +294,8 @@ export function Onboarding() {
           <h2 className="text-[18px]">Paint zones</h2>
           <p className="text-[14px] text-[var(--color-ink-2)]">
             Everything starts <span className="text-[var(--color-ink)]">Safe</span>. Paint{' '}
-            <span className="text-[var(--color-ink)]">Watch</span> and{' '}
-            <span className="text-[var(--color-ink)]">Don&apos;t go</span>, then place home.
+            <span className="text-[var(--color-ink)]">Warning</span> and{' '}
+            <span className="text-[var(--color-ink)]">Danger</span>, then place home.
           </p>
           <ZonePainter
             map={map}

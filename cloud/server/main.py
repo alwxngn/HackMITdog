@@ -20,6 +20,7 @@ from escalation import escalation
 import notify
 from report import build_morning_report
 from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
+from speaker import speaker
 from store import store
 
 logging.basicConfig(level=logging.INFO)
@@ -72,13 +73,16 @@ def _is_night_watch_trigger(msg: dict[str, Any]) -> bool:
 
     if t == "zone_event":
         cls = p.get("zone_class") or p.get("class") or _zone_class(p.get("zone") or p.get("zone_id"))
-        return cls == "exit"
+        return cls in ("exit", "watch")
 
     if t == "alert":
-        if p.get("context") == "night_breach":
+        if p.get("context") in ("night_breach", "zone_watch"):
             return True
         cls = _zone_class((p.get("person_position") or {}).get("zone") or p.get("zone"))
-        return cls == "exit" or int(p.get("level", 0)) >= 5
+        return cls in ("exit", "watch") or int(p.get("level", 0)) >= 5
+
+    if t == "agent_state":
+        return p.get("state") in ("ATTEND", "LEAD", "ESCALATE", "EMERGENCY")
 
     return False
 
@@ -96,6 +100,10 @@ async def on_bus_message(msg: dict[str, Any]) -> None:
             escalation.cancel((msg.get("payload") or {}).get("alert_id", ""))
     except Exception:
         logger.exception("escalation handler failed on %s", msg.get("type"))
+    try:
+        await speaker.on_message(msg)
+    except Exception:
+        logger.exception("speaker failed on %s", msg.get("type"))
     await hub.broadcast(msg)
 
 
@@ -287,13 +295,14 @@ async def api_reset():
 async def _reset_live() -> None:
     """Clear live state between demo runs but keep the painted zones and patient setup."""
     escalation.cancel_all()
+    speaker.reset()
     store.reset(keep_setup=True)
     await hub.broadcast(store.snapshot())
 
 
 @app.post("/api/demo/walk")
 async def api_demo_walk():
-    """Scripted walk: safe → warning → Don't-go → out of the house (no orchestrator needed)."""
+    """Scripted walk: safe → warning → danger → out of the house (no orchestrator needed)."""
     result = await demo.start(_reset_live)
     if not result["ok"]:
         return JSONResponse(result, status_code=409)
@@ -304,6 +313,19 @@ async def api_demo_walk():
 async def api_demo_stop():
     await demo.stop(_reset_live)
     return {"ok": True}
+
+
+@app.get("/api/speaker")
+async def api_speaker():
+    """Is a phone paired and started to act as Lantern's speaker?"""
+    return speaker.status()
+
+
+@app.post("/api/speaker/test")
+async def api_speaker_test():
+    name, _ = speaker._patient()
+    on_phone = await speaker.speak(f"Hi {name}, this is Lantern. Can you hear me?")
+    return {"ok": True, "on_phone": on_phone}
 
 
 @app.get("/api/contacts")

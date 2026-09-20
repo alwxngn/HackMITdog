@@ -179,8 +179,8 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
 
       <p className="text-[13px] text-[var(--color-ink-2)]">
         Drag on the floor plan to paint. Everything starts Safe. Paint{' '}
-        <strong className="font-medium text-[var(--color-ink)]">Don&apos;t go</strong> across a door
-        to block it off, or <strong className="font-medium text-[var(--color-ink)]">Watch</strong> for
+        <strong className="font-medium text-[var(--color-ink)]">Danger</strong> across a door
+        to block it off, or <strong className="font-medium text-[var(--color-ink)]">Warning</strong> for
         caution areas.
         {tool === 'home' ? ' Tap to drop the home pin.' : ''}
       </p>
@@ -214,7 +214,7 @@ export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChan
           fill={PAINT_FILL.safe}
           opacity={showHome ? 0.35 : 0.45}
         />
-        {/* painted watch / don't-go cells */}
+        {/* painted warning / danger cells */}
         {Array.from(grid).map((code, i) => {
           if (code === 0) return null
           const col = i % COLS

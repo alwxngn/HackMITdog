@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { timelineLine, zoneContext } from '../lib/copy'
 import { useProjection } from '../hooks/useProjection'
+import { patchConfig } from '../lib/store'
 import { AlertBanner } from './AlertBanner'
 import { CheckinComposer } from './CheckinComposer'
 import { DemoWalk } from './DemoWalk'
@@ -32,9 +33,11 @@ export function Dashboard() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [trackOpen, setTrackOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [watchError, setWatchError] = useState('')
   const p = useProjection()
-  const outside = zoneContext(p.person_track, p.zones)?.cls === 'outside'
+
   const nightWatchEnabled = (p.config.night_watch_enabled as boolean | undefined) ?? true
+  const outside = nightWatchEnabled && zoneContext(p.person_track, p.zones)?.cls === 'outside'
   const patient = p.config.patient as { preferred_name?: string; name?: string } | undefined
   const name = patient?.preferred_name || patient?.name
 
@@ -44,11 +47,18 @@ export function Dashboard() {
     .find((r) => r.text)
 
   async function setNightWatch(enabled: boolean) {
-    await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ night_watch_enabled: enabled }),
-    })
+    setWatchError('')
+    try {
+      const r = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ night_watch_enabled: enabled }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+      patchConfig({ night_watch_enabled: enabled })
+    } catch {
+      setWatchError('Couldn’t reach Lantern. Check that the server is running.')
+    }
   }
 
   // Collapse the map once they are back inside so the next run starts tidy.
@@ -87,13 +97,34 @@ export function Dashboard() {
                 </Link>
                 <p className="eyebrow mt-2">{name ? `Watching over ${name}` : 'Night Watch'}</p>
               </div>
-              <span className="pill !gap-2 !py-2 shadow-[var(--shadow-card)]">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={nightWatchEnabled}
+                aria-label="Night Watch"
+                onClick={() => setNightWatch(!nightWatchEnabled)}
+                className="pill !gap-2.5 !py-2 shadow-[var(--shadow-card)]"
+              >
+                Night Watch
                 <span
-                  className={`h-2 w-2 rounded-full ${nightWatchEnabled ? 'bg-[var(--color-safe)]' : 'bg-[var(--color-tint)]'}`}
-                />
-                {nightWatchEnabled ? 'Night Watch on' : 'Night Watch off'}
-              </span>
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                    nightWatchEnabled ? 'bg-[var(--color-safe)]' : 'bg-[var(--color-tint)]'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-[var(--color-surface)] shadow transition-all ${
+                      nightWatchEnabled ? 'left-[18px]' : 'left-0.5'
+                    }`}
+                  />
+                </span>
+              </button>
             </div>
+
+            {watchError && (
+              <p role="alert" className="text-[13px] text-[var(--color-danger)]">
+                {watchError}
+              </p>
+            )}
 
             <StatePanel />
             {outside && (
@@ -146,7 +177,7 @@ export function Dashboard() {
               <div className="flex items-center justify-between gap-4 p-5">
                 <div>
                   <p className="text-[16px] text-[var(--color-ink)]">Night Watch</p>
-                  <p className="text-[13px]">Lantern keeps an eye out while it’s dark.</p>
+                  <p className="text-[13px]">Turns the warning and danger zones on or off.</p>
                 </div>
                 <button
                   type="button"
