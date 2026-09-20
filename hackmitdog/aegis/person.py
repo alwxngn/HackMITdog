@@ -68,6 +68,18 @@ _DEFAULT_ESCORT_TIMEOUT_S = 300.0
 _ESCORT_GOAL_POLL_INTERVAL_S = 0.1
 _ESCORT_GOAL_SETTLE_S = 1.5
 
+# How long detect_person/follow_person keep re-trying acquisition (grab a
+# fresh frame, run YOLO again) before giving up with PERSON_NOT_FOUND. A
+# single frame can miss a person who is plainly in view -- bad angle, motion
+# blur, a moment of occlusion, or just an unlucky miss from a CPU-run
+# detector -- so both skills poll for a few seconds rather than failing on
+# the very first frame. 10s keeps this well under the MCP client's 120s
+# request timeout even accounting for per-attempt frame-grab/detector
+# latency (~230ms observed live), while still giving a person a real chance
+# to step into frame or turn toward the camera.
+_PERSON_ACQUIRE_TIMEOUT_S = 10.0
+_PERSON_ACQUIRE_POLL_INTERVAL_S = 1.0
+
 
 class PersonSkills(Module):
     """Person detection, person-following, and escort-to-location skills."""
@@ -111,9 +123,14 @@ class PersonSkills(Module):
     def detect_person(self) -> SkillResult[AegisError]:
         """Detect whether a person is visible in the current camera view.
 
-        Grabs the current camera frame and runs a dedicated person detector
-        (YOLO11-pose) on that single frame. This is an instant, single-shot
-        check, not a continuous tracker -- call it again to re-check.
+        Runs a dedicated person detector (YOLO11-pose) against the live
+        camera feed, retrying for up to ~10s (a fresh frame roughly once a
+        second) before reporting `PERSON_NOT_FOUND` -- a single frame can
+        miss someone who is plainly in view (bad angle, motion blur, a
+        moment of occlusion, or just an unlucky miss from a CPU-run
+        detector), so this doesn't give up on the first try. Still not a
+        continuous tracker -- it returns as soon as it finds a match, or
+        after the retry window elapses; call it again to re-check later.
 
         Reports only what the detector actually provides: a real detection
         confidence, the person's bounding box in pixel coordinates, and a
@@ -132,19 +149,10 @@ class PersonSkills(Module):
         Example:
             detect_person()
         """
-        try:
-            image = self.color_image.get_next(timeout=_FRAME_TIMEOUT_S)
-        except Exception as exc:
-            logger.exception("detect_person: no camera frame")
-            return SkillResult.fail(
-                "EXECUTION_TIMEOUT",
-                f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
-            )
-
-        best, err = self._detect_best_person(image)
+        best, image, err = self._acquire_person()
         if err is not None:
             return err
-        assert best is not None  # narrowed by _detect_best_person's contract
+        assert best is not None and image is not None  # narrowed by _acquire_person's contract
 
         cx, cy = best.center_bbox
         width, height = image.width, image.height
@@ -188,6 +196,59 @@ class PersonSkills(Module):
             )
 
         return max(valid, key=lambda d: d.confidence), None
+
+    def _acquire_person(
+        self, timeout_s: float = _PERSON_ACQUIRE_TIMEOUT_S
+    ) -> tuple[Detection2DBBox, Image, None] | tuple[None, None, SkillResult[AegisError]]:
+        """Repeatedly grab a frame and run `_detect_best_person` until one hits or `timeout_s` elapses.
+
+        A single frame can miss a person who is plainly in view -- this
+        exists because a live run showed `follow_person` reporting
+        `PERSON_NOT_FOUND` on someone sitting right in front of the camera,
+        purely because the one frame it happened to grab was a bad sample.
+        Retries every `_PERSON_ACQUIRE_POLL_INTERVAL_S` (~1s) for up to
+        `timeout_s` (default 10s) before giving up -- deliberately bounded
+        well under the MCP client's 120s request timeout, since both
+        `detect_person` and `follow_person` block the calling MCP request
+        for the entire acquisition window. For open-ended "let me know
+        whenever a person shows up" waiting with no such bound, use
+        `look_out_for` instead (a separate, standing DimOS skill).
+
+        Returns the matched frame alongside the detection (not just the
+        detection) so callers don't need a second, potentially-inconsistent
+        camera pull just to get that frame's dimensions or pixels.
+        """
+        deadline = time.monotonic() + timeout_s
+        last_err: SkillResult[AegisError] | None = None
+        attempts = 0
+
+        while True:
+            attempts += 1
+            try:
+                image = self.color_image.get_next(timeout=_FRAME_TIMEOUT_S)
+            except Exception as exc:
+                logger.exception("_acquire_person: no camera frame", attempt=attempts)
+                last_err = SkillResult.fail(
+                    "EXECUTION_TIMEOUT",
+                    f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
+                )
+            else:
+                best, err = self._detect_best_person(image)
+                if err is None:
+                    assert best is not None
+                    return best, image, None
+                last_err = err
+
+            if time.monotonic() >= deadline:
+                assert last_err is not None
+                logger.info(
+                    "_acquire_person: gave up after retrying",
+                    attempts=attempts,
+                    timeout_s=timeout_s,
+                )
+                return None, None, last_err
+
+            time.sleep(_PERSON_ACQUIRE_POLL_INTERVAL_S)
 
     # ------------------------------------------------------------------
     # Skill 7: follow_person / stop_person_follow
@@ -245,6 +306,17 @@ class PersonSkills(Module):
         follow-duration timeout; it runs until lost-track, an explicit stop,
         or a takeover.
 
+        ACQUISITION retries for up to ~10s (a fresh frame roughly once a
+        second, via `_acquire_person`) before giving up with
+        `PERSON_NOT_FOUND` -- a single frame can miss someone plainly in
+        view, so this doesn't fail on the first bad sample. This is purely
+        about *finding* the person to start following; once acquired,
+        ongoing tracking is DimOS's own EdgeTAM tracker + 20 Hz visual
+        servoing loop inside `ConfigurableFollowSkillContainer`, which is
+        unaffected by this and already keeps re-locating the person frame to
+        frame (up to `_max_lost_frames=15` missed frames before declaring
+        the follow lost).
+
         Args:
             query: Free-text label for the person, e.g. "man with blue
                 shirt". NOT used to select among multiple detected people --
@@ -266,19 +338,10 @@ class PersonSkills(Module):
         if timeout_s <= 0:
             return SkillResult.fail("INVALID_INPUT", "timeout_s must be positive.")
 
-        try:
-            image = self.color_image.get_next(timeout=_FRAME_TIMEOUT_S)
-        except Exception as exc:
-            logger.exception("follow_person: no camera frame")
-            return SkillResult.fail(
-                "EXECUTION_TIMEOUT",
-                f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
-            )
-
-        best, err = self._detect_best_person(image)
+        best, _image, err = self._acquire_person()
         if err is not None:
             return err
-        assert best is not None  # narrowed by _detect_best_person's contract
+        assert best is not None  # narrowed by _acquire_person's contract
         bbox = list(best.bbox)
 
         try:
