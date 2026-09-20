@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+
+_CLOUD_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(_CLOUD_ROOT / ".env")
+load_dotenv()
 
 logger = logging.getLogger("lantern.camera")
 
