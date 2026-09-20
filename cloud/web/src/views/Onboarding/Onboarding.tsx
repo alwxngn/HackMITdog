@@ -308,20 +308,41 @@ export function Onboarding() {
           <h1 className="mt-1 text-[26px] !text-white">Let’s get to know your home</h1>
         </div>
 
-      <div className="flex flex-wrap gap-2">
-        {steps.map((s) => (
-          <button
-            key={s.n}
-            type="button"
-            className={`pill min-h-10 cursor-pointer px-4 ${step === s.n ? '!border-transparent !bg-[var(--color-ink)] !text-white' : '!border-transparent'}`}
-            onClick={() => {
-              if (s.n === 3 && !map) return
-              setStep(s.n)
-            }}
-          >
-            {s.n}. {s.label}
-          </button>
-        ))}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between text-white">
+          <p className="text-[13px] font-semibold">
+            Step {step} of {steps.length}
+          </p>
+          <p className="text-[13px] font-semibold text-white/80">{steps.find((s) => s.n === step)?.label}</p>
+        </div>
+        <div
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={steps.length}
+          aria-valuenow={step}
+          aria-valuetext={`Step ${step} of ${steps.length}: ${steps.find((s) => s.n === step)?.label}`}
+          className="relative h-2.5 rounded-full bg-white/30"
+        >
+          <div
+            className="h-full rounded-full bg-white transition-[width] duration-300"
+            style={{ width: `${(step / steps.length) * 100}%` }}
+          />
+          {/* Each fifth of the bar jumps to that step, so the old tabs' behaviour is kept. */}
+          <div className="absolute inset-x-0 -inset-y-2 flex">
+            {steps.map((s) => (
+              <button
+                key={s.n}
+                type="button"
+                aria-label={`Go to step ${s.n}: ${s.label}`}
+                className="h-full flex-1 cursor-pointer"
+                onClick={() => {
+                  if (s.n === 3 && !map) return
+                  setStep(s.n)
+                }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {step === 1 && (
