@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MapReadyPayload } from '../../lib/demoFloorplan'
+import { DEMO_HOME_MAP_ID, DEMO_PRESETS } from '../../lib/demoHome'
 import { SVG, polygonToPoints, svgToWorld, worldToSvg, type MapBounds } from '../../lib/frame'
 import {
   PAINT_FILL,
@@ -8,26 +9,41 @@ import {
   emptyGrid,
   gridToZones,
   paintCell,
+  zonesToGrid,
   type PaintClass,
 } from '../../lib/zonePaint'
 import type { Zone } from '../../lib/types'
+import { HomeFloor, HomeStructures } from '../HomeScene'
 
 const COLS = 40
 const ROWS = 40
+const BRUSHES = [
+  { label: 'S', size: 2 },
+  { label: 'M', size: 4 },
+  { label: 'L', size: 8 },
+]
 
 type Tool = PaintClass | 'home'
 
 interface Props {
   map: MapReadyPayload
   home: { x: number; y: number }
+  /** zones already saved, so re-editing starts from what's there */
+  initialZones?: Zone[]
   onHomeChange: (h: { x: number; y: number }) => void
   onZonesChange: (zones: Zone[]) => void
 }
 
-export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
+export function ZonePainter({ map, home, initialZones, onHomeChange, onZonesChange }: Props) {
   const bounds: MapBounds = { width: map.width_m, height: map.height_m }
+  const showHome = map.map_id === DEMO_HOME_MAP_ID
   const [tool, setTool] = useState<Tool>('exit')
-  const [grid, setGrid] = useState(() => emptyGrid(COLS, ROWS))
+  const [brush, setBrush] = useState(4)
+  const [grid, setGrid] = useState(() =>
+    initialZones?.length
+      ? zonesToGrid(initialZones, COLS, ROWS, map.width_m, map.height_m)
+      : emptyGrid(COLS, ROWS),
+  )
   const painting = useRef(false)
   const gridRef = useRef(grid)
   gridRef.current = grid
@@ -41,7 +57,14 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
 
   useEffect(() => {
     emitZones(grid)
-  }, []) // initial safe whole-map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // publish the starting zones once
+
+  function commit(next: Uint8Array) {
+    gridRef.current = next
+    setGrid(next)
+    emitZones(next)
+  }
 
   function pointerToCell(e: React.PointerEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -63,47 +86,108 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
       return
     }
     const next = new Uint8Array(gridRef.current)
-    paintCell(next, COLS, ROWS, col, row, tool, 2)
-    gridRef.current = next
-    setGrid(next)
-    emitZones(next)
+    paintCell(next, COLS, ROWS, col, row, tool, brush)
+    commit(next)
+  }
+
+  function applyPreset(cls: 'watch' | 'exit', [x0, y0, x1, y1]: [number, number, number, number]) {
+    const next = new Uint8Array(gridRef.current)
+    for (let r = 0; r < ROWS; r++) {
+      const cy = ((r + 0.5) / ROWS) * bounds.height
+      if (cy < y0 || cy > y1) continue
+      for (let c = 0; c < COLS; c++) {
+        const cx = ((c + 0.5) / COLS) * bounds.width
+        if (cx >= x0 && cx <= x1) next[r * COLS + c] = cls === 'watch' ? 1 : 2
+      }
+    }
+    commit(next)
   }
 
   const cellW = (SVG.width - SVG.pad * 2) / COLS
   const cellH = (SVG.height - SVG.pad * 2) / ROWS
 
+  const on = 'bg-[var(--color-ink)] !text-[var(--color-surface)]'
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {(['safe', 'watch', 'exit'] as PaintClass[]).map((c) => (
+        {(['exit', 'watch', 'safe'] as PaintClass[]).map((c) => (
           <button
             key={c}
             type="button"
-            className={`pill min-h-10 px-4 ${tool === c ? 'bg-[var(--color-forest-ink)] text-[var(--color-cream-paper)]' : ''}`}
+            className={`pill min-h-10 cursor-pointer px-4 shadow-[var(--shadow-card)] ${tool === c ? on : ''}`}
             onClick={() => setTool(c)}
           >
             <span
               className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
               style={{ background: PAINT_STROKE[c] }}
             />
-            {PAINT_LABEL[c]}
+            {c === 'safe' ? 'Erase (Safe)' : PAINT_LABEL[c]}
           </button>
         ))}
         <button
           type="button"
-          className={`pill min-h-10 px-4 ${tool === 'home' ? 'bg-[var(--color-forest-ink)] text-[var(--color-cream-paper)]' : ''}`}
+          className={`pill min-h-10 cursor-pointer px-4 shadow-[var(--shadow-card)] ${tool === 'home' ? on : ''}`}
           onClick={() => setTool('home')}
         >
           Place home
         </button>
       </div>
-      <p className="text-[13px] text-[var(--color-charcoal)]">
-        Drag to paint. Whole home starts Safe (green). Watch = caution, Don&apos;t go = exit risk.
+
+      <div className="flex flex-wrap items-center gap-2">
+        {showHome &&
+          DEMO_PRESETS.map((pr) => (
+            <button
+              key={pr.label}
+              type="button"
+              className="btn-ghost !min-h-9 !px-3 !py-1 !text-[13px]"
+              onClick={() => applyPreset(pr.cls, pr.rect)}
+            >
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: PAINT_STROKE[pr.cls] }}
+              />
+              {pr.label}
+            </button>
+          ))}
+        <button
+          type="button"
+          className="btn-ghost !min-h-9 !px-3 !py-1 !text-[13px]"
+          onClick={() => commit(emptyGrid(COLS, ROWS))}
+        >
+          Clear all
+        </button>
+        <span className="ml-auto inline-flex items-center gap-1 text-[12px]">
+          Brush
+          {BRUSHES.map((b) => (
+            <button
+              key={b.label}
+              type="button"
+              aria-label={`Brush ${b.label}`}
+              className={`h-8 w-8 cursor-pointer rounded-full text-[12px] font-medium ${
+                brush === b.size
+                  ? 'bg-[var(--color-ink)] text-[var(--color-surface)]'
+                  : 'bg-[var(--color-panel)] text-[var(--color-ink)]'
+              }`}
+              onClick={() => setBrush(b.size)}
+            >
+              {b.label}
+            </button>
+          ))}
+        </span>
+      </div>
+
+      <p className="text-[13px] text-[var(--color-ink-2)]">
+        Drag on the floor plan to paint. Everything starts Safe. Paint{' '}
+        <strong className="font-medium text-[var(--color-ink)]">Don&apos;t go</strong> across a door
+        to block it off, or <strong className="font-medium text-[var(--color-ink)]">Watch</strong> for
+        caution areas.
         {tool === 'home' ? ' Tap to drop the home pin.' : ''}
       </p>
+
       <svg
         viewBox={`0 0 ${SVG.width} ${SVG.height}`}
-        className="w-full touch-none cursor-crosshair rounded-[14px] bg-[var(--color-cream-paper)]"
+        className="mx-auto w-full max-w-[560px] touch-none cursor-crosshair rounded-[14px] bg-[var(--color-surface)] ring-1 ring-[var(--color-line)]"
         onPointerDown={(e) => {
           painting.current = true
           e.currentTarget.setPointerCapture(e.pointerId)
@@ -120,6 +204,7 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
           painting.current = false
         }}
       >
+        {showHome && <HomeFloor bounds={bounds} />}
         {/* base safe wash */}
         <rect
           x={SVG.pad}
@@ -127,7 +212,7 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
           width={SVG.width - SVG.pad * 2}
           height={SVG.height - SVG.pad * 2}
           fill={PAINT_FILL.safe}
-          opacity={0.45}
+          opacity={showHome ? 0.35 : 0.45}
         />
         {/* painted watch / don't-go cells */}
         {Array.from(grid).map((code, i) => {
@@ -146,35 +231,40 @@ export function ZonePainter({ map, home, onHomeChange, onZonesChange }: Props) {
             />
           )
         })}
-        {/* room outlines from scan */}
-        {map.rooms.map((r) => (
-          <polygon
-            key={r.id}
-            points={polygonToPoints(r.polygon, bounds)}
-            fill="none"
-            stroke="#0f3e17"
-            strokeWidth={1.5}
-            strokeDasharray="4 3"
-          />
-        ))}
-        <polygon
-          points={polygonToPoints(map.outline, bounds)}
-          fill="none"
-          stroke="#0f3e17"
-          strokeWidth={2}
-        />
+        {showHome ? (
+          <HomeStructures bounds={bounds} />
+        ) : (
+          <>
+            {map.rooms.map((r) => (
+              <polygon
+                key={r.id}
+                points={polygonToPoints(r.polygon, bounds)}
+                fill="none"
+                stroke="#0e1116"
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+              />
+            ))}
+            <polygon
+              points={polygonToPoints(map.outline, bounds)}
+              fill="none"
+              stroke="#0e1116"
+              strokeWidth={2}
+            />
+          </>
+        )}
         {/* home pin */}
         {(() => {
           const { cx, cy } = worldToSvg(home.x, home.y, bounds)
           return (
-            <g>
-              <circle cx={cx} cy={cy} r={10} fill="#0f3e17" stroke="#fffefc" strokeWidth={2} />
+            <g pointerEvents="none">
+              <circle cx={cx} cy={cy} r={8} fill="#0e1116" stroke="#ffffff" strokeWidth={2} />
               <text
-                x={cx}
-                y={cy - 14}
-                textAnchor="middle"
-                fill="#0f3e17"
-                fontSize={11}
+                x={cx + 12}
+                y={cy + 4}
+                fill="#0e1116"
+                fontSize={10}
+                fontWeight={600}
                 fontFamily="Inter, sans-serif"
               >
                 home

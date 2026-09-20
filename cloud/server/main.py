@@ -17,7 +17,7 @@ from bus import bus
 from camera import router as camera_router
 from escalation import escalation
 from report import build_morning_report
-from schema import DEFAULT_CONFIG
+from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
 from store import store
 
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +50,42 @@ class Hub:
 hub = Hub()
 
 
+def _night_watch_enabled() -> bool:
+    cfg = store.projection.get("config") or {}
+    return bool(cfg.get("night_watch_enabled", True))
+
+
+def _zone_class(zone_id: str | None) -> str | None:
+    if not zone_id:
+        return None
+    for zone in store.projection.get("zones") or []:
+        if zone.get("id") == zone_id:
+            return zone.get("class")
+    return None
+
+
+def _is_night_watch_trigger(msg: dict[str, Any]) -> bool:
+    t = msg.get("type")
+    p = msg.get("payload") or {}
+
+    if t == "zone_event":
+        cls = p.get("zone_class") or p.get("class") or _zone_class(p.get("zone") or p.get("zone_id"))
+        return cls == "exit"
+
+    if t == "alert":
+        if p.get("context") == "night_breach":
+            return True
+        cls = _zone_class((p.get("person_position") or {}).get("zone") or p.get("zone"))
+        return cls == "exit" or int(p.get("level", 0)) >= 5
+
+    return False
+
+
 async def on_bus_message(msg: dict[str, Any]) -> None:
+    if not _night_watch_enabled() and _is_night_watch_trigger(msg):
+        logger.info("night_watch disabled: suppressing %s", msg.get("type"))
+        return
+
     store.append(msg)
     try:
         if msg.get("type") == "alert":
@@ -209,33 +244,14 @@ async def api_map_scan(body: dict[str, Any] | None = None):
 
     if mode != "live":
         # Table fallback — same shape E2 should emit from DimOS
+        map_ready_payload = dict(DEFAULT_MAP_READY)
+        map_ready_payload["request_id"] = request_id
         ready = {
             "type": "map_ready",
             "ts": time.time(),
             "source": "mock",
             "seq": 0,
-            "payload": {
-                "request_id": request_id,
-                "map_id": "demo_home_v1",
-                "origin": {"x": 0.0, "y": 0.0},
-                "width_m": 2.0,
-                "height_m": 2.0,
-                "outline": [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]],
-                "rooms": [
-                    {
-                        "id": "bedroom",
-                        "polygon": [[0.0, 0.0], [1.0, 0.0], [1.0, 1.2], [0.0, 1.2]],
-                    },
-                    {
-                        "id": "hallway",
-                        "polygon": [[1.0, 0.3], [1.8, 0.3], [1.8, 1.0], [1.0, 1.0]],
-                    },
-                    {
-                        "id": "front_door",
-                        "polygon": [[1.6, 0.0], [2.0, 0.0], [2.0, 0.5], [1.6, 0.5]],
-                    },
-                ],
-            },
+            "payload": map_ready_payload,
         }
         await bus.ingest(ready)
         return {"ok": True, "mode": "demo", "request_id": request_id, "map_ready": ready["payload"]}

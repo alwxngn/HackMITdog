@@ -11,22 +11,22 @@ type Props = {
   cameraOpen?: boolean
 }
 
-export function AlertBanner({ onOpenCamera, cameraOpen }: Props) {
+export function AlertBanner({ onOpenCamera, cameraOpen }: Props = {}) {
   const p = useProjection()
   const a = p.open_alert
   if (!a) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[color-mix(in_srgb,var(--color-forest-ink)_35%,transparent)] p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-[14px] bg-[var(--color-cream-paper)] p-8 sm:rounded-[14px]">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[color-mix(in_srgb,var(--color-ink)_35%,transparent)] p-0 sm:items-center sm:p-4">
+      <div className="w-full max-w-lg rounded-t-[14px] bg-[var(--color-surface)] p-8 sm:rounded-[14px]">
         <p className="eyebrow">
           Alert level {a.level}
           {a.live_tracking ? ' · live tracking' : ''}
         </p>
         <h2 className="mt-3 text-[40px]">{a.headline}</h2>
-        <p className="mt-3 text-[14px] text-[var(--color-charcoal)]">{a.detail}</p>
+        <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">{a.detail}</p>
         {onOpenCamera && !cameraOpen && (
-          <p className="mt-4 rounded-[14px] bg-[var(--color-keylime-wash)] px-4 py-3 text-[13px] text-[var(--color-forest-ink)]">
+          <p className="mt-4 rounded-[14px] bg-[var(--color-accent-soft)] px-4 py-3 text-[13px] text-[var(--color-ink)]">
             Need eyes on the room?{' '}
             <button type="button" className="underline" onClick={onOpenCamera}>
               Open dog camera

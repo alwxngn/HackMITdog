@@ -14,7 +14,6 @@ function update() {
   $('start').disabled = !connected;
   $('start').hidden = active;
   $('controls').hidden = !active;
-  $('help').textContent = active ? 'Tap Talk to reply. Keep this page open.' : 'Tap Start, then leave this page open.';
   $('record').disabled = !connected || !snapshot?.checkin || busy;
   $('send-reply').disabled = !connected || !snapshot?.checkin || busy || recording;
   $('record').textContent = recording ? 'Finish and send reply' : 'Talk to Lantern';
@@ -171,7 +170,7 @@ $('start').onclick = async () => {
       window.speechSynthesis.speak(new SpeechSynthesisUtterance('Lantern is ready.'));
     }
     await resumed; active = true; send({type:'ready'});
-    $('activity').textContent = 'Ready for a check-in'; update();
+    update();
   } catch (error) { showError(`Audio could not start: ${error.message}`); }
 };
 $('record').onclick = () => recording ? finishRecording() : startRecording();
@@ -194,7 +193,7 @@ if (!session?.session_id || !session?.token) {
 } else {
   channel = connect(session, 'phone', message => {
     if (message.type === 'snapshot') {
-      snapshot = message; $('greeting').textContent = `Hello, ${message.profile.patient}.`;
+      snapshot = message;
       $('mode').textContent = `${message.capabilities.stt === 'deepgram' ? 'Deepgram recording' : 'Browser recognition (where supported)'} · ${message.capabilities.tts === 'elevenlabs' ? 'ElevenLabs voice' : 'Phone voice'} · Scripted replies. Audio is captured only when you tap Talk.`;
       update();
     } else if (message.type === 'say') {

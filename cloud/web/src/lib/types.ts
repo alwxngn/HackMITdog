@@ -13,6 +13,8 @@ export interface Zone {
   class: 'safe' | 'watch' | 'exit'
   label?: string
   kind?: 'door' | 'stairs' | 'outdoor_boundary'
+  /** painted rectangles from one region share this, so the UI labels them once */
+  region?: string
   polygon: [number, number][]
 }
 

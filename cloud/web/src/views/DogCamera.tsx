@@ -67,13 +67,13 @@ export function DogCamera({ open, onOpen, onClose }: Props) {
         )}
       </div>
 
-      <p className="mb-3 text-[13px] text-[var(--color-charcoal)]">
+      <p className="mb-3 text-[13px] text-[var(--color-ink-2)]">
         Live feed from the Go2 when you need eyes on the room — not always on. E2 serves the
         stream (DimOS cockpit / teleop); this panel only embeds it.
       </p>
 
       {!ready && (
-        <p className="text-[12px] text-[var(--color-charcoal)]">
+        <p className="text-[12px] text-[var(--color-ink-2)]">
           {status?.hint ?? 'Camera not configured.'} See <code>robot/README.md</code>.
         </p>
       )}
@@ -85,18 +85,18 @@ export function DogCamera({ open, onOpen, onClose }: Props) {
             <img
               src={status.proxy_stream}
               alt="Dog camera live feed"
-              className="w-full rounded-[14px] bg-[var(--color-slate-wash)]"
+              className="w-full rounded-[14px] bg-[var(--color-panel-2)]"
             />
           ) : status?.url ? (
             <iframe
               title="Dog camera"
               src={status.url}
-              className="h-[280px] w-full rounded-[14px] border border-[var(--color-border-mist)] bg-[var(--color-slate-wash)] lg:h-[360px]"
+              className="h-[280px] w-full rounded-[14px] border border-[var(--color-line)] bg-[var(--color-panel-2)] lg:h-[360px]"
               allow="autoplay; microphone; camera"
               referrerPolicy="no-referrer"
             />
           ) : null}
-          <p className="text-[11px] text-[var(--color-charcoal)]">
+          <p className="text-[11px] text-[var(--color-ink-2)]">
             Close the panel to stop viewing. Feed is not recorded by Lantern cloud.
           </p>
         </div>

@@ -7,8 +7,9 @@ import { publicUrl } from '../lib/origin'
 export function CheckinComposer() {
   const [fromName, setFromName] = useState('')
   const [text, setText] = useState('')
-  const [showQr, setShowQr] = useState(false)
   const [qr, setQr] = useState('')
+  const [qrOpen, setQrOpen] = useState(false)
+  const [sentOnce, setSentOnce] = useState(false)
   const voice = useVoiceCheckin()
   const projection = useProjection()
   const patientConfig = projection.config.patient as { preferred_name?: string; name?: string } | undefined
@@ -20,7 +21,7 @@ export function CheckinComposer() {
     responded: 'Reply received', interrupted: 'Speech interrupted', failed: 'Audio did not play. Check the phone.',
     unavailable: 'Phone disconnected before delivery.',
   }
-  const status = voice.snapshot?.checkin ? statuses[voice.snapshot.checkin.status] : voice.snapshot?.phone_ready ? 'Phone ready' : ''
+  const status = sentOnce && voice.snapshot?.checkin ? statuses[voice.snapshot.checkin.status] : ''
 
   useEffect(() => {
     if (!voice.pairing && !voice.busy) void voice.pair(patient, 'Caregiver')
@@ -29,32 +30,47 @@ export function CheckinComposer() {
 
   useEffect(() => {
     let cancelled = false
-    if (link) QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0f3e17', light: '#fffefc' } }).then(src => { if (!cancelled) setQr(src) })
+    if (link) QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0e1116', light: '#ffffff' } }).then(src => { if (!cancelled) setQr(src) })
     return () => { cancelled = true }
   }, [link])
 
   async function getQr() {
     if (!voice.pairing && !voice.busy) await voice.pair(patient, 'Caregiver')
-    setShowQr(true)
+    setQrOpen(true)
   }
 
   async function send() {
-    if (await voice.send(text.trim(), fromName)) setText('')
+    if (await voice.send(text.trim(), fromName)) {
+      setText('')
+      setSentOnce(true)
+    }
   }
 
   return (
     <div className="card">
-      <h2 className="mb-2 text-[18px]">Check-in</h2>
-      <button type="button" className="btn-ghost mb-3 !min-h-9 !px-3 !py-1 !text-[13px]" onClick={getQr} disabled={voice.busy}>
-        Get QR
-      </button>
-      {showQr && link && (
-        <div className="mb-4 rounded-[14px] border border-[var(--color-border-mist)] p-4 text-center">
-          {qr && <img src={qr} alt="Pair Lantern voice on your phone" className="mx-auto h-40 w-40" />}
-          <p className="my-2 break-all text-[12px]">{link}</p>
-          <button type="button" className="btn-ghost !min-h-8 !px-2 !py-1 !text-[12px]" onClick={() => {
-            void navigator.clipboard.writeText(link)
-          }}>Copy link</button>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-[18px]">Check-in</h2>
+        <button type="button" className="btn-ghost !min-h-9 !px-3 !py-1 !text-[13px]" onClick={getQr} disabled={voice.busy}>
+          Get QR
+        </button>
+      </div>
+      {qrOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30" onClick={() => setQrOpen(false)}>
+          <div
+            role="dialog"
+            aria-label="Phone pairing QR code"
+            className="max-w-[min(420px,90vw)] rounded-[14px] bg-[var(--color-cream-paper)] p-6 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {qr && <img src={qr} alt="Pair Lantern voice on your phone" className="mx-auto h-44 w-44" />}
+            <p className="mt-3 break-all text-[12px]">{link}</p>
+            <button type="button" className="btn-ghost mt-2 !min-h-8 !px-2 !py-1 !text-[12px]" onClick={() => {
+              void navigator.clipboard.writeText(link)
+            }}>Copy link</button>
+            <button type="button" className="btn-ghost mt-4 !min-h-9 !px-4 !py-1 !text-[13px]" onClick={() => setQrOpen(false)}>
+              Close
+            </button>
+          </div>
         </div>
       )}
       <input
@@ -78,7 +94,7 @@ export function CheckinComposer() {
         Send
       </button>
       {status && (
-        <p role="status" className="mt-3 text-[13px] text-[var(--color-forest-ink)]">{status}</p>
+        <p role="status" className="mt-3 text-[13px] text-[var(--color-ink)]">{status}</p>
       )}
       {voice.error && <p role="alert" className="mt-3 text-[13px]">{voice.error}</p>}
       {reply && <p className="mt-3 text-[14px]" data-testid="checkin-reply"><strong>{patient}:</strong> {String(reply.payload.text)}</p>}

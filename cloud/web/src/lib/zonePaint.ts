@@ -9,15 +9,15 @@ export const PAINT_LABEL: Record<PaintClass, string> = {
 }
 
 export const PAINT_FILL: Record<PaintClass, string> = {
-  safe: 'rgba(177,219,184,0.7)',
-  watch: 'rgba(182,206,213,0.9)',
-  exit: 'rgba(15,62,23,0.18)',
+  safe: 'rgba(22,160,107,0.30)',
+  watch: 'rgba(217,154,11,0.38)',
+  exit: 'rgba(229,72,77,0.34)',
 }
 
 export const PAINT_STROKE: Record<PaintClass, string> = {
-  safe: '#0f3e17',
-  watch: '#0f3e17',
-  exit: '#0c2f10',
+  safe: '#16a06b',
+  watch: '#c78a08',
+  exit: '#d63b41',
 }
 
 const CLASS_CODE: Record<PaintClass, number> = { safe: 0, watch: 1, exit: 2 }
@@ -45,7 +45,40 @@ export function paintCell(
   }
 }
 
-/** Merge contiguous same-class cells into axis-aligned rectangle polygons (metres). */
+/** Restore painted cells from saved zones (axis-aligned rectangles). */
+export function zonesToGrid(
+  zones: Zone[],
+  cols: number,
+  rows: number,
+  widthM: number,
+  heightM: number,
+): Uint8Array {
+  const grid = emptyGrid(cols, rows)
+  for (const z of zones) {
+    if (z.class === 'safe' || z.polygon.length === 0) continue
+    const xs = z.polygon.map(([x]) => x)
+    const ys = z.polygon.map(([, y]) => y)
+    const x0 = Math.min(...xs)
+    const x1 = Math.max(...xs)
+    const y0 = Math.min(...ys)
+    const y1 = Math.max(...ys)
+    for (let r = 0; r < rows; r++) {
+      const cy = ((r + 0.5) / rows) * heightM
+      if (cy < y0 || cy > y1) continue
+      for (let c = 0; c < cols; c++) {
+        const cx = ((c + 0.5) / cols) * widthM
+        if (cx >= x0 && cx <= x1) grid[r * cols + c] = CLASS_CODE[z.class]
+      }
+    }
+  }
+  return grid
+}
+
+/**
+ * Turn painted cells into zones (metres). Each connected painted region becomes
+ * exact axis-aligned rectangles (row runs merged vertically), so a zone covers
+ * only what was painted — not the bounding box of the stroke.
+ */
 export function gridToZones(
   grid: Uint8Array,
   cols: number,
@@ -76,21 +109,16 @@ export function gridToZones(
     const code = grid[i]
     if (code === 0 || visited[i]) continue
     const cls = CODE_CLASS[code]
-    // flood fill bounding box
+
+    // flood fill one region
+    const cells: number[] = []
     const stack = [i]
     visited[i] = 1
-    let minC = i % cols
-    let maxC = minC
-    let minR = Math.floor(i / cols)
-    let maxR = minR
     while (stack.length) {
       const cur = stack.pop()!
+      cells.push(cur)
       const c = cur % cols
       const r = Math.floor(cur / cols)
-      minC = Math.min(minC, c)
-      maxC = Math.max(maxC, c)
-      minR = Math.min(minR, r)
-      maxR = Math.max(maxR, r)
       const neighbors = [
         r > 0 ? cur - cols : -1,
         r < rows - 1 ? cur + cols : -1,
@@ -103,21 +131,58 @@ export function gridToZones(
         stack.push(n)
       }
     }
-    const x0 = minC * cellW
-    const x1 = (maxC + 1) * cellW
-    const y0 = minR * cellH
-    const y1 = (maxR + 1) * cellH
-    zones.push({
-      id: `${cls}_${minC}_${minR}`,
-      class: cls,
-      label: PAINT_LABEL[cls],
-      kind: cls === 'exit' ? 'door' : 'door',
-      polygon: [
-        [x0, y0],
-        [x1, y0],
-        [x1, y1],
-        [x0, y1],
-      ],
+
+    const inRegion = new Set(cells)
+    const minR = Math.min(...cells.map((k) => Math.floor(k / cols)))
+    const maxR = Math.max(...cells.map((k) => Math.floor(k / cols)))
+    const minC = Math.min(...cells.map((k) => k % cols))
+    const region = `${cls}_${minC}_${minR}`
+
+    // row runs, merged into rectangles while consecutive rows share the same span
+    const rects: { c0: number; c1: number; r0: number; r1: number }[] = []
+    let open = new Map<string, { c0: number; c1: number; r0: number; r1: number }>()
+    for (let r = minR; r <= maxR + 1; r++) {
+      const next = new Map<string, { c0: number; c1: number; r0: number; r1: number }>()
+      let c = 0
+      while (r <= maxR && c < cols) {
+        if (!inRegion.has(r * cols + c)) {
+          c++
+          continue
+        }
+        const c0 = c
+        while (c < cols && inRegion.has(r * cols + c)) c++
+        const key = `${c0}-${c - 1}`
+        const prev = open.get(key)
+        if (prev) {
+          prev.r1 = r
+          next.set(key, prev)
+          open.delete(key)
+        } else {
+          next.set(key, { c0, c1: c - 1, r0: r, r1: r })
+        }
+      }
+      rects.push(...open.values())
+      open = next
+    }
+
+    rects.forEach((rc, k) => {
+      const x0 = rc.c0 * cellW
+      const x1 = (rc.c1 + 1) * cellW
+      const y0 = rc.r0 * cellH
+      const y1 = (rc.r1 + 1) * cellH
+      zones.push({
+        id: rects.length > 1 ? `${region}_${k}` : region,
+        region,
+        class: cls,
+        label: PAINT_LABEL[cls],
+        kind: 'door',
+        polygon: [
+          [x0, y0],
+          [x1, y0],
+          [x1, y1],
+          [x0, y1],
+        ],
+      })
     })
   }
 
