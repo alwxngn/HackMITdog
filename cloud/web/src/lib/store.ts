@@ -24,6 +24,7 @@ const empty: Projection = {
   checkin_queue: [],
   map_ready: null,
   map_scan_pending: null,
+  demo: { running: false, step: null },
   timeline: [],
 }
 
@@ -60,8 +61,8 @@ export function handleBusMessage(msg: Envelope) {
   else if (t === 'pose') next.pose = p as unknown as Projection['pose']
   else if (t === 'person_track') {
     next.person_track = p as unknown as Projection['person_track']
-    const pt = p as { x: number; y: number }
-    next.person_trail = [...next.person_trail, { x: pt.x, y: pt.y, ts: msg.ts }].slice(-200)
+    const pt = p as { x: number; y: number; lat?: number | null; lon?: number | null }
+    next.person_trail = [...next.person_trail, { x: pt.x, y: pt.y, lat: pt.lat, lon: pt.lon, ts: msg.ts }].slice(-600)
   } else if (t === 'alert') {
     next.open_alert = { ...(p as object), ts: msg.ts } as Projection['open_alert']
     if ((p as { live_tracking?: boolean }).live_tracking) next.live_tracking = true
@@ -82,6 +83,8 @@ export function handleBusMessage(msg: Envelope) {
     next.robot_status = p as Projection['robot_status']
   } else if (t === 'checkin') {
     next.checkin_queue = [...next.checkin_queue, p as Projection['checkin_queue'][0]]
+  } else if (t === 'demo_status') {
+    next.demo = p as unknown as Projection['demo']
   } else if (t === 'map_scan_request') {
     next.map_scan_pending = p as Projection['map_scan_pending']
   } else if (t === 'map_ready') {

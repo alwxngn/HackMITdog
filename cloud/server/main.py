@@ -15,7 +15,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from bus import bus
 from camera import router as camera_router
+from demo import demo
 from escalation import escalation
+import notify
 from report import build_morning_report
 from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
 from store import store
@@ -280,6 +282,50 @@ async def api_reset():
     snap = store.snapshot()
     await hub.broadcast(snap)
     return {"ok": True, "snapshot": snap["payload"]}
+
+
+async def _reset_live() -> None:
+    """Clear live state between demo runs but keep the painted zones and patient setup."""
+    escalation.cancel_all()
+    store.reset(keep_setup=True)
+    await hub.broadcast(store.snapshot())
+
+
+@app.post("/api/demo/walk")
+async def api_demo_walk():
+    """Scripted walk: safe → warning → Don't-go → out of the house (no orchestrator needed)."""
+    result = await demo.start(_reset_live)
+    if not result["ok"]:
+        return JSONResponse(result, status_code=409)
+    return result
+
+
+@app.post("/api/demo/stop")
+async def api_demo_stop():
+    await demo.stop(_reset_live)
+    return {"ok": True}
+
+
+@app.get("/api/contacts")
+async def api_contacts():
+    """Emergency contacts from the escalation ladder, with the numbers alerts already use."""
+    rules = (store.projection.get("config") or {}).get("escalation") or []
+    names: list[str] = []
+    for rule in rules:
+        name = rule.get("contact")
+        if name and name not in names:
+            names.append(name)
+    roles = ["Primary contact", "Secondary contact"]
+    return {
+        "contacts": [
+            {
+                "name": name.capitalize(),
+                "role": roles[i] if i < len(roles) else "Contact",
+                "phone": notify._to_number(name),
+            }
+            for i, name in enumerate(names)
+        ]
+    }
 
 
 @app.get("/api/report")

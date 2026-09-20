@@ -13,7 +13,7 @@ from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 EVENTS_PATH = DATA_DIR / "events.jsonl"
 TIMELINE_MAX = 500
-TRAIL_MAX = 200
+TRAIL_MAX = 600
 
 
 class EventStore:
@@ -47,6 +47,7 @@ class EventStore:
             "checkin_queue": [],
             "map_ready": dict(DEFAULT_MAP_READY),
             "map_scan_pending": None,
+            "demo": {"running": False, "step": None},
         }
 
     def append(self, msg: dict[str, Any]) -> None:
@@ -86,7 +87,15 @@ class EventStore:
         elif t == "person_track":
             self.projection["person_track"] = p
             if "x" in p and "y" in p:
-                self.person_trail.append({"x": p["x"], "y": p["y"], "ts": msg.get("ts", 0)})
+                self.person_trail.append(
+                    {
+                        "x": p["x"],
+                        "y": p["y"],
+                        "lat": p.get("lat"),
+                        "lon": p.get("lon"),
+                        "ts": msg.get("ts", 0),
+                    }
+                )
                 self.projection["person_trail"] = list(self.person_trail)
         elif t == "alert":
             self.projection["open_alert"] = {**p, "ts": msg.get("ts")}
@@ -113,6 +122,8 @@ class EventStore:
             self.projection["robot_status"] = p
         elif t == "checkin":
             self.projection["checkin_queue"].append(p)
+        elif t == "demo_status":
+            self.projection["demo"] = p
         elif t == "map_scan_request":
             self.projection["map_scan_pending"] = p
         elif t == "map_ready":
@@ -131,7 +142,9 @@ class EventStore:
             },
         }
 
-    def reset(self) -> None:
+    def reset(self, keep_setup: bool = False) -> None:
+        """Clear live state. keep_setup=True preserves zones, config and the home map."""
+        setup = {k: self.projection.get(k) for k in ("zones", "config", "map_ready")}
         # Truncate JSONL for a clean demo loop; keep a backup stamp.
         if self.path.exists():
             bak = self.path.with_suffix(f".{int(time.time())}.bak.jsonl")
@@ -140,6 +153,8 @@ class EventStore:
         self.timeline.clear()
         self.person_trail.clear()
         self.projection = self._empty_projection()
+        if keep_setup:
+            self.projection.update({k: v for k, v in setup.items() if v is not None})
 
     def read_all(self) -> list[dict[str, Any]]:
         if not self.path.exists():

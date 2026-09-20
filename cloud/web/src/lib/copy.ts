@@ -1,4 +1,4 @@
-import type { AgentState, Envelope } from './types'
+import type { AgentState, Envelope, PersonTrack, Zone } from './types'
 
 const STATE_TITLE: Record<string, string> = {
   IDLE: 'All is quiet',
@@ -39,16 +39,38 @@ const SKIP_TIMELINE = new Set([
   'snapshot',
 ])
 
-export function statusHeadline(a: AgentState): string {
+/** Where the person is right now, in terms the caregiver cares about. */
+export interface ZoneContext {
+  cls: 'safe' | 'watch' | 'exit' | 'outside'
+  label: string
+}
+
+export function zoneContext(track: PersonTrack | null, zones: Zone[]): ZoneContext | null {
+  if (!track) return null
+  if (track.zone === 'outside') return { cls: 'outside', label: 'Outside' }
+  const z = zones.find((zone) => zone.id === track.zone)
+  return z ? { cls: z.class, label: z.label || z.id } : null
+}
+
+export function statusHeadline(a: AgentState, zone?: ZoneContext | null, name?: string): string {
+  const who = name ? `${name} is` : 'They are'
+  if (zone?.cls === 'outside') return name ? `${name} has left the house` : 'They have left the house'
+  if (zone?.cls === 'exit') return `${who} in the Don't-go zone`
+  if (zone?.cls === 'watch') return `${who} in the warning zone`
   return STATE_TITLE[a.state] || 'Lantern is with them'
 }
 
-export function statusDetail(a: AgentState): string {
-  const reason = humanReason(a.reason)
+export function statusDetail(a: AgentState, zone?: ZoneContext | null): string {
   const verb = STATE_VERB[a.state] || 'nearby'
   const mood = MOOD[a.agitation] || ''
-  if (reason) return `Lantern is ${verb}. ${reason} ${mood}`.trim()
-  return `Lantern is ${verb}. ${mood}`.trim()
+  if (zone?.cls === 'outside') {
+    return 'Lantern is following at a distance. Open live tracking to see where they are.'
+  }
+  // The headline already says which zone they are in, so skip the raw reason here.
+  if (zone?.cls === 'exit') return `Lantern is ${verb}. ${mood}`.trim()
+  if (zone?.cls === 'watch') return `Near ${zone.label}. Lantern is ${verb}. ${mood}`.trim()
+  const reason = humanReason(a.reason)
+  return (reason ? `Lantern is ${verb}. ${reason} ${mood}` : `Lantern is ${verb}. ${mood}`).trim()
 }
 
 function humanReason(reason: string): string {
@@ -77,15 +99,22 @@ export function timelineLine(msg: Envelope): string | null {
     case 'zone_event': {
       const label = String(p.zone_label || p.zone_id || 'a doorway')
       const ev = String(p.event || '')
-      if (ev === 'enter' || ev === 'entered') return `Near ${label}.`
-      if (ev === 'exit' || ev === 'left') return `Left ${label}.`
+      const cls = String(p.zone_class || '')
+      if (ev === 'exited' && p.outside === true) return 'Left the house.'
+      if (ev === 'approaching') return null
+      if (ev === 'enter' || ev === 'entered') {
+        if (cls === 'watch') return `Entered the warning zone (${label}).`
+        if (cls === 'exit') return "Reached the Don't-go zone."
+        return `Near ${label}.`
+      }
+      if (ev === 'exit' || ev === 'exited' || ev === 'left') return `Left ${label}.`
       return `At ${label}.`
     }
     case 'caregiver_ack': {
       const action = String(p.action || '')
-      if (action === 'im_coming') return 'You said you have this.'
+      if (action === 'im_coming') return 'You said you’ll handle it.'
       if (action === 'false_alarm') return 'Marked as a false alarm.'
-      if (action === 'call_help') return 'You asked to call for extra help.'
+      if (action === 'call_help') return 'You asked to call for help.'
       return 'You responded to an alert.'
     }
     case 'transcript':

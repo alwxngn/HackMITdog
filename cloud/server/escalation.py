@@ -50,6 +50,10 @@ class EscalationManager:
         channels = p.get("channels") or ["sms"]
         context = p.get("context")
 
+        # Heads-up notifications (e.g. entered a warning zone) show in the portal only.
+        if level <= 1 or p.get("requires_ack") is False:
+            return
+
         self.cancel(alert_id)
         tasks: list[asyncio.Task] = []
 

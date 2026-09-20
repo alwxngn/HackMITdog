@@ -1,4 +1,4 @@
-import { statusDetail, statusHeadline } from '../lib/copy'
+import { statusDetail, statusHeadline, zoneContext } from '../lib/copy'
 import { useProjection } from '../hooks/useProjection'
 
 const STATE_TONE: Record<string, string> = {
@@ -20,7 +20,14 @@ export function StatePanel() {
     (p.config.patient as { preferred_name?: string; name?: string } | undefined)?.preferred_name ||
     (p.config.patient as { name?: string } | undefined)?.name
 
-  const tone = STATE_TONE[a.state] ?? 'var(--color-accent)'
+  const zone = zoneContext(p.person_track, p.zones)
+  const zoneTone =
+    zone?.cls === 'outside' || zone?.cls === 'exit'
+      ? 'var(--color-danger)'
+      : zone?.cls === 'watch'
+        ? 'var(--color-watch)'
+        : null
+  const tone = zoneTone ?? STATE_TONE[a.state] ?? 'var(--color-accent)'
 
   return (
     <section className="card-metric">
@@ -39,9 +46,9 @@ export function StatePanel() {
           {a.agitation}
         </span>
       </div>
-      <h1 className="text-[32px] leading-[1.12]">{statusHeadline(a)}</h1>
+      <h1 className="text-[32px] leading-[1.12]">{statusHeadline(a, zone, name)}</h1>
       <p className="mt-3 max-w-2xl text-[15px] leading-[1.55] text-[var(--color-ink-2)]">
-        {statusDetail(a)}
+        {statusDetail(a, zone)}
         {p.robot_status?.state === 'yielded' ? ' Someone walked by, so Lantern paused.' : ''}
       </p>
       {p.last_transcript?.text && (

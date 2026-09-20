@@ -1,10 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { timelineLine } from '../lib/copy'
+import { timelineLine, zoneContext } from '../lib/copy'
 import { useProjection } from '../hooks/useProjection'
 import { AlertBanner } from './AlertBanner'
 import { CheckinComposer } from './CheckinComposer'
+import { DemoWalk } from './DemoWalk'
 import { DogCamera } from './DogCamera'
+import { EmergencyContacts } from './EmergencyContacts'
+import { LiveTrack } from './LiveTrack'
 import { MapView } from './Map'
 import { MorningReport } from './MorningReport'
 import { StatePanel } from './StatePanel'
@@ -27,7 +30,10 @@ function Screen({ children }: { children: ReactNode }) {
 export function Dashboard() {
   const [tab, setTab] = useState<TabId>('home')
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [trackOpen, setTrackOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const p = useProjection()
+  const outside = zoneContext(p.person_track, p.zones)?.cls === 'outside'
   const nightWatchEnabled = (p.config.night_watch_enabled as boolean | undefined) ?? true
   const patient = p.config.patient as { preferred_name?: string; name?: string } | undefined
   const name = patient?.preferred_name || patient?.name
@@ -43,6 +49,19 @@ export function Dashboard() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ night_watch_enabled: enabled }),
     })
+  }
+
+  // Collapse the map once they are back inside so the next run starts tidy.
+  const [wasOutside, setWasOutside] = useState(false)
+  if (outside !== wasOutside) {
+    setWasOutside(outside)
+    if (!outside) setTrackOpen(false)
+  }
+
+  function openTracking() {
+    setTab('home')
+    setTrackOpen(true)
+    setTimeout(() => document.getElementById('live-track')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
 
   function go(next: TabId) {
@@ -77,6 +96,9 @@ export function Dashboard() {
             </div>
 
             <StatePanel />
+            {outside && (
+              <LiveTrack open={trackOpen} onToggle={() => setTrackOpen((v) => !v)} onCallHelp={() => setHelpOpen(true)} />
+            )}
             <MapView />
             <DogCamera
               open={cameraOpen}
@@ -97,6 +119,8 @@ export function Dashboard() {
                 <span aria-hidden className="text-[var(--color-ink)]">→</span>
               </button>
             )}
+
+            <DemoWalk />
           </Screen>
         )}
 
@@ -161,7 +185,13 @@ export function Dashboard() {
       </main>
 
       <TabIsland active={tab} onChange={go} badge={p.checkin_queue.length > 0 ? 'checkin' : null} />
-      <AlertBanner onOpenCamera={() => setCameraOpen(true)} cameraOpen={cameraOpen} />
+      <AlertBanner
+        onOpenCamera={() => setCameraOpen(true)}
+        cameraOpen={cameraOpen}
+        onTrack={openTracking}
+        onCallHelp={() => setHelpOpen(true)}
+      />
+      {helpOpen && <EmergencyContacts onClose={() => setHelpOpen(false)} />}
     </div>
   )
 }

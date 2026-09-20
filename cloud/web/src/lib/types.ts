@@ -34,6 +34,8 @@ export interface Pose {
   battery_pct: number
   mode: string
   map_id: string
+  lat?: number | null
+  lon?: number | null
 }
 
 export interface PersonTrack {
@@ -76,11 +78,26 @@ export interface MapReady {
   rooms?: { id: string; polygon: [number, number][] }[]
 }
 
+export interface TrailPoint {
+  x: number
+  y: number
+  lat?: number | null
+  lon?: number | null
+  ts: number
+}
+
+export interface DemoStatus {
+  running: boolean
+  step: string | null
+  step_index?: number
+  total?: number
+}
+
 export interface Projection {
   agent_state: AgentState
   pose: Pose | null
   person_track: PersonTrack | null
-  person_trail: { x: number; y: number; ts: number }[]
+  person_trail: TrailPoint[]
   zones: Zone[]
   config: Record<string, unknown>
   open_alert: Alert | null
@@ -91,6 +108,7 @@ export interface Projection {
   checkin_queue: { checkin_id: string; from_name: string; text: string }[]
   map_ready: MapReady | null
   map_scan_pending: { request_id: string; mode?: string } | null
+  demo: DemoStatus
   timeline: Envelope[]
 }
 

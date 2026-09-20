@@ -33,6 +33,8 @@ export function MapView() {
   }
   // Demo table-top home is hard-coded; a real robot scan falls back to plain room outlines.
   const showHome = !p.map_ready || p.map_ready.map_id === DEMO_HOME_MAP_ID
+  // Once they step outside, positions fall off this floor plan — LiveTrack takes over.
+  const inside = (x: number, y: number) => x >= 0 && x <= bounds.width && y >= 0 && y <= bounds.height
 
   return (
     <div className="card-slate !p-5">
@@ -112,7 +114,7 @@ export function MapView() {
           </text>
         ))}
 
-        {live && p.person_trail.length > 1 && (
+        {live && p.person_trail.filter((t) => inside(t.x, t.y)).length > 1 && (
           <polyline
             fill="none"
             stroke="#2563ff"
@@ -121,6 +123,7 @@ export function MapView() {
             strokeLinejoin="round"
             opacity={0.9}
             points={p.person_trail
+              .filter((t) => inside(t.x, t.y))
               .map(({ x, y }) => {
                 const { cx, cy } = worldToSvg(x, y, bounds)
                 return `${cx},${cy}`
@@ -130,6 +133,7 @@ export function MapView() {
         )}
 
         {p.pose &&
+          inside(p.pose.x, p.pose.y) &&
           (() => {
             const { cx, cy } = worldToSvg(p.pose.x, p.pose.y, bounds)
             return (
@@ -144,6 +148,7 @@ export function MapView() {
           })()}
 
         {p.person_track &&
+          inside(p.person_track.x, p.person_track.y) &&
           (() => {
             const { cx, cy } = worldToSvg(p.person_track.x, p.person_track.y, bounds)
             return (
