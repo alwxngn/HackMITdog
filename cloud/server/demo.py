@@ -141,6 +141,12 @@ class DemoWalk:
         self.alert_n = 0
         return None
 
+    @staticmethod
+    def _place(zone: dict[str, Any], generic: str) -> str:
+        """A zone's own name, unless it is just the generic 'Warning'/'Danger' label."""
+        label = zone.get("label") or ""
+        return generic if label.lower() in {"", "warning", "danger", "watch", "don't go"} else label
+
     def _enabled(self) -> bool:
         """Danger zones are only enforced while Night Watch is on."""
         return bool((store.projection.get("config") or {}).get("night_watch_enabled", True))
@@ -333,8 +339,8 @@ class DemoWalk:
         await self._status(1)
         if not self._enabled():
             return await self._hold(4.0)
-        label = zone.get("label") or "the hallway"
-        await self._state("ATTEND", f"{self.name} is in the warning zone ({label})", "unsettled")
+        label = self._place(zone, "the warning zone")
+        await self._state("ATTEND", f"{self.name} is in the warning zone", "unsettled")
         await self._alert(
             1,
             f"{self.name} is in the warning zone",
@@ -349,7 +355,7 @@ class DemoWalk:
         await self._status(2)
         if not self._enabled():
             return await self._hold(8.0)
-        label = zone.get("label") or "the front door"
+        label = self._place(zone, "the danger zone")
         await self._state("LEAD", f"{self.name} reached the danger zone", "agitated")
         await self._emit(
             "command",
