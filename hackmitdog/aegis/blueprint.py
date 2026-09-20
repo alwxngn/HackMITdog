@@ -54,10 +54,12 @@ reachable from another device on the same network, then point that device's
 from dimos.agents.mcp.mcp_client import McpClient
 from dimos.agents.mcp.mcp_server import McpServer
 from dimos.agents.ollama_agent import ollama_installed
+from dimos.agents.skills.person_follow import PersonFollowSkillContainer
 from dimos.core.coordination.blueprints import autoconnect
 from dimos.robot.unitree.go2.blueprints.smart.unitree_go2_spatial import (
     unitree_go2_spatial,
 )
+from dimos.robot.unitree.go2.connection import GO2Connection
 
 from hackmitdog.aegis.danger_zone import DangerZoneSkills
 from hackmitdog.aegis.guided_walk import GuidedWalkSkills
@@ -72,13 +74,23 @@ from hackmitdog.aegis.person import PersonSkills
 # VoxelGridMapper, CostMapper, ReplanningAStarPlanner, PatrollingModule,
 # MovementManager, SpatialMemory, PerceiveLoopSkill -- see
 # DIMOS_SKILL_IMPLEMENTATION_PLAN.md §5). This blueprint adds no new DimOS
-# modules, only this package's own skill containers.
+# modules except PersonFollowSkillContainer, which PersonSkills.follow_person/
+# stop_person_follow require -- PersonSkills only injects an RPC proxy to it
+# (`_person_follow: PersonFollowSkillContainer`), it does not deploy the
+# module itself. Without this line that proxy resolves to None at runtime,
+# which is exactly the bug this comment is here to prevent regressing: calling
+# follow_person/stop_person_follow failed with
+# "'NoneType' object has no attribute 'follow_person'"/"'stop_following'"
+# because PersonFollowSkillContainer was never in this autoconnect(...) call.
+# camera_info=GO2Connection.camera_info_static matches the exact invocation
+# DimOS's own _common_agentic.py uses.
 aegis_go2_skills = autoconnect(
     unitree_go2_spatial,
     LocationSkills.blueprint(),
     NavigationSkills.blueprint(),
     GuidedWalkSkills.blueprint(),
     PersonSkills.blueprint(),
+    PersonFollowSkillContainer.blueprint(camera_info=GO2Connection.camera_info_static),
     ObjectMemorySkills.blueprint(),
     HomeSkills.blueprint(),
     DangerZoneSkills.blueprint(),
