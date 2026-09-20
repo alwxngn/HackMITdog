@@ -1,17 +1,44 @@
-# Lantern — HackMIT planning repo
+# Lantern — HackMIT
 
-Planning and scoping documents for a voice-native quadruped companion for in-home
-dementia care. (Working name: **Lantern**. Previously "Project Aegis" — see
-[`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name) for why the name changed.)
+Voice-native quadruped companion for in-home dementia care. (Working name: **Lantern**.
+Previously "Project Aegis" — see [`docs/01-judge-review.md`](docs/01-judge-review.md#p0-8-the-name).)
 
-This repo holds the **plan**, not the code — deliberately. HackMIT allows you to plan in
-advance but requires all project code to be written during the hacking window, so nothing here
-is implementation and nothing should become implementation until hacking opens. See
-[`docs/10-second-pass.md`](docs/10-second-pass.md) P1-8.
+Plans live in [`docs/`](docs/). Code is split by owner: `/cloud` (E3), `/voice` (E1), `/robot` (E2), `/orchestrator` (E4).
 
-It exists so that four engineers can agree on scope, interfaces, and the demo before anyone
-writes a line, because the most common way a 4-person hardware hack dies is integration at the
-seam, in the middle of the night.
+## Run the caregiver portal (Night Watch)
+
+Full install + run steps: **[`cloud/README.md`](cloud/README.md)**.
+
+The original portal now includes a check-in button connected to the mobile voice service.
+See **[`voice/PORTAL_SETUP.md`](voice/PORTAL_SETUP.md)** for the combined Windows setup and phone pairing.
+
+```bash
+# install once
+cd cloud && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && cp -n .env.example .env
+(cd web && npm install)
+
+# terminal 1 — API
+cd cloud && source .venv/bin/activate
+cd server && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# terminal 2 — UI
+cd cloud/web && npm run dev
+# → http://127.0.0.1:5173/watch
+```
+
+## Spine on mocks (E3 + E4)
+
+End-to-end without Unitree — see [`orchestrator/README.md`](orchestrator/README.md).
+
+```bash
+# terminal 1: cloud API (as above)
+# terminal 2: portal (optional)
+# terminal 3:
+cd orchestrator && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python run_spine.py --scenario exit_seeking
+```
 
 ## Read this first: the clock
 
@@ -30,6 +57,7 @@ end times on `dayof.hackmit.org` and shift the schedule before relying on it.
 | [`docs/03-build-plan.md`](docs/03-build-plan.md) | 24-hour schedule, ownership, cut lines | Everyone |
 | [`docs/04-interfaces.md`](docs/04-interfaces.md) | Frozen event schemas so we can work in parallel | Everyone, in the first 90 minutes |
 | [`docs/15-dev-workflow.md`](docs/15-dev-workflow.md) | Repo layout, git rules, and running four different AI coding agents without them colliding | Everyone, before anyone opens an agent |
+| [`docs/16-e3-portal.md`](docs/16-e3-portal.md) | E3 portal/cloud playbook: bus contract, coordinate frame, build order | E3 |
 | [`docs/11-perception.md`](docs/11-perception.md) | How the person actually gets tracked. Six things depend on it | E2, E4 |
 | [`docs/12-dialogue-runtime.md`](docs/12-dialogue-runtime.md) | What produces each utterance, the latency budget, the impersonation guard | E1, E4 |
 | [`docs/14-companion-and-caretaker.md`](docs/14-companion-and-caretaker.md) | Check-in relay, companionship conversation, onboarding schedule, guided walks, the completed wandering policy | Everyone |
@@ -102,3 +130,19 @@ itself below the skill layer, not by the calling LLM — see the plan doc's §8.
    as you add it. See `docs/10` P1-8.
 7. Four people, four different AI coding agents, one folder each, no long-lived branches, tiny
    commits. See `docs/15`.
+
+## Integration test branch (Unitree + Night Watch)
+
+Short-lived branch `e3/unitree-dash-test` combines the caregiver portal (incl. on-demand dog
+camera) with the Aegis/DimOS Go2 skills from `breadcrumb`. **Do not merge to `main` until the
+dog side is stable.**
+
+```bash
+# cloud/.env (local only)
+DOG_CAMERA_ENABLED=1
+DOG_CAMERA_URL=http://127.0.0.1:7780/   # DimOS cockpit / teammates' live viewer URL
+
+# then: cloud API + npm run dev → http://127.0.0.1:5173/watch → View dog camera
+```
+
+See [`robot/README.md`](robot/README.md) and [`AEGIS_SKILL_TESTING.md`](AEGIS_SKILL_TESTING.md).

@@ -154,12 +154,13 @@ We built one navigation capability. It happens to serve two situations.
 
 **"Does 'take me home' actually use real GPS at your table?"**
 
-No, and we'll say that before you ask. GPS doesn't work inside a building — not badly,
-intermittently, at all, for anyone, in any convention hall. What's running is the same
-orchestrator and dashboard, driven by a scripted location feed instead of a real satellite fix
-— exactly the relationship our indoor demo already has to the real robot when it's charging.
-The behavior you're watching is real; the location signal underneath it is mocked because
-nothing else is possible in this room.
+We don't use GPS at all, at the table or in the real product. GPS doesn't work inside a
+building — not badly, intermittently, at all, for anyone, in any convention hall — so instead
+of mocking around that limitation, we built around it: the robot records its own path as it
+walks, using its own odometry, and "take me home" retraces that recorded path in reverse,
+correcting the last few meters against a marker at the door. That works identically indoors and
+outdoors, which means what you're watching right now is the real capability, live, not a
+scripted stand-in.
 
 ---
 

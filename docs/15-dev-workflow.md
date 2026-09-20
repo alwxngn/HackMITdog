@@ -15,7 +15,7 @@ have never seen each other's chat history and never will.
 
 ```
 /voice/          — E1. Deepgram, ElevenLabs, dialogue policy, prosody.
-/robot/          — E2. DimOS/Unitree, tracker, lead-away/follow controller.
+/robot/          — E2. DimOS/Unitree, tracker, lead-away/follow controller; dog camera relay URL for Night Watch.
 /cloud/          — E3. FastAPI, WebSocket, React portal, Twilio.
 /orchestrator/   — E4. State machine, event bus, mocks, impersonation guard.
 /bus/            — shared schema definitions from 04-interfaces.md. E4 owns it. Everyone reads it.
@@ -43,8 +43,9 @@ regardless of which subsystem it's working in:
   any cloned voice, yield reflex is a controller-level reflex not a state transition).
 - The subsystem boundary from §1: "you are working in `/robot`; read `/bus` and `/docs`, don't
   write outside `/robot` without flagging it to a human first."
-- Where the mocks are (`mock_robot`, `mock_patient`, `mock_mic`, and Tier 2's `mock_gps`) and
-  the instruction to run against them before declaring anything done.
+- Where the mocks are (`mock_robot`, `mock_patient`, `mock_mic` — Tier 2's `GUIDE_HOME` reuses
+  `mock_robot` rather than needing a fourth) and the instruction to run against them before
+  declaring anything done.
 
 This is the only piece of "implementation" that's fair game to write before hacking opens —
 it's configuration for how you'll work, not project code. Draft it this week; don't touch

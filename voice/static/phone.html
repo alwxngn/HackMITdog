@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lantern · Voice</title><link rel="stylesheet" href="/assets/style.css"><script type="module" src="/assets/phone.js"></script></head>
+<body class="phone minimal"><header><span class="brand">Lantern</span><span id="connection" class="pill">Not connected</span></header>
+<main><p id="error" class="notice error" role="alert" hidden></p>
+<p id="activity" role="status"></p>
+<button id="start">Start Lantern</button>
+<section id="controls" hidden><div class="card spoken"><p class="eyebrow">Lantern says</p><p id="spoken">Waiting for a hello from your caregiver.</p><button id="retry" class="secondary" hidden>Tap to play message</button></div>
+<button id="record" disabled>Talk to Lantern</button><button id="stop" class="secondary">Stop speaking</button>
+<details><summary>Type a reply instead</summary><form id="reply-form"><label for="reply">Your reply</label><textarea id="reply" maxlength="2000" rows="2" required></textarea><button id="send-reply">Send reply</button></form></details>
+<button id="pause" class="text-button">Pause microphone and voice</button></section>
+<details class="connection-details"><summary>Connection details</summary><footer id="mode">The microphone is only used when you tap Talk.</footer></details>
+</main></body></html>

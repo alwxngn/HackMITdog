@@ -50,12 +50,12 @@ moved: person tracking is now explicitly E2's, and the impersonation guard is ex
 
 | | |
 |---|---|
-| Owns | Person tracking (`11-perception.md`), zones, the lead-away controller, the pacing detector, Unitree/DimOS integration, and — Tier 2 only — the `FOLLOW`/`GUIDE_HOME` behaviors and `mock_gps` (`14-companion-and-caretaker.md` §6–7) |
+| Owns | Person tracking (`11-perception.md`), zones, the lead-away controller, the pacing detector, Unitree/DimOS integration, and — Tier 2 only — the `FOLLOW`/`GUIDE_HOME` behaviors and the breadcrumb-retrace/ArUco final-approach logic (`14-companion-and-caretaker.md` §6–7) |
 | Ships | A `tracker` emitting `person_track`, and a `robot_service` emitting `pose` and consuming `goto` / `lead_to` / `posture` |
 | **First deliverable** | **Tracker A, emitting real `person_track` from a real walking human, before you touch the robot.** Everything else depends on it. |
 | Hard requirement | The safety envelope in `06-safety-ethics.md` lives in the controller, not the demo script. The yield reflex uses raw LiDAR range, **not** the tracker. |
 | Watch out for | Live SLAM. Author the map once — it is a taped rectangle — save it, load it. |
-| Watch out for (Tier 2) | Real GPS does not work indoors. Don't lose an hour discovering this at the venue — `FOLLOW`/`GUIDE_HOME` are demoed against `mock_gps` by design, same as `mock_robot`. |
+| Watch out for (Tier 2) | We don't use GPS at all — `FOLLOW`/`GUIDE_HOME` run on odometry (`pose`) and an ArUco marker at the door, so there's no venue constraint to design around and no dedicated mock to build. Don't reintroduce a GPS dependency by habit. |
 | Owns the metric | Pacing detection precision/recall (**priority**) |
 
 ### E3 — Portal and cloud
@@ -73,7 +73,7 @@ moved: person tracking is now explicitly E2's, and the impersonation guard is ex
 
 | | |
 |---|---|
-| Owns | The state machine, the event bus, **the mocks**, the impersonation guard, the demo runner, metrics collection, the reminder-suppression rule (`agent_state != IDLE` mutes nudges), and — Tier 2 — `CONFIRM_HOME` plus `mock_gps` |
+| Owns | The state machine, the event bus, **the mocks**, the impersonation guard, the demo runner, metrics collection, the reminder-suppression rule (`agent_state != IDLE` mutes nudges), and — Tier 2 — `CONFIRM_HOME` plus the `mock_robot` breadcrumb/`landmark_visible` scripting |
 | Ships | `orchestrator` implementing the five states; `mock_robot`, `mock_patient`, `mock_mic`; a one-key reset |
 | Hard requirement | Mocks working by **2:30 PM**, so the other three can run the full pipeline alone |
 | Hard requirement | Inbound and outbound impersonation guards (`12-dialogue-runtime.md`) — code, not prompt |
@@ -175,8 +175,9 @@ that has been awake for 30 hours pitches badly, and the pitch is a large fractio
 - [ ] **E3:** morning report if it isn't done. It's cheap and it lands. Then onboarding step 4
       (schedule/habits) and the zone label rename to "Don't go" if there's slack.
 - [ ] **E2/E4, only if the spine and Tier 1 are both green and it's still before 3 AM:** start
-      `FOLLOW`/`CONFIRM_HOME`/`GUIDE_HOME` against `mock_gps`. This is genuinely new work, not a
-      polish task — do not start it at the expense of Metric 3 or the feature-freeze gate below.
+      `FOLLOW`/`CONFIRM_HOME`/`GUIDE_HOME` — breadcrumb retrace off `pose`, no new mock needed.
+      This is genuinely new work, not a polish task — do not start it at the expense of Metric 3
+      or the feature-freeze gate below.
 - [ ] **E4:** demo runner, one-key reset, fallback modes wired and *each one rehearsed once*.
 - [ ] Metrics 2 and 4 only if they fall out of the logs for free. Do not schedule them.
 

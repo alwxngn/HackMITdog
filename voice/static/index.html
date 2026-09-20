@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lantern · Caregiver</title><link rel="stylesheet" href="/assets/style.css"><script type="module" src="/assets/caregiver.js"></script></head>
+<body>
+<header><a class="brand" href="/">✦ Lantern</a><span class="pill">Caregiver space</span></header>
+<main>
+  <div class="intro"><p class="eyebrow">A little closer, wherever you are</p><h1>A familiar hello.<br>A moment of connection.</h1><p>Send a check-in to Lantern and hear back from your loved one.</p></div>
+  <p id="error" class="notice error" role="alert" hidden></p>
+  <section id="setup" class="card narrow">
+    <h2>Who are we checking in on?</h2><p>Create a private demo session, then connect the phone that will speak for Lantern.</p>
+    <form id="create-form"><label for="patient">Their preferred name</label><input id="patient" value="Arthur" maxlength="60" required autocomplete="off"><label for="caregiver">Your name</label><input id="caregiver" value="Sarah" maxlength="60" required autocomplete="given-name"><button>Create a session <span>→</span></button></form>
+  </section>
+  <div id="workspace" hidden>
+    <div class="status-row"><span id="connection" class="pill">Connecting…</span><span id="mode" class="muted"></span></div>
+    <p id="provider-note" class="notice" hidden></p>
+    <div class="grid">
+      <section class="card"><p class="eyebrow">01 / Connect</p><h2>Give Lantern a voice</h2><p>Open this private link on the phone near the robot. Tap <strong>Start Lantern</strong> there, and keep the page open.</p>
+        <label for="phone-link">Phone pairing link</label><input id="phone-link" readonly><div class="actions"><button id="copy" class="secondary">Copy link</button><a id="open-phone" class="button secondary" target="_blank" rel="noopener">Open phone view ↗</a></div>
+        <p id="local-warning" class="notice" hidden>For a separate phone, open this dashboard through your HTTPS address first, then create a session there. A localhost link only works on this computer.</p>
+      </section>
+      <section class="card"><p class="eyebrow">02 / Check in</p><h2 id="checkin-title">Say hello</h2><form id="checkin-form"><label for="message">A message from you <span class="muted">(optional)</span></label><textarea id="message" rows="3" maxlength="500" placeholder="Thinking of you. I'll call after dinner."></textarea><p class="muted">Leave blank for “How are you feeling?” Lantern will say who sent the message.</p><button id="send" disabled>Send check-in <span>→</span></button></form><p id="delivery" role="status">Waiting for the phone to connect.</p><p id="attention" class="notice" hidden>A reply may need your attention. Please read the conversation. No emergency call has been placed.</p></section>
+    </div>
+    <section class="card conversation"><div class="section-heading"><div><p class="eyebrow">Shared moments</p><h2>The conversation</h2></div><span class="pill">Live</span></div><div id="timeline" aria-live="polite"><p class="muted">Your first check-in will appear here.</p></div></section>
+    <button id="new-session" class="text-button">Start a different session</button>
+  </div>
+  <footer>HackMIT prototype · Scripted replies, not clinical assessment. Sessions stay in memory for up to 12 hours and are cleared on server restart. Share pairing links only with your demo partner.</footer>
+</main></body></html>

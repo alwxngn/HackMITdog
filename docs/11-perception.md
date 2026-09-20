@@ -31,16 +31,17 @@ tracker is swappable, so pick the one you can make reliable and upgrade only if 
 }}
 ```
 
-`tracker`: `overhead_cam` | `lidar_cluster` | `onboard_fusion` | `gps` | `mock`. Render it in the
+`tracker`: `overhead_cam` | `lidar_cluster` | `onboard_fusion` | `mock`. Render it in the
 dashboard corner. When a judge asks how you're tracking the person, pointing at a live field
 that says which sensor is in use is a better answer than a description, and it keeps you honest
 about which one you're actually demoing.
 
-**`gps` is a fifth tracker, not covered below.** All three trackers in this document are indoor
-and taped-area-relative; none of them extend past the front door. The Tier 2 guided-walk feature
-(`14-companion-and-caretaker.md` §6–9) needs the person located outdoors, which none of Tracker
-A/B/C can do — it's specified separately there, including why it's mocked at the venue by
-necessity rather than by choice.
+**No `gps` tracker — outdoor guided walks don't need one.** All three trackers in this document
+are indoor and taped-area-relative, but that's fine: the Tier 2 guided-walk feature
+(`14-companion-and-caretaker.md` §6–9) uses `onboard_fusion` outdoors exactly as it's used
+indoors for the `FOLLOW` radius check (robot-relative, so location doesn't matter), and homing
+("take me home") runs on the robot's own `pose` odometry rather than on `person_track` at all —
+specified separately in the companion-and-caretaker doc.
 
 ---
 
