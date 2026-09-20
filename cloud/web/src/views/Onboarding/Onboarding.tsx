@@ -144,12 +144,12 @@ export function Onboarding() {
 
   useEffect(() => {
     const ready = projection.map_ready as MapReadyPayload | null
-    if (scanRequestId && ready?.request_id === scanRequestId) {
+    if (scanMode === 'live' && scanRequestId && ready?.request_id === scanRequestId) {
       setMap(ready)
       setScanning(false)
       setScanPhase('complete')
     }
-  }, [projection.map_ready, scanRequestId])
+  }, [projection.map_ready, scanMode, scanRequestId])
 
   async function startScan(forceDemo = false) {
     setScanError('')
