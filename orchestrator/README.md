@@ -57,3 +57,34 @@ python verify_spine.py
 python mocks/mock_patient.py --scenario exit_seeking --hub http://127.0.0.1:9000
 python mocks/mock_robot.py --fail-rate 0
 ```
+
+## DimOS combined Aegis + Breadcrumb
+
+This blueprint exposes Aegis and Breadcrumb tools through one Go2 connection
+and one MCP server.
+
+Install or refresh the local blueprint after changing `pyproject.toml`:
+
+```bash
+source /Users/laminegueye/dimensional-applications/.venv/bin/activate
+cd /Users/laminegueye/Desktop/repos/HackMITdog
+VIRTUAL_ENV=/Users/laminegueye/dimensional-applications/.venv uv pip install -e .
+```
+
+Run on the Go2:
+
+```bash
+dimos run hackmitdog.aegis-breadcrumb-agentic --robot-ip 192.168.12.1 --unitree-aes-128-key "$UNITREE_AES_128_KEY" --model openai:muse-spark-1.3
+```
+
+Verify from another terminal using the same virtual environment:
+
+```bash
+dimos mcp status
+dimos mcp list-tools
+```
+
+The tool list includes the Aegis tools and Breadcrumb's
+`start_breadcrumb_recording`, `stop_breadcrumb_recording`, `breadcrumb_status`,
+`clear_breadcrumbs`, and `take_me_home`. Movement tools use DimOS's shared
+`movement` capability, so movement commands are mutually exclusive.
