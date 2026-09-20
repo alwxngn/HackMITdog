@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { timelineLine, zoneContext } from '../lib/copy'
 import { useProjection } from '../hooks/useProjection'
+import { patchConfig } from '../lib/store'
 import { AlertBanner } from './AlertBanner'
 import { CheckinComposer } from './CheckinComposer'
 import { DemoWalk } from './DemoWalk'
@@ -32,6 +33,7 @@ export function Dashboard() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [trackOpen, setTrackOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [watchError, setWatchError] = useState('')
   const p = useProjection()
 
   const nightWatchEnabled = (p.config.night_watch_enabled as boolean | undefined) ?? true
@@ -45,11 +47,18 @@ export function Dashboard() {
     .find((r) => r.text)
 
   async function setNightWatch(enabled: boolean) {
-    await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ night_watch_enabled: enabled }),
-    })
+    setWatchError('')
+    try {
+      const r = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ night_watch_enabled: enabled }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+      patchConfig({ night_watch_enabled: enabled })
+    } catch {
+      setWatchError('Couldn’t reach Lantern. Check that the server is running.')
+    }
   }
 
   // Collapse the map once they are back inside so the next run starts tidy.
@@ -110,6 +119,12 @@ export function Dashboard() {
                 </span>
               </button>
             </div>
+
+            {watchError && (
+              <p role="alert" className="text-[13px] text-[var(--color-danger)]">
+                {watchError}
+              </p>
+            )}
 
             <StatePanel />
             {outside && (

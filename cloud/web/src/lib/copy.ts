@@ -130,8 +130,13 @@ export function timelineLine(msg: Envelope): string | null {
     }
     case 'checkin':
       return p.from_name ? `Check-in from ${p.from_name} is waiting.` : 'A check-in is waiting.'
-    case 'config_update':
+    case 'config_update': {
+      const keys = Object.keys(p)
+      if (keys.length === 1 && keys[0] === 'night_watch_enabled') {
+        return p.night_watch_enabled ? 'Night Watch turned on.' : 'Night Watch turned off.'
+      }
       return 'Home setup was saved.'
+    }
     case 'map_ready':
       return 'The home map is ready.'
     default:

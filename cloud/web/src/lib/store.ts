@@ -45,6 +45,28 @@ function emit() {
   for (const fn of listeners) fn(state)
 }
 
+/** Merge a config change into `next`. Turning Night Watch off also clears its live state. */
+function applyConfig(next: Projection, p: Record<string, unknown>, ts: number) {
+  next.config = { ...next.config, ...p }
+  if (Array.isArray((p as { zones?: unknown }).zones)) {
+    next.zones = (p as { zones: Projection['zones'] }).zones
+  }
+  if (p.night_watch_enabled === false) {
+    const ctx = next.open_alert?.context
+    if (ctx === 'night_breach' || ctx === 'zone_watch') next.open_alert = null
+    next.live_tracking = false
+    next.agent_state = { ...next.agent_state, state: 'IDLE', agitation: 'calm', reason: 'night watch off', since_ts: ts }
+  }
+}
+
+/** Apply a config change locally right away (after the server accepted it). */
+export function patchConfig(patch: Record<string, unknown>) {
+  const next = { ...state }
+  applyConfig(next, patch, Date.now() / 1000)
+  state = next
+  emit()
+}
+
 export function handleBusMessage(msg: Envelope) {
   const t = msg.type
   const p = msg.payload as Record<string, unknown>
@@ -71,22 +93,7 @@ export function handleBusMessage(msg: Envelope) {
     if (next.open_alert?.alert_id === aid) next.open_alert = null
     next.live_tracking = false
   } else if (t === 'config_update') {
-    next.config = { ...next.config, ...p }
-    if (p.night_watch_enabled === false) {
-      const ctx = next.open_alert?.context
-      if (ctx === 'night_breach' || ctx === 'zone_watch') next.open_alert = null
-      next.live_tracking = false
-      next.agent_state = {
-        ...next.agent_state,
-        state: 'IDLE',
-        agitation: 'calm',
-        reason: 'night watch off',
-        since_ts: msg.ts,
-      }
-    }
-    if (Array.isArray((p as { zones?: unknown }).zones)) {
-      next.zones = (p as { zones: Projection['zones'] }).zones
-    }
+    applyConfig(next, p, msg.ts)
   } else if (t === 'speech_state') {
     next.speech_state = (p as { state: string }).state
   } else if (t === 'transcript' && (p as { is_final?: boolean }).is_final) {
