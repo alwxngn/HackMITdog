@@ -17,7 +17,7 @@ from voice import providers
 from voice.dialogue import reply_to
 
 ROOT = Path(__file__).resolve().parent
-load_dotenv(ROOT.parent / ".env")
+load_dotenv(ROOT.parent / ".env", override=True)
 app = FastAPI(title="Lantern mobile voice prototype")
 app.mount("/assets", StaticFiles(directory=ROOT / "static"), name="assets")
 
