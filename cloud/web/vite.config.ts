@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    strictPort: true, // The tunnel must keep reaching this exact port.
     host: true, // allow tunnel / LAN access
     allowedHosts: publicOrigin ? [new URL(publicOrigin).hostname] : [],
     proxy: {

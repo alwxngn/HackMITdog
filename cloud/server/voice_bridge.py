@@ -30,8 +30,13 @@ def patient_name():
     return patient.get("preferred_name") or patient.get("name") or "Arthur"
 
 
+def patient_voice_id():
+    return store.projection.get("config", {}).get("voice", {}).get("voice_id")
+
+
 def install_voice(app):
     voice_app.state.event_sink = forward_voice_event
     voice_app.state.patient_name = patient_name
+    voice_app.state.patient_voice_id = patient_voice_id
     voice_app.state.checkin_allowed = lambda: store.projection.get("agent_state", {}).get("state", "IDLE") in {"IDLE", "ATTEND"}
     app.mount("/voice", voice_app)

@@ -203,6 +203,33 @@ async def api_ack(
     return {"ok": True, "alert_id": alert_id, "action": action}
 
 
+@app.post("/api/onboarding/voice-clone")
+async def onboarding_voice_clone(request: Request, name: str = Query("Lantern")):
+    content_type = request.headers.get("content-type", "").split(";")[0]
+    if content_type not in {"audio/webm", "audio/mp4", "audio/ogg", "audio/wav"}:
+        return JSONResponse({"detail": "Unsupported recording format."}, status_code=415)
+    audio = bytearray()
+    async for chunk in request.stream():
+        audio.extend(chunk)
+        if len(audio) > 10 * 1024 * 1024:
+            return JSONResponse({"detail": "Recording too large. Keep the sample under a minute."}, status_code=413)
+    if not audio:
+        return JSONResponse({"detail": "Empty recording."}, status_code=400)
+
+    from voice import providers
+
+    voice_id = await providers.clone_voice(name.strip() or "Lantern", bytes(audio), content_type)
+    payload = {"voice_id": voice_id, "consent_recorded_ts": time.time(), "attribution_name": name.strip() or "Lantern"}
+    await bus.publish({
+        "type": "config_update",
+        "ts": time.time(),
+        "source": "cloud",
+        "seq": 0,
+        "payload": {"voice": payload},
+    })
+    return {"voice_id": voice_id}
+
+
 @app.post("/api/config")
 async def api_config(body: dict[str, Any]):
     msg = {
