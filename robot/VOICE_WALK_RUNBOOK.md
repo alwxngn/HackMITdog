@@ -92,6 +92,18 @@ dimos run hackmitdog.aegis-breadcrumb-agentic \
   --model openai:muse-spark-1.3
 ```
 
+In another terminal, start the real-robot orchestrator. This runs the intent
+and safety state machine only; it does **not** start `MockPatient` or
+`MockRobot`:
+
+```bash
+cd /Users/laminegueye/Desktop/repos/HackMITdog
+source cloud/.venv/bin/activate
+PYTHONPATH=bus:orchestrator python orchestrator/run_orchestrator.py \
+  --bus-url ws://127.0.0.1:9000/ws \
+  --cloud http://127.0.0.1:8000
+```
+
 Verify the DimOS tools:
 
 ```bash
