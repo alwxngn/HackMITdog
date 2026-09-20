@@ -20,15 +20,24 @@ under the object's name instead of a place's name.
 
 **Real DimOS limitation (confirmed from source, not assumed):**
 ``SpatialMemory.add_named_location(name, position=None, rotation=None,
-description=None)`` has no ``room``/``metadata`` parameter. Internally it
-builds a ``RobotLocation(name=..., position=..., rotation=...,
-description=..., timestamp=...)`` and never sets ``RobotLocation.metadata``
-from the call — so there is no real structured-metadata field this module can
-write through the ``@rpc`` surface it's given, even though the
-``RobotLocation`` dataclass itself has a ``metadata`` field. The only place a
-caller-supplied ``room`` can honestly go is into the free-text
-``description``, which is what this module does. It is never inferred or
-guessed when the caller omits it, per the plan's explicit rule.
+description=None)`` has no ``room``/``metadata`` parameter, and there is no
+real structured-metadata field this module can write through the ``@rpc``
+surface it's given, even though the ``RobotLocation`` dataclass itself has a
+``metadata`` field.
+
+**Known DimOS bug worked around here** (same one documented in
+``hackmitdog.aegis.locations``): ``add_named_location`` internally builds a
+plain ``RobotLocation(..., description=description or f"Location: {name}")``,
+but ``RobotLocation`` has no ``description`` field at all (DimOS's own source
+marks the line ``# type: ignore[call-arg]``) -- passing any non-``None``
+``description`` raises ``TypeError: RobotLocation.__init__() got an
+unexpected keyword argument 'description'`` inside DimOS. This module
+therefore never forwards ``description`` to ``add_named_location``, the same
+fix applied in ``locations.py``. The only place a caller-supplied ``room`` can
+honestly go given this constraint is this module's own returned metadata (see
+``remember_object_location`` below) -- it is never inferred or guessed when
+the caller omits it, per the plan's explicit rule, and it is not currently
+persisted into DimOS's store at all.
 
 This module is deliberately self-contained: it does not import
 ``hackmitdog.aegis.locations`` and instead duplicates the small
@@ -142,8 +151,12 @@ class ObjectMemorySkills(Module):
                 for lookups.
             room: Optional room label, e.g. "kitchen". Only stored if you
                 explicitly supply it — never inferred or guessed. DimOS's
-                `add_named_location` has no dedicated room/metadata field, so
-                this is folded into the location's free-text description.
+                `add_named_location` has no dedicated room/metadata field and
+                crashes on a non-empty `description` kwarg (a DimOS-side bug,
+                see module docstring), so `room` is only echoed back in this
+                call's own returned metadata — it is not persisted into
+                DimOS's store and will not show up on a later
+                `find_remembered_object` call for the same object.
 
         Example:
             remember_object_location("keys")
@@ -153,16 +166,15 @@ class ObjectMemorySkills(Module):
         if not object_name:
             return SkillResult.fail("INVALID_INPUT", "object_name must not be empty.")
 
-        description = f"Object: {object_name}"
         if room is not None:
-            room = room.strip()
-            if room:
-                description += f" (room: {room})"
+            room = room.strip() or None
 
         try:
-            ok = self._spatial_memory.add_named_location(
-                object_name, description=description
-            )
+            # description is deliberately NOT forwarded here -- see this
+            # module's docstring: DimOS's add_named_location crashes on any
+            # non-None description due to a bug in its own RobotLocation
+            # construction, not anything on this call's side.
+            ok = self._spatial_memory.add_named_location(object_name)
         except Exception as exc:
             logger.exception("remember_object_location failed", object_name=object_name)
             return SkillResult.fail(
