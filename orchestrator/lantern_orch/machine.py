@@ -9,6 +9,7 @@ import uuid
 from typing import Any
 
 from lantern_bus.core import Bus
+from lantern_orch.intent import classify
 
 logger = logging.getLogger("lantern.orch.machine")
 
@@ -38,6 +39,10 @@ class StateMachine:
         self._voice_id = "sarah_clone_v1"
         self._attr_name = "Sarah"
         self._zones_by_id: dict[str, dict[str, Any]] = {}
+        self._last_pose: dict[str, Any] = {}
+        self._breadcrumbs: list[tuple[float, float]] = []
+        self._breadcrumb_spacing_m = float(os.getenv("BREADCRUMB_SPACING_M", "0.5"))
+        self._home_confirmation_previous = "WALK"
 
     async def start(self) -> None:
         self.bus.subscribe(self.on_message)
@@ -61,6 +66,15 @@ class StateMachine:
                 if z.get("id"):
                     self._zones_by_id[z["id"]] = z
             return
+        if t == "transcript":
+            await self._on_transcript(p)
+            return
+        if t == "pose":
+            await self._on_pose(p)
+            return
+        if t == "robot_status":
+            await self._on_robot_status(p)
+            return
         if t == "caregiver_ack":
             await self._on_ack(p)
             return
@@ -70,6 +84,104 @@ class StateMachine:
         if t == "zone_event":
             await self._on_zone(p)
             return
+
+    async def _on_transcript(self, p: dict[str, Any]) -> None:
+        if p.get("is_final") is False:
+            return
+        text = str(p.get("text") or "").strip()
+        intent = classify(text, awaiting_confirmation=self.state == "CONFIRM_HOME")
+        if intent is None:
+            return
+
+        if intent.name == "START_WALK":
+            if self.state not in {"IDLE", "ATTEND"}:
+                return
+            await self._start_walk(f'voice request: "{text}"')
+            return
+
+        if intent.name == "TAKE_ME_HOME":
+            if self.state not in {"WALK", "FOLLOW"}:
+                return
+            self._home_confirmation_previous = self.state
+            await self._set_state(
+                "CONFIRM_HOME",
+                "voice requested return to the walk starting point",
+                agitation="calm",
+            )
+            await self._maybe_say("Would you still like to go home?", tone="warm")
+            return
+
+        if intent.name == "CONFIRM_HOME_YES" and self.state == "CONFIRM_HOME":
+            await self._guide_home()
+            return
+
+        if intent.name == "CONFIRM_HOME_NO" and self.state == "CONFIRM_HOME":
+            await self._set_state(
+                self._home_confirmation_previous,
+                "person declined the return-home confirmation",
+                agitation="calm",
+            )
+            return
+
+        if intent.name == "STOP" and self.state in {"WALK", "FOLLOW", "CONFIRM_HOME", "GUIDE_HOME"}:
+            await self._emit_command("stop", {})
+            self._clear_breadcrumbs()
+            await self._set_state("IDLE", "voice requested stop", agitation="calm")
+
+    async def _on_pose(self, p: dict[str, Any]) -> None:
+        self._last_pose = p
+        if self.state not in {"WALK", "FOLLOW"}:
+            return
+        try:
+            point = (float(p["x"]), float(p["y"]))
+        except (KeyError, TypeError, ValueError):
+            return
+        if not self._breadcrumbs or self._distance(self._breadcrumbs[-1], point) >= self._breadcrumb_spacing_m:
+            self._breadcrumbs.append(point)
+
+    async def _on_robot_status(self, p: dict[str, Any]) -> None:
+        if self.state == "GUIDE_HOME" and p.get("state") == "done":
+            self._clear_breadcrumbs()
+            await self._set_state("IDLE", "robot reached the walk starting point", agitation="calm")
+            await self._maybe_say("We are home.", tone="warm")
+
+    async def _start_walk(self, reason: str) -> None:
+        self._clear_breadcrumbs()
+        await self._set_state("WALK", reason, agitation="calm")
+        await self._emit_command(
+            "follow_person",
+            {"query": "the person nearby", "follow_distance_m": 1.5},
+        )
+        await self._maybe_say("Okay, I will walk with you.", tone="warm")
+
+    async def _guide_home(self) -> None:
+        if not self._breadcrumbs:
+            await self._set_state(
+                self._home_confirmation_previous,
+                "return-home requested before a breadcrumb home was recorded",
+                agitation="calm",
+            )
+            await self._maybe_say("I do not have a starting point recorded yet.", tone="warm")
+            return
+        await self._set_state("GUIDE_HOME", "confirmed voice request to return home", agitation="calm")
+        await self._emit_command("stop", {})
+        await self._emit_command("guide_home", {})
+        await self._maybe_say("Okay, I will guide us back.", tone="soothing")
+
+    async def _emit_command(self, action: str, args: dict[str, Any]) -> None:
+        self._cmd_n += 1
+        await self.bus.publish(
+            "command",
+            {"command_id": f"cmd_{self._cmd_n}", "action": action, "args": args},
+            source="orchestrator",
+        )
+
+    def _clear_breadcrumbs(self) -> None:
+        self._breadcrumbs.clear()
+
+    @staticmethod
+    def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
+        return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
     async def _on_ack(self, p: dict[str, Any]) -> None:
         by = p.get("by", "caregiver")
@@ -107,6 +219,21 @@ class StateMachine:
 
     async def _on_track(self, p: dict[str, Any]) -> None:
         self._last_person = p
+        if self.state == "WALK" and self._last_pose:
+            try:
+                separation = self._distance(
+                    (float(self._last_pose["x"]), float(self._last_pose["y"])),
+                    (float(p["x"]), float(p["y"])),
+                )
+            except (KeyError, TypeError, ValueError):
+                separation = 0.0
+            if separation > 3.0:
+                await self._set_state(
+                    "FOLLOW",
+                    f"walk separation exceeded 3.0m ({separation:.1f}m)",
+                    agitation="unsettled",
+                )
+                await self._maybe_say("I am staying with you.", tone="soothing")
         if p.get("posture") == "lying" and (p.get("zone") not in ("bedroom", "bed")):
             await self._set_state("EMERGENCY", "fall posture outside bed", agitation="agitated")
             await self._emit_alert(level=5, headline=f"{self.patient_name} may have fallen")

@@ -51,3 +51,20 @@ Subscribe to DimOS `color_image` and serve MJPEG/WebRTC on a dedicated port; set
 Still `POST /api/ingest` with `map_ready` / `person_track` — see
 [`docs/16-e3-portal.md`](../docs/16-e3-portal.md) and
 [`cloud/fixtures/sample_map_ready.json`](../cloud/fixtures/sample_map_ready.json).
+
+### Phone voice commands → DimOS
+
+Start the combined DimOS blueprint, then run the bus adapter in a second terminal:
+
+```bash
+dimos run hackmitdog.aegis-breadcrumb-agentic \
+  --robot-ip 192.168.12.1 \
+  --unitree-aes-128-key "$UNITREE_AES_128_KEY" \
+  --model openai:muse-spark-1.3
+
+python robot/dimos_command_bridge.py --bus-url ws://127.0.0.1:9000/ws
+```
+
+The adapter maps existing bus commands to `follow_person`,
+`stop_person_follow`, `start_breadcrumb_recording`, and `take_me_home`. It does
+not add a new bus message or import DimOS into the cloud/orchestrator process.

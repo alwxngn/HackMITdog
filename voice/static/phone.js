@@ -14,9 +14,9 @@ function update() {
   $('start').disabled = !connected;
   $('start').hidden = active;
   $('controls').hidden = !active;
-  $('record').disabled = !connected || !snapshot?.checkin || busy;
+  $('record').disabled = !connected || busy;
   $('send-reply').disabled = !connected || !snapshot?.checkin || busy || recording;
-  $('record').textContent = recording ? 'Finish and send reply' : 'Talk to Lantern';
+  $('record').textContent = recording ? 'Finish and send reply' : 'Speak to Lantern';
 }
 function playback(state, id = utterance?.utterance_id) {
   if (id && connected) send({type:'playback', utterance_id:id, state});
@@ -95,7 +95,7 @@ function cancelCapture() {
 }
 function submitTranscript(text, checkinId, turnId) {
   if (!text.trim()) { showError('No words were recognized. Please try again or type a reply.'); return; }
-  if (!connected || !active || checkinId !== snapshot?.checkin?.checkin_id) {
+  if (!connected || !active || (snapshot?.checkin && checkinId && checkinId !== snapshot.checkin.checkin_id)) {
     showError('The session changed before your reply could be sent. Please try again.'); return;
   }
   send({type:'transcript', text:text.slice(0, 2000), turn_id:turnId, checkin_id:checkinId});
@@ -104,7 +104,7 @@ function submitTranscript(text, checkinId, turnId) {
 async function startRecording() {
   showError(); stopSpeaking();
   if (!window.isSecureContext) { showError('Microphone access needs HTTPS. Open the secure pairing link.'); return; }
-  const checkinId = snapshot.checkin.checkin_id, turnId = crypto.randomUUID(), version = ++captureVersion;
+  const checkinId = snapshot?.checkin?.checkin_id || '', turnId = crypto.randomUUID(), version = ++captureVersion;
   if (snapshot.capabilities.stt === 'deepgram') {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       showError('Audio recording is unavailable. Type a reply instead.'); return;

@@ -60,6 +60,11 @@ class Bus:
             result = handler(msg)
             if asyncio.iscoroutine(result):
                 await result
+        # Voice commands originate in the mounted phone service. Forward the
+        # existing transcript envelope to E4 when a spine publish endpoint is
+        # configured; no new message type or direct DimOS call is introduced.
+        if msg.get("source") == "voice" and msg.get("type") == "transcript" and self._orch_url:
+            await self._forward_orch(msg)
 
     async def drain_outbound(self) -> dict[str, Any]:
         return await self._outbound.get()
