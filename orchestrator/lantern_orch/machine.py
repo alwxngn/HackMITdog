@@ -9,6 +9,7 @@ import uuid
 from typing import Any
 
 from lantern_bus.core import Bus
+from lantern_orch.intent import classify
 
 logger = logging.getLogger("lantern.orch.machine")
 
@@ -38,6 +39,7 @@ class StateMachine:
         self._voice_id = "sarah_clone_v1"
         self._attr_name = "Sarah"
         self._zones_by_id: dict[str, dict[str, Any]] = {}
+        self._cmd_n = 0
 
     async def start(self) -> None:
         self.bus.subscribe(self.on_message)
@@ -61,6 +63,9 @@ class StateMachine:
                 if z.get("id"):
                     self._zones_by_id[z["id"]] = z
             return
+        if t == "transcript":
+            await self._on_transcript(p)
+            return
         if t == "caregiver_ack":
             await self._on_ack(p)
             return
@@ -70,6 +75,24 @@ class StateMachine:
         if t == "zone_event":
             await self._on_zone(p)
             return
+
+    async def _on_transcript(self, p: dict[str, Any]) -> None:
+        """Map final phone speech to a named Unitree sport command."""
+        if p.get("is_final") is False:
+            return
+        intent = classify(str(p.get("text") or ""))
+        if intent is None or intent.name != "TRICK" or not intent.command_name:
+            return
+        await self._emit_command("posture", {"command_name": intent.command_name})
+        await self._maybe_say(f"Okay, I will do {intent.command_name}.", tone="warm")
+
+    async def _emit_command(self, action: str, args: dict[str, Any]) -> None:
+        self._cmd_n += 1
+        await self.bus.publish(
+            "command",
+            {"command_id": f"cmd_{self._cmd_n}", "action": action, "args": args},
+            source="orchestrator",
+        )
 
     async def _on_ack(self, p: dict[str, Any]) -> None:
         by = p.get("by", "caregiver")

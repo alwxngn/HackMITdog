@@ -1,0 +1,59 @@
+{
+  "type": "lantern_3d_map",
+  "format": "ply",
+  "artifact_path": "/Users/laminegueye/Desktop/repos/HackMITdog/artifacts/maps/home_ms_8f551c18.ply",
+  "artifact_url": "http://127.0.0.1:8000/api/maps/home_ms_8f551c18.ply",
+  "point_count": 195045,
+  "frame_id": "world",
+  "map_ready": {
+    "request_id": "ms_8f551c18",
+    "map_id": "home_ms_8f551c18",
+    "origin": {
+      "x": 2.7250001430511475,
+      "y": -7.025000095367432
+    },
+    "width_m": 21.65,
+    "height_m": 10.75,
+    "outline": [
+      [
+        2.725,
+        -7.025
+      ],
+      [
+        24.375,
+        -7.025
+      ],
+      [
+        24.375,
+        3.725
+      ],
+      [
+        2.725,
+        3.725
+      ]
+    ],
+    "rooms": [
+      {
+        "id": "home",
+        "polygon": [
+          [
+            2.725,
+            -7.025
+          ],
+          [
+            24.375,
+            -7.025
+          ],
+          [
+            24.375,
+            3.725
+          ],
+          [
+            2.725,
+            3.725
+          ]
+        ]
+      }
+    ]
+  }
+}
