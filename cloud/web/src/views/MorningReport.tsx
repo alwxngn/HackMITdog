@@ -25,18 +25,18 @@ export function MorningReport() {
           <p className="eyebrow mb-2">Overnight</p>
           <h2>Last night</h2>
         </div>
-        <button type="button" className="text-[13px] text-[var(--color-forest-ink)] underline" onClick={load}>
+        <button type="button" className="text-[13px] text-[var(--color-ink)] underline" onClick={load}>
           Refresh
         </button>
       </div>
-      <p className="text-[16px] text-[var(--color-forest-ink)]">{report.summary}</p>
+      <p className="text-[16px] text-[var(--color-ink)]">{report.summary}</p>
       {report.episodes.length === 0 ? (
-        <p className="mt-3 text-[14px] text-[var(--color-charcoal)]">No restless stretches recorded.</p>
+        <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">No restless stretches recorded.</p>
       ) : (
-        <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-charcoal)]">
+        <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-ink-2)]">
           {report.episodes.map((e, i) => (
             <li key={i} className="flex gap-2">
-              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--color-forest-ink)]" />
+              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--color-ink)]" />
               <span>{episodeLine(e)}</span>
             </li>
           ))}

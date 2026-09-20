@@ -30,7 +30,7 @@ export function CheckinComposer() {
 
   useEffect(() => {
     let cancelled = false
-    if (link) QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0f3e17', light: '#fffefc' } }).then(src => { if (!cancelled) setQr(src) })
+    if (link) QRCode.toDataURL(link, { width: 200, margin: 1, color: { dark: '#0e1116', light: '#ffffff' } }).then(src => { if (!cancelled) setQr(src) })
     return () => { cancelled = true }
   }, [link])
 
@@ -59,10 +59,14 @@ export function CheckinComposer() {
           <div
             role="dialog"
             aria-label="Phone pairing QR code"
-            className="rounded-[14px] bg-[var(--color-cream-paper)] p-6 text-center"
+            className="max-w-[min(420px,90vw)] rounded-[14px] bg-[var(--color-cream-paper)] p-6 text-center"
             onClick={(e) => e.stopPropagation()}
           >
             {qr && <img src={qr} alt="Pair Lantern voice on your phone" className="mx-auto h-44 w-44" />}
+            <p className="mt-3 break-all text-[12px]">{link}</p>
+            <button type="button" className="btn-ghost mt-2 !min-h-8 !px-2 !py-1 !text-[12px]" onClick={() => {
+              void navigator.clipboard.writeText(link)
+            }}>Copy link</button>
             <button type="button" className="btn-ghost mt-4 !min-h-9 !px-4 !py-1 !text-[13px]" onClick={() => setQrOpen(false)}>
               Close
             </button>
@@ -90,7 +94,7 @@ export function CheckinComposer() {
         Send
       </button>
       {status && (
-        <p role="status" className="mt-3 text-[13px] text-[var(--color-forest-ink)]">{status}</p>
+        <p role="status" className="mt-3 text-[13px] text-[var(--color-ink)]">{status}</p>
       )}
       {voice.error && <p role="alert" className="mt-3 text-[13px]">{voice.error}</p>}
       {reply && <p className="mt-3 text-[14px]" data-testid="checkin-reply"><strong>{patient}:</strong> {String(reply.payload.text)}</p>}

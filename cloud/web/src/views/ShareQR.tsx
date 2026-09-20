@@ -6,7 +6,7 @@ async function toDataUrl(text: string): Promise<string> {
   return QRCode.toDataURL(text, {
     margin: 1,
     width: 160,
-    color: { dark: '#0f3e17', light: '#fffefc' },
+    color: { dark: '#0e1116', light: '#ffffff' },
   })
 }
 
@@ -39,12 +39,12 @@ export function ShareQR() {
         {open ? 'Hide codes' : 'Phone codes'}
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-2 w-[min(92vw,360px)] rounded-[14px] bg-[var(--color-keylime-wash)] p-5">
-          <p className="mb-3 text-[14px] text-[var(--color-charcoal)]">
+        <div className="absolute right-0 z-30 mt-2 w-[min(92vw,360px)] rounded-[14px] bg-[var(--color-panel)] p-5">
+          <p className="mb-3 text-[14px] text-[var(--color-ink-2)]">
             Scan to open this dashboard or home setup on a phone.
           </p>
           {needsTunnelHint && (
-            <p className="mb-3 rounded-[14px] bg-[var(--color-cream-paper)] px-3 py-2 text-[12px]">
+            <p className="mb-3 rounded-[14px] bg-[var(--color-surface)] px-3 py-2 text-[12px]">
               These codes point at this computer. Phones need a tunnel URL in VITE_PUBLIC_ORIGIN.
             </p>
           )}
@@ -61,14 +61,14 @@ export function ShareQR() {
 function QrCard({ label, url, src }: { label: string; url: string; src: string }) {
   return (
     <div className="flex flex-col items-center gap-2 text-center">
-      <div className="rounded-[14px] bg-[var(--color-cream-paper)] p-2">
+      <div className="rounded-[14px] bg-[var(--color-surface)] p-2">
         {src ? (
           <img src={src} alt={`QR ${label}`} className="h-24 w-24" />
         ) : (
           <div className="flex h-24 w-24 items-center justify-center text-[13px]">…</div>
         )}
       </div>
-      <p className="text-[14px] text-[var(--color-forest-ink)]">{label}</p>
+      <p className="text-[14px] text-[var(--color-ink)]">{label}</p>
       <a href={url} className="sr-only">
         {url}
       </a>
