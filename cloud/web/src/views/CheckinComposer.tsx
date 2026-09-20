@@ -20,7 +20,7 @@ export function CheckinComposer({ onOpenSettings }: { onOpenSettings?: () => voi
   const voice = useVoiceCheckin()
   const projection = useProjection()
   const patientConfig = projection.config.patient as { preferred_name?: string; name?: string } | undefined
-  const patient = patientConfig?.preferred_name || patientConfig?.name || 'Arthur'
+  const patient = patientConfig?.preferred_name || patientConfig?.name || 'Susan'
   const endRef = useRef<HTMLDivElement>(null)
 
   // The thread is rebuilt from the voice session's events, so it survives a reload.

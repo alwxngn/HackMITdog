@@ -69,7 +69,7 @@ It is also the thing most likely to eat an unbudgeted six hours, because the obv
 are all worse than they look:
 
 - **The Go2's built-in side-follow (ISS 2.0) tracks a wireless positioning module, not a
-  person.** It follows a *tag*. If you use it, Arthur is wearing a beacon — and your own
+  person.** It follows a *tag*. If you use it, Susan is wearing a beacon — and your own
   comparison table in `02-blueprint.md` §2 dismisses wearables because they get "removed or
   forgotten, which is precisely the symptom." A judge who knows the Go2 will ask, and "the
   person wears a tracker" collapses the differentiation you built the pitch on. ISS is also not

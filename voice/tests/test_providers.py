@@ -10,10 +10,10 @@ from voice import providers
 
 class ProviderTests(unittest.IsolatedAsyncioTestCase):
     async def test_deepgram_receives_audio_and_credentials_on_server(self):
-        response = httpx.Response(200, json={'results':{'channels':[{'alternatives':[{'transcript':'Hello Arthur'}]}]}}, request=httpx.Request('POST', 'https://api.deepgram.com/v1/listen'))
+        response = httpx.Response(200, json={'results':{'channels':[{'alternatives':[{'transcript':'Hello Susan'}]}]}}, request=httpx.Request('POST', 'https://api.deepgram.com/v1/listen'))
         with patch.dict(os.environ, {'DEEPGRAM_API_KEY':'test-secret'}), patch('voice.providers.httpx.AsyncClient') as client:
             post = client.return_value.__aenter__.return_value.post = AsyncMock(return_value=response)
-            self.assertEqual(await providers.transcribe(b'recorded-audio', 'audio/mp4'), 'Hello Arthur')
+            self.assertEqual(await providers.transcribe(b'recorded-audio', 'audio/mp4'), 'Hello Susan')
             self.assertEqual(post.call_args.kwargs['content'], b'recorded-audio')
             self.assertEqual(post.call_args.kwargs['headers']['Authorization'], 'Token test-secret')
 

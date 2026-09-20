@@ -12,7 +12,7 @@ export function SpeakerPhone() {
   const [qr, setQr] = useState('')
   const [copied, setCopied] = useState(false)
   const patientConfig = projection.config.patient as { preferred_name?: string; name?: string } | undefined
-  const patient = patientConfig?.preferred_name || patientConfig?.name || 'Arthur'
+  const patient = patientConfig?.preferred_name || patientConfig?.name || 'Susan'
 
   const link = voice.pairing
     ? `${publicUrl('/voice/phone')}#${new URLSearchParams({ session: voice.pairing.session_id, token: voice.pairing.phone_token })}`

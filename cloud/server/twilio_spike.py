@@ -28,7 +28,7 @@ def main() -> None:
     base = os.getenv("ACK_BASE_URL", "http://127.0.0.1:8000")
     try:
         result = notify.send_sms(
-            "Arthur is heading for the front door",
+            "Susan is heading for the front door",
             "Lantern Twilio spike — tap ack if you got this.",
             "al_spike",
             base,

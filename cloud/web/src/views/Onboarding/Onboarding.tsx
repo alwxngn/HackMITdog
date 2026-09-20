@@ -27,10 +27,10 @@ export function Onboarding() {
     return saved && (saved.x !== 0 || saved.y !== 0) ? { x: saved.x, y: saved.y } : DEMO_HOME_PIN
   })
   const [patient, setPatient] = useState({
-    name: 'Arthur',
-    preferred_name: 'Art',
-    calming_topics: 'fishing at Moosehead, his dog Bella',
-    avoid_topics: "his wife's death",
+    name: 'Susan',
+    preferred_name: 'Susan',
+    calming_topics: 'fishing at Moosehead, Bella the dog',
+    avoid_topics: "the loss of a spouse",
   })
   const [schedule, setSchedule] = useState({
     wake_time: '07:30',
@@ -192,7 +192,7 @@ export function Onboarding() {
         preferred_name: patient.preferred_name,
         calming_topics: patient.calming_topics.split(',').map((s) => s.trim()).filter(Boolean),
         avoid_topics: patient.avoid_topics.split(',').map((s) => s.trim()).filter(Boolean),
-        music_url: '/media/arthur_playlist.mp3',
+        music_url: '/media/susan_playlist.mp3',
         schedule: {
           wake_time: schedule.wake_time,
           meals: schedule.meals.split(',').map((s) => s.trim()).filter(Boolean),

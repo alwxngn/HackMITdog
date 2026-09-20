@@ -276,5 +276,5 @@ WebSocket uses same-origin `/ws` (Vite proxies to FastAPI) so the tunnel works w
 
 Trial accounts send a **real** SMS but only with Twilio's predefined template names (error 572006
 if you send custom text). Keep `TWILIO_TRIAL=1` until you upgrade; then set `TWILIO_TRIAL=0` for
-the Arthur headline + ack link in the message body.
+the Susan headline + ack link in the message body.
 

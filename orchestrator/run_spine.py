@@ -54,11 +54,11 @@ DEFAULT_CONFIG = {
         "attribution_name": "Sarah",
     },
     "patient": {
-        "name": "Arthur",
-        "preferred_name": "Art",
-        "calming_topics": ["fishing at Moosehead", "his dog Bella"],
-        "avoid_topics": ["his wife's death"],
-        "music_url": "/media/arthur_playlist.mp3",
+        "name": "Susan",
+        "preferred_name": "Susan",
+        "calming_topics": ["fishing at Moosehead", "Bella the dog"],
+        "avoid_topics": ["the loss of a spouse"],
+        "music_url": "/media/susan_playlist.mp3",
         "schedule": {
             "wake_time": "07:30",
             "meals": ["08:00", "12:30", "18:00"],
@@ -78,7 +78,7 @@ async def run(args: argparse.Namespace) -> None:
     if log_path.exists() and args.fresh_log:
         log_path.write_text("")
 
-    machine = StateMachine(bus, patient_name="Arthur")
+    machine = StateMachine(bus, patient_name="Susan")
     checkins = CheckinQueue(bus, machine)
     robot = MockRobot(bus, fail_rate=args.fail_rate)
     patient = MockPatient(bus, args.scenario, rate_hz=args.rate)

@@ -82,7 +82,7 @@ class DangerSpeaker:
     def _patient(self) -> tuple[str, str]:
         cfg = store.projection.get("config") or {}
         patient = cfg.get("patient") or {}
-        name = patient.get("preferred_name") or patient.get("name") or "Arthur"
+        name = patient.get("preferred_name") or patient.get("name") or "Susan"
         attribution = (cfg.get("voice") or {}).get("attribution_name") or "Sarah"
         return name, attribution
 

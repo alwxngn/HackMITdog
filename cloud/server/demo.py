@@ -120,7 +120,7 @@ class DemoWalk:
 
         cfg = proj.get("config") or {}
         patient = cfg.get("patient") or {}
-        self.name = patient.get("preferred_name") or patient.get("name") or "Arthur"
+        self.name = patient.get("preferred_name") or patient.get("name") or "Susan"
         home = patient.get("home") or {}
         if home.get("lat") is not None and home.get("lon") is not None:
             self.home_latlon = (float(home["lat"]), float(home["lon"]))

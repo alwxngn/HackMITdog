@@ -21,7 +21,7 @@ async def main():
             print(note)
         return 1
     try:
-        audio = await providers.synthesize("Hello Arthur. How are you feeling today?")
+        audio = await providers.synthesize("Hello Susan. How are you feeling today?")
         print(f"ElevenLabs: received {len(audio)} bytes of MP3 audio.")
         transcript = await providers.transcribe(audio, "audio/mpeg")
         print(f"Deepgram: {transcript}")

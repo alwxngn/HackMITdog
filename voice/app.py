@@ -26,7 +26,7 @@ app.mount("/assets", StaticFiles(directory=ROOT / "static"), name="assets")
 
 
 class Profile(BaseModel):
-    patient: str = Field(default="Arthur", min_length=1, max_length=60)
+    patient: str = Field(default="Susan", min_length=1, max_length=60)
     caregiver: str = Field(default="Sarah", min_length=1, max_length=60)
 
     @field_validator("patient", "caregiver")

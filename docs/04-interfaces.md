@@ -232,7 +232,7 @@ still moving alongside a person, not autonomous point-to-point robotics.
 ```json
 { "type": "say", "payload": {
   "utterance_id": "u_42",
-  "text": "It's night time, Arthur. Let's go back to bed.",
+  "text": "It's night time, Susan. Let's go back to bed.",
   "voice_id": "sarah_clone_v1",
   "tone": "soothing",
   "interruptible": true,
@@ -269,8 +269,8 @@ entirely — not queued, dropped — outside `IDLE`.
 ```json
 { "type": "alert", "payload": {
   "alert_id": "al_19", "level": 2,
-  "headline": "Arthur is heading for the front door",
-  "detail": "Redirection attempted for 20s. He's in the hallway, 2m from the door.",
+  "headline": "Susan is heading for the front door",
+  "detail": "Redirection attempted for 20s. They're in the hallway, 2m from the door.",
   "person_position": { "x": 3.4, "y": 0.2, "zone": "hallway" },
   "requires_ack": true, "channels": ["sms", "push"],
   "context": "night_breach", "live_tracking": false
@@ -280,7 +280,7 @@ entirely — not queued, dropped — outside `IDLE`.
 `level` maps to the ladder in `02-blueprint.md` §5. `channels` gains `voice_call` at level 3.
 
 Write `headline` the way you'd want to read it at 2 AM: the person's name, in plain words, no
-jargon. "Arthur is heading for the front door" — not "ZONE_BREACH_IMMINENT: front_door."
+jargon. "Susan is heading for the front door" — not "ZONE_BREACH_IMMINENT: front_door."
 
 `context` (Tier 2, additive): `night_breach` | `day_walk_separation` — same underlying
 `FOLLOW`/live-location mechanism, different urgency framing. A `night_breach` alert is level 5,
@@ -320,10 +320,10 @@ answer instead of a shrug.
   ],
   "voice": { "voice_id": "sarah_clone_v1", "consent_recorded_ts": 1758290000.0,
              "attribution_name": "Sarah" },
-  "patient": { "name": "Arthur", "preferred_name": "Art",
-               "calming_topics": ["fishing at Moosehead", "his dog Bella"],
-               "avoid_topics": ["his wife's death"],
-               "music_url": "/media/arthur_playlist.mp3",
+  "patient": { "name": "Susan", "preferred_name": "Susan",
+               "calming_topics": ["fishing at Moosehead", "Bella the dog"],
+               "avoid_topics": ["the loss of a spouse"],
+               "music_url": "/media/susan_playlist.mp3",
                "schedule": { "wake_time": "07:30", "meals": ["08:00","12:30","18:00"],
                              "walk_window": ["15:00","16:30"], "notes": "likes the porch after lunch" },
                "route_id": null }

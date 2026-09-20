@@ -139,7 +139,7 @@ See [docs/16-e3-portal.md](../docs/16-e3-portal.md) for the E2 bus contract.
 | | Trial (`TWILIO_TRIAL=1`) | Upgraded (`TWILIO_TRIAL=0`) |
 |---|---|---|
 | Real SMS to your phone | Yes | Yes |
-| Message body | Twilio stock template (`sms_account_alerts`) | Custom “Arthur is heading…” + ack URL |
+| Message body | Twilio stock template (`sms_account_alerts`) | Custom “Susan is heading…” + ack URL |
 | Ack link in SMS | Not in stock template | Works when `ACK_BASE_URL` is the tunnel HTTPS URL |
 
 Without credentials, `notify.py` dry-runs to the console so the ladder still demos.
