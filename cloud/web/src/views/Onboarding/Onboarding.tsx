@@ -429,7 +429,7 @@ export function Onboarding() {
             {showVoiceScript && (
               <div id="voice-reading-script" className="rounded-xl bg-[var(--color-panel-2)] p-4 space-y-2">
                 <p className="text-[15px] leading-relaxed text-[var(--color-ink)]">
-                  Good morning! How are you feeling today? The fresh bread smells lovely, and sunshine fills the kitchen. Shall we sit by the window, share a favourite story, and watch the little birds fly past?
+                  I'm a carer, and I often check up on my loved ones. How are you doing today?
                 </p>
                 <p className="text-[12px] text-[var(--color-ink-2)]">
                   Read in your usual warm voice, at an easy pace. Keep the microphone steady and the room quiet.
