@@ -8,13 +8,13 @@ export function Welcome() {
   const [ready, setReady] = useState(false)
 
   return (
-    <PhoneFrame className="items-center justify-center bg-[var(--color-brand-mid)] px-8 pb-40 pt-16 text-center">
+    <PhoneFrame className="items-center justify-center bg-[var(--color-brand-mid)] px-8 py-16 text-center">
       <PawBackdrop />
       <div className="relative flex w-full flex-col items-center gap-5">
         <img
           src={logo}
           alt="Lantern"
-          className="h-[190px] w-auto"
+          className="h-[190px] w-auto -translate-y-12"
           onLoad={() => setReady(true)}
         />
 
