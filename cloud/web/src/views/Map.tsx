@@ -28,11 +28,18 @@ function zoneLabels(zones: Zone[], bounds: MapBounds) {
 
 export function MapView() {
   const p = useProjection()
+  const patientName =
+    (p.config.patient as { preferred_name?: string; name?: string } | undefined)?.preferred_name ||
+    (p.config.patient as { name?: string } | undefined)?.name ||
+    'Patient'
   // Zones only exist while Night Watch is on; off hides them (and the legend).
   const zonesOn = (p.config.night_watch_enabled as boolean | undefined) ?? false
   const zones = zonesOn ? p.zones : []
   const [view, setView] = useState<'map' | '3d'>('map')
   const live = p.live_tracking || Boolean(p.open_alert?.live_tracking)
+  // A patient coordinate is sensitive and can become stale. Only display it while the
+  // caregiver explicitly has Night Watch, a demo walk, or escalation tracking active.
+  const patientTrackingActive = zonesOn || p.demo.running || live
   const bounds: MapBounds = {
     width: p.map_ready?.width_m ?? 2,
     height: p.map_ready?.height_m ?? 2,
@@ -45,7 +52,7 @@ export function MapView() {
   return (
     <div className="card-slate !p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2>Home</h2>
+        <h2>Home map</h2>
         <div className="flex flex-wrap gap-3 text-[12px] text-[var(--color-ink-2)]">
           {zonesOn ? (
             (['safe', 'watch', 'exit'] as const).map((c) => (
@@ -59,6 +66,23 @@ export function MapView() {
           )}
           {live && <span className="pill !py-1">Live tracking</span>}
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-[var(--color-ink-2)]" aria-label="Map markers">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#f0883e]" />
+          Lantern · robot position
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#e5626a]" />
+          {patientName} · active watch only
+        </span>
+        {showHome && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-3 rounded-[2px] bg-[#153a3b]" />
+            Lantern dock · fixed
+          </span>
+        )}
       </div>
 
       <div className="mb-4 flex gap-2" role="tablist" aria-label="Map views">
@@ -161,7 +185,8 @@ export function MapView() {
             )
           })()}
 
-        {p.person_track &&
+        {patientTrackingActive &&
+          p.person_track &&
           inside(p.person_track.x, p.person_track.y) &&
           (() => {
             const { cx, cy } = worldToSvg(p.person_track.x, p.person_track.y, bounds)
@@ -169,29 +194,36 @@ export function MapView() {
               <g>
                 <circle cx={cx} cy={cy} r={12} fill="#e5626a" stroke="#ffffff" strokeWidth={2} />
                 <text x={cx + 14} y={cy + 4} fill="#153a3b" fontSize={12} fontWeight={600} fontFamily="Inter, sans-serif">
-                  person
+                  {patientName}
                 </text>
               </g>
             )
           })()}
 
-        {(() => {
-          const saved = (p.config.patient as { home?: { x: number; y: number } } | undefined)?.home
-          // (0, 0) is the server default for "not placed yet"
-          const placed = saved && (saved.x !== 0 || saved.y !== 0) ? saved : null
-          const home = placed ?? (showHome ? DEMO_HOME_PIN : null)
-          if (!home) return null
-          const { cx, cy } = worldToSvg(home.x, home.y, bounds)
+        {showHome && (() => {
+          const { cx, cy } = worldToSvg(DEMO_HOME_PIN.x, DEMO_HOME_PIN.y, bounds)
           return (
             <g>
-              <circle cx={cx} cy={cy} r={8} fill="#153a3b" stroke="#ffffff" strokeWidth={2} />
-              <text x={cx + 12} y={cy + 4} fill="#153a3b" fontSize={10} fontWeight={600} fontFamily="Inter, sans-serif">
-                home
+              <title>Lantern's fixed charging dock</title>
+              <rect x={cx - 8} y={cy - 6} width={16} height={12} rx={3} fill="#153a3b" stroke="#ffffff" strokeWidth={2} />
+              <text x={cx + 13} y={cy + 4} fill="#153a3b" fontSize={10} fontWeight={600} fontFamily="Inter, sans-serif">
+                Lantern dock
               </text>
             </g>
           )
         })()}
       </svg>}
+
+      {view === 'map' && !patientTrackingActive && (
+        <p className="mt-3 text-[12px] text-[var(--color-ink-2)]">
+          {patientName}'s location is hidden while Night Watch is off. Run the demo walk or turn on Night Watch to show active location reports.
+        </p>
+      )}
+      {view === 'map' && patientTrackingActive && !p.person_track && (
+        <p className="mt-3 text-[12px] text-[var(--color-ink-2)]">
+          Waiting for {patientName}'s first location report. Lantern and {patientName} appear only when their devices publish positions.
+        </p>
+      )}
     </div>
   )
 }
