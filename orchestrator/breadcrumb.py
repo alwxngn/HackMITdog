@@ -17,8 +17,8 @@ from dimos.core.stream import In, Out
 from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
 from dimos.msgs.geometry_msgs.Vector3 import Vector3
 from dimos.msgs.nav_msgs.Path import Path
-from dimos.robot.unitree.go2.blueprints.agentic.unitree_go2_agentic_ollama import (
-    unitree_go2_agentic_ollama,
+from dimos.robot.unitree.go2.blueprints.agentic.unitree_go2_agentic import (
+    unitree_go2_agentic,
 )
 from dimos.utils.logging_config import setup_logger
 
@@ -255,11 +255,27 @@ class BreadcrumbRecorder(Module):
         )
 
 
+# Real-robot composition, matching hackmitdog.aegis-go2-agentic's pattern exactly:
+# unitree_go2_agentic's McpClient has no baked-in model (unlike the *_ollama variant),
+# so the model is chosen at launch time with --model, and the connection with
+# --robot-ip / --unitree-aes-128-key, e.g.:
+#
+#   dimos run hackmitdog.breadcrumb-agentic \
+#       --robot-ip 192.168.12.1 \
+#       --unitree-aes-128-key $UNITREE_AES_128_KEY \
+#       --model openai:muse-spark-1.3
+breadcrumb_agentic = autoconnect(
+    unitree_go2_agentic.disabled_modules(SpeakSkill),
+    BreadcrumbRecorder.blueprint(),
+)
+
+# Same composition, but pinned to the MuJoCo simulator instead of real hardware --
+# no robot IP or AES key needed, only --model (or accept McpClient's default).
 breadcrumb_agentic_sim = autoconnect(
-    unitree_go2_agentic_ollama.disabled_modules(SpeakSkill),
+    unitree_go2_agentic.disabled_modules(SpeakSkill),
     BreadcrumbRecorder.blueprint(),
 ).global_config(simulation="mujoco")
 
 
 if __name__ == "__main__":
-    ModuleCoordinator.build(breadcrumb_agentic_sim).loop()
+    ModuleCoordinator.build(breadcrumb_agentic).loop()

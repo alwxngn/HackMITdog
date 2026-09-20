@@ -14,3 +14,5 @@ packages = ["hackmitdog", "hackmitdog.aegis", "orchestrator"]
 behaviors = "hackmitdog.behaviors:DogBehaviors"
 aegis-go2 = "hackmitdog.aegis.blueprint:aegis_go2_skills"
 safety-sim = "orchestrator.safety_sim:safety_agentic_sim"
+breadcrumb-agentic = "orchestrator.breadcrumb:breadcrumb_agentic"
+breadcrumb-sim = "orchestrator.breadcrumb:breadcrumb_agentic_sim"
