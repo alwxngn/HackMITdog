@@ -54,6 +54,7 @@ from dimos.msgs.sensor_msgs.Image import Image
 from dimos.navigation.base import NavigationState
 from dimos.navigation.navigation_spec import NavigationInterfaceSpec
 from dimos.perception.detection.detectors.person.yolo import YoloPersonDetector
+from dimos.perception.detection.type.detection2d.bbox import Detection2DBBox
 from dimos.utils.logging_config import setup_logger
 
 from hackmitdog.aegis.follow_control import ConfigurableFollowSkillContainer
@@ -140,19 +141,11 @@ class PersonSkills(Module):
                 f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
             )
 
-        try:
-            detections = self._person_detector.process_image(image)
-        except Exception as exc:
-            logger.exception("detect_person: detector failed")
-            return SkillResult.fail("EXECUTION_FAILED", f"Person detector failed: {exc}")
+        best, err = self._detect_best_person(image)
+        if err is not None:
+            return err
+        assert best is not None  # narrowed by _detect_best_person's contract
 
-        valid = [d for d in detections if d.is_valid()]
-        if not valid:
-            return SkillResult.fail(
-                "PERSON_NOT_FOUND", "No person detected in the current camera view."
-            )
-
-        best = max(valid, key=lambda d: d.confidence)
         cx, cy = best.center_bbox
         width, height = image.width, image.height
         rel_x = (cx / width) * 2.0 - 1.0 if width else 0.0
@@ -165,6 +158,37 @@ class PersonSkills(Module):
             relative_position={"x": round(rel_x, 3), "y": round(rel_y, 3)},
         )
 
+    def _detect_best_person(
+        self, image: Image
+    ) -> tuple[Detection2DBBox, None] | tuple[None, SkillResult[AegisError]]:
+        """Run the local YOLO detector on one frame and return the highest-confidence hit.
+
+        Shared by `detect_person` and `follow_person` -- this is deliberately
+        the same local, no-external-API detector both use, so `follow_person`
+        can supply a real bounding box (`initial_bbox`) to DimOS's
+        `PersonFollowSkillContainer` without ever going through its VL-model
+        text-query path (`get_object_bbox_from_image`, which calls Alibaba's
+        hosted Qwen-VL and requires `ALIBABA_API_KEY`). If there are multiple
+        people in frame, this always picks the single highest-confidence
+        detection -- there is no way to select "the person in the blue
+        shirt" specifically without that VL model, so `follow_person`'s
+        `query` argument is a label for messages/logs only, not something
+        that discriminates between multiple people.
+        """
+        try:
+            detections = self._person_detector.process_image(image)
+        except Exception as exc:
+            logger.exception("person detection failed")
+            return None, SkillResult.fail("EXECUTION_FAILED", f"Person detector failed: {exc}")
+
+        valid = [d for d in detections if d.is_valid()]
+        if not valid:
+            return None, SkillResult.fail(
+                "PERSON_NOT_FOUND", "No person detected in the current camera view."
+            )
+
+        return max(valid, key=lambda d: d.confidence), None
+
     # ------------------------------------------------------------------
     # Skill 7: follow_person / stop_person_follow
     # ------------------------------------------------------------------
@@ -176,21 +200,36 @@ class PersonSkills(Module):
         follow_distance_m: float = 1.5,
         timeout_s: float = 120.0,
     ) -> SkillResult[AegisError]:
-        """Start following a person matching a description, at a real standoff distance.
+        """Start following a person, at a real standoff distance, using only local detection.
 
         Thin wrapper over `ConfigurableFollowSkillContainer.follow_person`
         (`hackmitdog.aegis.follow_control`, a `PersonFollowSkillContainer`
-        subclass). That skill is itself `lifecycle="background"`: it detects
-        the person once from the current camera frame, launches a background
-        thread that tracks and drives toward them at 20 Hz, and returns
-        immediately once tracking starts -- it does not block until
-        following ends. This wrapper is deliberately just as thin for the
-        tracking/servoing itself: it calls straight through and relays the
-        immediate return message, rather than adding a second blocking
-        wait/timeout loop of its own that would fight with the underlying
-        skill's own start_tool/stop_tool-managed lifecycle (that would mean
-        two independent things both deciding when "done" is). Call
+        subclass). That skill is itself `lifecycle="background"`: once given
+        a starting bounding box it launches a background thread that tracks
+        and drives toward that person at 20 Hz, and returns immediately once
+        tracking starts -- it does not block until following ends. This
+        wrapper is deliberately just as thin for the tracking/servoing
+        itself: it calls straight through and relays the immediate return
+        message, rather than adding a second blocking wait/timeout loop of
+        its own that would fight with the underlying skill's own
+        start_tool/stop_tool-managed lifecycle (that would mean two
+        independent things both deciding when "done" is). Call
         `stop_person_follow` to end an in-progress follow.
+
+        KNOWN LIMITATION -- `query` does NOT select which person to follow.
+        DimOS's `follow_person` has two ways to get a starting bounding box:
+        (1) a text-query VL-model lookup (`get_object_bbox_from_image`),
+        which calls Alibaba's hosted Qwen-VL and requires `ALIBABA_API_KEY`
+        to be set, or (2) a pre-computed `initial_bbox`, which skips that
+        entirely. This skill always uses path (2) -- it runs the same local,
+        no-external-API YOLO detector `detect_person` uses (see
+        `_detect_best_person`) and passes its single highest-confidence
+        detection as `initial_bbox`, so following never requires an Alibaba
+        key. The tradeoff: with multiple people in frame, this follows
+        whoever the detector is most confident about, not whoever matches
+        `query`'s description. `query` is kept as a parameter purely as a
+        human-readable label in this skill's own messages/logs; it is never
+        sent to any detector.
 
         `follow_distance_m` IS enforced: before starting the follow, this
         calls `set_follow_distance` on the underlying container, which
@@ -207,9 +246,9 @@ class PersonSkills(Module):
         or a takeover.
 
         Args:
-            query: Free-text description of the person to follow, e.g. "man
-                with blue shirt". Passed straight to the underlying VL-model
-                detection step.
+            query: Free-text label for the person, e.g. "man with blue
+                shirt". NOT used to select among multiple detected people --
+                see limitation above.
             follow_distance_m: Standoff distance to hold, in meters. Enforced
                 by the underlying visual-servoing/3D-navigation control loop.
             timeout_s: Accepted for interface compatibility. NOT enforced --
@@ -228,6 +267,21 @@ class PersonSkills(Module):
             return SkillResult.fail("INVALID_INPUT", "timeout_s must be positive.")
 
         try:
+            image = self.color_image.get_next(timeout=_FRAME_TIMEOUT_S)
+        except Exception as exc:
+            logger.exception("follow_person: no camera frame")
+            return SkillResult.fail(
+                "EXECUTION_TIMEOUT",
+                f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
+            )
+
+        best, err = self._detect_best_person(image)
+        if err is not None:
+            return err
+        assert best is not None  # narrowed by _detect_best_person's contract
+        bbox = list(best.bbox)
+
+        try:
             applied = self._person_follow.set_follow_distance(follow_distance_m)
         except Exception as exc:
             logger.exception(
@@ -242,7 +296,11 @@ class PersonSkills(Module):
             )
 
         try:
-            message = self._person_follow.follow_person(query=query)
+            # query is passed through only as a label DimOS's own container
+            # attaches to log lines / lost-track messages -- initial_bbox is
+            # what actually selects who gets followed, and its presence is
+            # exactly what skips the Alibaba-backed VL query path.
+            message = self._person_follow.follow_person(query=query, initial_bbox=bbox)
         except Exception as exc:
             logger.exception("follow_person: underlying skill call failed", query=query)
             return SkillResult.fail("EXECUTION_FAILED", f"Could not start following: {exc}")
@@ -256,8 +314,11 @@ class PersonSkills(Module):
         return SkillResult.ok(
             str(message),
             query=query,
+            bbox=bbox,
+            confidence=round(best.confidence, 3),
             follow_distance_m=follow_distance_m,
             follow_distance_enforced=True,
+            selected_by_query=False,
         )
 
     @skill
