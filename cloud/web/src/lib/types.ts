@@ -76,6 +76,7 @@ export interface MapReady {
   height_m: number
   outline: [number, number][]
   rooms?: { id: string; polygon: [number, number][] }[]
+  artifact_url?: string | null
 }
 
 export interface TrailPoint {

@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from bus import bus
 from camera import router as camera_router
@@ -127,6 +129,28 @@ install_voice(app)
 app.include_router(camera_router)
 
 
+_DEFAULT_MAP_ARTIFACT_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "maps"
+
+
+@app.get("/api/maps/{filename}")
+async def api_map_file(filename: str):
+    """Serve robot-generated map artifacts through the app's own origin.
+
+    Keeping the PLY behind `/api` means the Vite frontend and the artifact use
+    the same origin in development, avoiding a separate static server/CORS
+    requirement. Only a basename and the two known artifact formats are
+    accepted.
+    """
+    if Path(filename).name != filename or Path(filename).suffix not in {".ply", ".json"}:
+        return JSONResponse({"ok": False, "error": "invalid map artifact"}, status_code=400)
+    artifact_dir = Path(os.getenv("LANTERN_MAP_ARTIFACT_DIR", str(_DEFAULT_MAP_ARTIFACT_DIR))).expanduser().resolve()
+    path = (artifact_dir / filename).resolve()
+    if path.parent != artifact_dir or not path.is_file():
+        return JSONResponse({"ok": False, "error": "map artifact not found"}, status_code=404)
+    media_type = "application/json" if path.suffix == ".json" else "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
+
+
 @app.get("/")
 async def root():
     return {
@@ -193,6 +217,33 @@ async def api_ack(
             f"</body></html>"
         )
     return {"ok": True, "alert_id": alert_id, "action": action}
+
+
+@app.post("/api/onboarding/voice-clone")
+async def onboarding_voice_clone(request: Request, name: str = Query("Lantern")):
+    content_type = request.headers.get("content-type", "").split(";")[0]
+    if content_type not in {"audio/webm", "audio/mp4", "audio/ogg", "audio/wav"}:
+        return JSONResponse({"detail": "Unsupported recording format."}, status_code=415)
+    audio = bytearray()
+    async for chunk in request.stream():
+        audio.extend(chunk)
+        if len(audio) > 10 * 1024 * 1024:
+            return JSONResponse({"detail": "Recording too large. Keep the sample under a minute."}, status_code=413)
+    if not audio:
+        return JSONResponse({"detail": "Empty recording."}, status_code=400)
+
+    from voice import providers
+
+    voice_id = await providers.clone_voice(name.strip() or "Lantern", bytes(audio), content_type)
+    payload = {"voice_id": voice_id, "consent_recorded_ts": time.time(), "attribution_name": name.strip() or "Lantern"}
+    await bus.publish({
+        "type": "config_update",
+        "ts": time.time(),
+        "source": "cloud",
+        "seq": 0,
+        "payload": {"voice": payload},
+    })
+    return {"voice_id": voice_id}
 
 
 @app.post("/api/config")

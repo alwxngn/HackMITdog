@@ -114,11 +114,7 @@ practice is defensible; the structure around it is what makes it so.
    behind an explicit checkbox naming the use. `consent_recorded_ts` is a required field, and
    the orchestrator refuses any `say` carrying a `voice_id` without one. This is also what
    ElevenLabs' terms require — worth mentioning, since it shows you read the sponsor's policy.
-2. **Never impersonate.** The robot says *"Sarah recorded this for you,"* not *"it's Sarah."*
-   Familiar voice, honest framing. `attribution` is a field in the `say` schema, not a prompt
-   instruction. It's also better technique — it gives the patient a reason the daughter isn't
-   physically present, which is frequently the actual source of the distress.
-3. **Revocable, and off by default.** One toggle. No cloned voice until consent exists.
+2. **Revocable, and off by default.** One toggle. No cloned voice until consent exists.
 
 Slide title: **"Familiar voice, not impersonation."**
 

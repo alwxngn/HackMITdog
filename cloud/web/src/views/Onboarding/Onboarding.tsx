@@ -41,6 +41,72 @@ export function Onboarding() {
   })
   const [contacts, setContacts] = useState({ primary: 'jenny', secondary: 'mark' })
   const [saved, setSaved] = useState('')
+  const [voiceRecording, setVoiceRecording] = useState(false)
+  const [voiceBusy, setVoiceBusy] = useState(false)
+  const [voiceStatus, setVoiceStatus] = useState('')
+  const [showVoiceScript, setShowVoiceScript] = useState(false)
+
+  async function recordVoice() {
+    if (voiceBusy) return
+    setVoiceBusy(true)
+    setVoiceStatus('')
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setVoiceStatus('Microphone access was denied.')
+      setVoiceBusy(false)
+      return
+    }
+    const mimeType = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find((t) =>
+      MediaRecorder.isTypeSupported(t),
+    )
+    if (!mimeType) {
+      stream.getTracks().forEach((t) => t.stop())
+      setVoiceStatus('Recording is not supported in this browser.')
+      setVoiceBusy(false)
+      return
+    }
+    const recorder = new MediaRecorder(stream, { mimeType })
+    const chunks: BlobPart[] = []
+    recorder.ondataavailable = (e) => {
+      if (e.data.size) chunks.push(e.data)
+    }
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop())
+      setVoiceRecording(false)
+      setVoiceStatus('Creating Lantern’s voice…')
+      try {
+        const contentType = mimeType.split(';')[0]
+        const name = encodeURIComponent(patient.preferred_name || patient.name || 'Lantern')
+        const r = await fetch(`/api/onboarding/voice-clone?name=${name}`, {
+          method: 'POST',
+          headers: { 'Content-Type': contentType },
+          body: new Blob(chunks, { type: mimeType }),
+        })
+        const data = await r.json().catch(() => null)
+        if (r.ok && typeof data?.voice_id === 'string' && data.voice_id) {
+          setVoiceStatus('Voice created and saved.')
+        } else if (typeof data?.detail === 'string') {
+          setVoiceStatus(data.detail)
+        } else if ([502, 503, 504].includes(r.status)) {
+          setVoiceStatus(`The upload could not reach the voice service (HTTP ${r.status}). Check that the API, portal, and Cloudflare tunnel are running on the same computer, then retry.`)
+        } else {
+          setVoiceStatus(`Could not create the voice (HTTP ${r.status}). Please retry.`)
+        }
+      } catch {
+        setVoiceStatus('The upload connection failed. Check your connection and retry.')
+      } finally {
+        setVoiceBusy(false)
+      }
+    }
+    recorder.start()
+    setVoiceRecording(true)
+    setVoiceStatus('Recording… speak for about 10 seconds.')
+    setTimeout(() => {
+      if (recorder.state === 'recording') recorder.stop()
+    }, 10000)
+  }
 
   useEffect(() => {
     if (projection.map_ready) {
@@ -63,7 +129,10 @@ export function Onboarding() {
       const r = await fetch('/api/map-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(forceDemo ? { mode: 'demo' } : {}),
+        // The primary button always requests the robot. The demo button is
+        // explicit, so live mapping does not silently depend on a server env
+        // default being changed first.
+        body: JSON.stringify({ mode: forceDemo ? 'demo' : 'live' }),
       })
       const data = await r.json()
       setScanMode(data.mode === 'live' ? 'live' : 'demo')
@@ -76,7 +145,9 @@ export function Onboarding() {
         return
       }
       // live: poll until E2 POSTs map_ready to /api/ingest
-      const deadline = Date.now() + 120_000
+      // A real frontier scan can take several minutes; keep polling while
+      // DimOS explores instead of timing out after the demo-length window.
+      const deadline = Date.now() + 360_000
       while (Date.now() < deadline) {
         if (scanAbort.aborted) return
         const st = await fetch('/api/map-scan/status').then((x) => x.json())
@@ -89,7 +160,7 @@ export function Onboarding() {
         await new Promise((res) => setTimeout(res, 800))
       }
       setScanError(
-        'Timed out waiting for robot map_ready (2 min). Keep MAP_SCAN_MODE=live, have E2 POST /api/ingest, or use demo floorplan.',
+        'Timed out waiting for robot map_ready (6 min). Keep MAP_SCAN_MODE=live, keep the DimOS map bridge running, or use the demo map.',
       )
       setScanning(false)
     } catch (e) {
@@ -229,6 +300,34 @@ export function Onboarding() {
               onChange={(e) => setPatient({ ...patient, avoid_topics: e.target.value })}
             />
           </label>
+          <div className="space-y-2 pt-2">
+            <p className="text-[14px] text-[var(--color-ink-2)]">Lantern&apos;s voice</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" className="btn-ghost" onClick={recordVoice} disabled={voiceBusy}>
+                {voiceRecording ? 'Recording…' : voiceBusy ? 'Creating voice…' : 'Record 10s sample'}
+              </button>
+              <button
+                type="button"
+                className="min-h-11 text-[13px] text-[var(--color-ink-2)] underline underline-offset-4 hover:text-[var(--color-ink)]"
+                onClick={() => setShowVoiceScript((shown) => !shown)}
+                aria-expanded={showVoiceScript}
+                aria-controls="voice-reading-script"
+              >
+                {showVoiceScript ? 'hide script' : 'get script'}
+              </button>
+            </div>
+            {showVoiceScript && (
+              <div id="voice-reading-script" className="rounded-xl bg-[var(--color-panel-2)] p-4 space-y-2">
+                <p className="text-[15px] leading-relaxed text-[var(--color-ink)]">
+                  Good morning! How are you feeling today? The fresh bread smells lovely, and sunshine fills the kitchen. Shall we sit by the window, share a favourite story, and watch the little birds fly past?
+                </p>
+                <p className="text-[12px] text-[var(--color-ink-2)]">
+                  Read in your usual warm voice, at an easy pace. Keep the microphone steady and the room quiet.
+                </p>
+              </div>
+            )}
+            {voiceStatus && <p className="text-[13px] text-[var(--color-ink)]">{voiceStatus}</p>}
+          </div>
           <button type="button" className="btn-primary" onClick={() => setStep(2)}>
             Next — Map home
           </button>
@@ -259,8 +358,11 @@ export function Onboarding() {
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-primary" onClick={() => startScan(true)}>
+              <button type="button" className="btn-primary" onClick={() => startScan(false)}>
                 Start mapping
+              </button>
+              <button type="button" className="btn-ghost" onClick={() => startScan(true)}>
+                Use demo map
               </button>
               {map && (
                 <button type="button" className="btn-ghost" onClick={() => setStep(3)}>
