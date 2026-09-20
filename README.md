@@ -75,6 +75,50 @@ alarm tells the family too late and tells them nothing; Lantern is there at the 
 confusion, uses the same redirection technique a trained memory-care aide would, and hands
 the caregiver a head start plus a record of exactly what happened.
 
+## Aegis skill library (Go2 companion skills, via DimOS/MCP)
+
+`hackmitdog/aegis/` is a set of high-level, agent-callable robot skills for the Unitree Go2, built
+on top of DimOS's existing navigation, perception, and spatial-memory stack rather than
+reimplementing any of it. See [`DIMOS_SKILL_IMPLEMENTATION_PLAN.md`](DIMOS_SKILL_IMPLEMENTATION_PLAN.md)
+for the investigation behind it and [`AEGIS_SKILL_TESTING.md`](AEGIS_SKILL_TESTING.md) for exact
+test commands. This section diverges intentionally from some of the docs above (see the plan
+doc's §0) — it follows a generic MCP-skill-library design rather than the bus-message-driven
+`robot_service` those docs originally specified.
+
+### Running it
+
+```bash
+source /Users/laminegueye/dimensional-applications/.venv/bin/activate
+cd /Users/laminegueye/Desktop/repos/HackMITdog
+VIRTUAL_ENV=/Users/laminegueye/dimensional-applications/.venv uv pip install -e .   # registers the blueprint entry point
+dimos run hackmitdog.aegis-go2 --daemon
+dimos mcp list-tools               # see every skill's name + schema
+```
+
+### Skills
+
+| Skill | Module | Feasibility |
+|---|---|---|
+| `save_named_location` / `list_named_locations` / `delete_named_location` / `go_to_named_location` | `locations.py` | Directly supported (DimOS spatial memory) |
+| `turn_relative` | `navigation_skills.py` | Directly supported (DimOS navigation) |
+| `approach_obstacle` | `navigation_skills.py` | Composition + small custom control loop |
+| `patrol_waypoints` | `navigation_skills.py` | Custom composition over `go_to_named_location` |
+| `save_guided_walk_route` / `list_guided_walk_routes` / `guided_walk` | `guided_walk.py` | Custom composition; explicit limitation (no follower-verification) |
+| `detect_person` | `person.py` | Directly supported, real confidence (DimOS `YoloPersonDetector`) |
+| `follow_person` / `stop_person_follow` | `person.py` | Directly supported (DimOS `PersonFollowSkillContainer`); documented distance-enforcement gap |
+| `escort_person` / `stop_escort` | `person.py` | Custom composition; documented following-verification gap |
+| `create_danger_zone` / `list_danger_zones` / `delete_danger_zone` / `is_in_danger_zone` / `distance_to_danger_zone` | `danger_zone.py` | Custom implementation (no DimOS geofence primitive) |
+| `start_monitoring_danger_zones` / `stop_monitoring_danger_zones` | `danger_zone.py` | Custom implementation, background skill |
+| `navigate_to_safe_intercept_position` | `danger_zone.py` | Custom implementation; geometry-only, never blocks/contacts a person |
+| `remember_object_location` / `find_remembered_object` | `object_memory.py` | Directly supported (same DimOS spatial memory as named locations) |
+| `search_for_object` | `object_memory.py` | Composition; visual "verification" is capture-only, not detection |
+| `return_to_home` / `stop_return_to_home` | `home.py` | Supported; reports pose arrival only, never claims charging |
+
+Every skill returns a `SkillResult` (structured `success`/`message`/`error_code`/`metadata`), takes
+bounded/typed arguments, and every long-running skill has a paired stop tool. Safety-critical
+behavior (obstacle avoidance, collision stop, capability mutual-exclusion) is enforced by DimOS
+itself below the skill layer, not by the calling LLM — see the plan doc's §8.
+
 ## The hard rules
 
 1. The robot never blocks, corners, touches, or herds a person. It leads. See `docs/06`.
@@ -86,3 +130,19 @@ the caregiver a head start plus a record of exactly what happened.
    as you add it. See `docs/10` P1-8.
 7. Four people, four different AI coding agents, one folder each, no long-lived branches, tiny
    commits. See `docs/15`.
+
+## Integration test branch (Unitree + Night Watch)
+
+Short-lived branch `e3/unitree-dash-test` combines the caregiver portal (incl. on-demand dog
+camera) with the Aegis/DimOS Go2 skills from `breadcrumb`. **Do not merge to `main` until the
+dog side is stable.**
+
+```bash
+# cloud/.env (local only)
+DOG_CAMERA_ENABLED=1
+DOG_CAMERA_URL=http://127.0.0.1:7780/   # DimOS cockpit / teammates' live viewer URL
+
+# then: cloud API + npm run dev → http://127.0.0.1:5173/watch → View dog camera
+```
+
+See [`robot/README.md`](robot/README.md) and [`AEGIS_SKILL_TESTING.md`](AEGIS_SKILL_TESTING.md).

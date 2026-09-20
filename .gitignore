@@ -10,11 +10,17 @@ orchestrator/spine_events.jsonl
 orchestrator/bus_events.jsonl
 __pycache__/
 *.pyc
+*.egg-info/
 .DS_Store
 *.bak.jsonl
-
 .venv/
 .pytest_cache/
 .env
 *.log
 test-results/
+MUJOCO_LOG.TXT
+.idea/
+
+# Aegis danger-zone persistence -- runtime state, not source
+hackmitdog/aegis/danger_zones.json
+hackmitdog/aegis/guided_walk_routes.json

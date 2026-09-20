@@ -36,11 +36,19 @@ Every message:
   "x": 2.41, "y": 1.08, "theta": 1.57,
   "battery_pct": 68,
   "mode": "standing",
-  "map_id": "home_v3"
+  "map_id": "home_v3",
+  "landmark_visible": null
 }}
 ```
 
 `mode`: `idle` | `standing` | `walking` | `sitting` | `lying`
+
+`landmark_visible` (Tier 2, nullable, additive): `"home_marker"` when the robot's camera has the
+ArUco marker at the front door in frame, else `null`. This is odometry — `x`/`y`/`theta` are
+dead-reckoned, not GPS — and it's the entire signal `GUIDE_HOME` needs: the orchestrator buffers
+this stream into a breadcrumb trail while walking, and `landmark_visible` is the cue to switch
+from retracing the trail to marker-relative final approach. See `14-companion-and-caretaker.md`'s
+breadcrumb-retrace section.
 
 ### `person_track` (10 Hz, when a person is detected)
 
@@ -55,8 +63,7 @@ Every message:
   "posture": "standing",
   "zone": "hallway",
   "projected_zone": "front_door",
-  "ttz_s": 6.2,
-  "lat": null, "lon": null
+  "ttz_s": 6.2
 }}
 ```
 
@@ -65,21 +72,20 @@ signal.
 `projected_zone` and `ttz_s` (time-to-zone) are E2's linear projection of current velocity.
 **The orchestrator triggers on these two fields**, so they matter more than they look.
 
-`tracker`: `overhead_cam` | `lidar_cluster` | `onboard_fusion` | `gps` | `mock` — which sensor
-produced this track. **How this message is produced at all is specified in `11-perception.md`**,
-which exists because the first draft of this document defined the schema and never said where
-the data came from. Render `tracker` in the dashboard: when a judge asks how you track the
-person, a live field naming the sensor is a better answer than a description, and it keeps you
-honest about which tracker you are actually demoing.
+`tracker`: `overhead_cam` | `lidar_cluster` | `onboard_fusion` | `mock` — which sensor produced
+this track. **How this message is produced at all is specified in `11-perception.md`**, which
+exists because the first draft of this document defined the schema and never said where the data
+came from. Render `tracker` in the dashboard: when a judge asks how you track the person, a live
+field naming the sensor is a better answer than a description, and it keeps you honest about
+which tracker you are actually demoing.
 
-**`gps` (Tier 2, outdoor `FOLLOW`/`GUIDE_HOME` only, see `14-companion-and-caretaker.md` §6–9):**
-the source publishes `x`/`y` as metres in a local frame anchored on the home point in
-`config_update.patient.home`, exactly like every other tracker, so nothing downstream — the
-radius check, the dashboard, the ladder — has to know GPS is involved. `lat`/`lon` are carried
-alongside, non-null only for this tracker, purely so the caregiver dashboard can also render a
-real map. **Real GPS does not work indoors.** At the venue this is always produced by the
-scripted `mock_gps` fixture (source `mock`, `tracker: "gps"` still, so the dashboard is honest
-about *which capability* is mocked) — same principle as `mock_robot`, not a lesser version of it.
+**Outdoor `FOLLOW` uses `onboard_fusion`, same as indoors** (Tier 2, see
+`14-companion-and-caretaker.md` §6–9): the radius check only needs the person's position
+*relative to the robot*, which the robot's own onboard camera/LiDAR already produces regardless
+of location — there was never a need for an absolute (GPS) fix just to check separation
+distance. There is no `gps` tracker and no `lat`/`lon` field; the whole outdoor-navigation
+problem is handled separately by `GUIDE_HOME`'s breadcrumb retrace against `pose`, not by
+`person_track` at all.
 
 ### `zone_event`
 
@@ -213,10 +219,13 @@ the layer closest to the motors is.
 
 `follow_person` (Tier 2) — track at distance, matching pace, **never closing to lead-away
 standoff or blocking distance.** This is the `FOLLOW` state's only robot-facing command; it
-carries no destination, only a person to track. `guide_home` (Tier 2) — navigate to
-`config_update.patient.home` (or a `route_id` if a preferred route was set). E2 enforces the
-same envelope as `approach_person` on the way — announce, standoff, speed cap — because guiding
-someone home is still moving alongside a person, not autonomous point-to-point robotics.
+carries no destination, only a person to track. `guide_home` (Tier 2) — retrace the breadcrumb
+trail recorded from `pose` since the walk started (or replay a stored `route_id` trail forward,
+if a preferred route was set), ending with marker-relative homing once `pose.landmark_visible`
+fires. No GPS, no `config_update.patient.home` coordinate — see
+`14-companion-and-caretaker.md`'s breadcrumb-retrace section. E2 enforces the same envelope as
+`approach_person` on the way — announce, standoff, speed cap — because guiding someone home is
+still moving alongside a person, not autonomous point-to-point robotics.
 
 ### `say` (to voice)
 
@@ -317,7 +326,6 @@ answer instead of a shrug.
                "music_url": "/media/arthur_playlist.mp3",
                "schedule": { "wake_time": "07:30", "meals": ["08:00","12:30","18:00"],
                              "walk_window": ["15:00","16:30"], "notes": "likes the porch after lunch" },
-               "home": { "x": 0.0, "y": 0.0, "lat": null, "lon": null },
                "route_id": null }
 }}
 ```
@@ -330,30 +338,33 @@ in policy — again, a much better answer to the ethics question.
 `say.origin: "reminder"` — one onboarding field turning proactive nudges from hard-coded timers
 into something driven by the actual person (`14-companion-and-caretaker.md` §3–4).
 
-**`patient.home`** (Tier 2) is the anchor `guide_home` navigates to. `lat`/`lon` are populated
-only if a real outdoor deployment has them; at the venue `x`/`y` (metres from the taped area's
-origin corner) is all that's used. **`patient.route_id`** (Tier 2, optional) points at a
-caregiver-drawn preferred walking route; point-to-point `guide_home` works with this left
-`null` — a route is an enhancement on top of a working "go home," not a prerequisite for it.
+There is no `patient.home` field — home is whichever breadcrumb the current walk started from,
+recorded automatically from `pose`, not a configured coordinate (`14-companion-and-caretaker.md`
+§8). **`patient.route_id`** (Tier 2, optional) points at a *saved* breadcrumb trail from a past
+walk, replayed forward instead of the live trail replayed backward — the same retrace mechanism,
+run the other direction. Point-to-point `guide_home` works with this left `null`; a route is an
+enhancement on top of a working "go home," not a prerequisite for it.
 
 **Escalation ladder level 5** fires immediately (`after_s: 0`) on `trigger: "dont_go_breach"`
 rather than waiting on a timer like levels 2–4 — see `02-blueprint.md` §5.
 
 ## Mocks (E4, by 2:30 PM Saturday)
 
-Three fakes that let everyone else work, plus a fourth added for the Tier 2 outdoor features:
+Three fakes that let everyone else work. The Tier 2 outdoor features need no fourth mock —
+breadcrumb retrace runs on `pose`, which `mock_robot` already emits, so `FOLLOW`/`CONFIRM_HOME`/
+`GUIDE_HOME` can be developed and demoed against the same two mocks as everything else:
 
 - **`mock_robot`** — accepts every `command`, emits plausible `pose` and `robot_status`. Has a
   `--fail-rate` flag so the orchestrator's failure paths get exercised before the night shift.
+  For Tier 2, add a scripted `landmark_visible: "home_marker"` pulse near the end of a
+  `guide_home` replay so the final-approach logic has something to trigger on without real
+  hardware.
 - **`mock_patient`** — emits `person_track` along a scripted path. Ships with named scenarios:
-  `calm`, `pacing`, `exit_seeking`, `fall`. Everyone develops against `exit_seeking`.
+  `calm`, `pacing`, `exit_seeking`, `fall`. Everyone develops against `exit_seeking`. Add a
+  `day_walk` scenario for Tier 2: wander, drift past the follow radius, respond to a
+  `"take me home"` transcript.
 - **`mock_mic`** — replays recorded WAVs into the voice pipeline, so the voice path is testable
   without a human talking into a laptop in a loud room at hour 3.
-- **`mock_gps`** (Tier 2, built only after the above three are solid) — emits `person_track`
-  with `tracker: "gps"` along a scripted outdoor scenario: walk out, wander, drift past the
-  follow radius, respond to a `"take me home"` transcript. **Not a lesser mock** — real GPS
-  cannot be tested at the venue at all, so this is how `FOLLOW`/`CONFIRM_HOME`/`GUIDE_HOME` get
-  demoed, full stop. See `14-companion-and-caretaker.md`'s GPS section.
 
 Each runs standalone from the command line. Each has to work before anyone is allowed to say
 they're blocked on hardware.

@@ -1,0 +1,309 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "install-dimos-noninteractive",
+			"type": "shell",
+			"command": "curl",
+			"args": [
+				"-fsSL",
+				"https://raw.githubusercontent.com/dimensionalOS/dimos/main/scripts/install.sh",
+				"|",
+				"bash",
+				"-s",
+				"--",
+				"--non-interactive",
+				"--mode",
+				"library",
+				"--extras",
+				"base,cpu",
+				"--project-dir",
+				"/Users/ally/Github/HackMITdog/dimensional-applications",
+				"--skip-tests"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "install-dimos-pip",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && uv pip install --python .venv/bin/python \"dimos[base,cpu]\"",
+			"isBackground": false
+		},
+		{
+			"label": "verify-dimos",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && .venv/bin/dimos --version && .venv/bin/dimos --help | head -n 5",
+			"isBackground": false
+		},
+		{
+			"label": "verify-dimos-help",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && .venv/bin/dimos --help | sed -n '1,40p'",
+			"isBackground": false
+		},
+		{
+			"label": "verify-dimos-list",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && .venv/bin/dimos list | sed -n '1,20p'",
+			"isBackground": false
+		},
+		{
+			"label": "check-claude-cli",
+			"type": "shell",
+			"command": "command -v claude >/dev/null 2>&1 && { echo CLAUDE_FOUND; claude --version; } || echo CLAUDE_NOT_FOUND",
+			"isBackground": false
+		},
+		{
+			"label": "check-node-npm",
+			"type": "shell",
+			"command": "command -v node >/dev/null 2>&1 && node --version || echo NODE_NOT_FOUND; command -v npm >/dev/null 2>&1 && npm --version || echo NPM_NOT_FOUND",
+			"isBackground": false
+		},
+		{
+			"label": "install-dimos-sim-agents",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && uv pip install --python .venv/bin/python \"dimos[base,cpu,sim,agents]\"",
+			"isBackground": false
+		},
+		{
+			"label": "verify-dimos-sim-agents",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && .venv/bin/python -c \"import mujoco, langchain; print('SIM_OK AGENTS_OK')\" && .venv/bin/dimos mcp list-tools | sed -n '1,20p'",
+			"isBackground": false
+		},
+		{
+			"label": "launch-dimos-sim-agentic",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos --viewer none --simulation run unitree-go2-agentic --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "install-dimos-unitree-extra",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && uv pip install --python .venv/bin/python \"dimos[unitree]\"",
+			"isBackground": false
+		},
+		{
+			"label": "launch-dimos-sim-agentic-retry",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos --viewer none --simulation run unitree-go2-agentic --daemon && dimos status && dimos mcp list-tools | sed -n '1,30p'",
+			"isBackground": false
+		},
+		{
+			"label": "check-dimos-running",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos status && echo '---' && dimos mcp list-tools | sed -n '1,40p'",
+			"isBackground": false
+		},
+		{
+			"label": "launch-dimos-sim-basic",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos --viewer none --simulation run unitree-go2 --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "confirm-dimos-status",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "switch-to-agentic-blueprint",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos stop || true && dimos --viewer none --simulation run unitree-go2-agentic --daemon && dimos status && echo '---' && dimos mcp list-tools",
+			"isBackground": false
+		},
+		{
+			"label": "verify-agentic-status-now",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos status && echo '---' && dimos mcp list-tools | sed -n '1,80p'",
+			"isBackground": false
+		},
+		{
+			"label": "inspect-latest-dimos-logs",
+			"type": "shell",
+			"command": "latest=$(ls -1dt ~/.local/state/dimos/logs/* 2>/dev/null | head -n 1); echo \"LATEST_LOG=$latest\"; if [ -n \"$latest\" ]; then ls -la \"$latest\"; echo '---'; for f in \"$latest\"/*; do echo \"### FILE: $f\"; tail -n 80 \"$f\"; echo; done; fi",
+			"isBackground": false
+		},
+		{
+			"label": "tail-latest-dimos-jsonl",
+			"type": "shell",
+			"command": "latest=$(ls -1t ~/.local/state/dimos/logs/*.jsonl 2>/dev/null | head -n 1); echo \"LATEST_LOG=$latest\"; [ -n \"$latest\" ] && tail -n 120 \"$latest\" || echo \"no log files\"",
+			"isBackground": false
+		},
+		{
+			"label": "list-agentic-blueprints",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos list | rg -i 'agentic|ollama|mcp'",
+			"isBackground": false
+		},
+		{
+			"label": "list-agentic-blueprints-grep",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos list | grep -Ei 'agentic|ollama|mcp'",
+			"isBackground": false
+		},
+		{
+			"label": "check-ollama",
+			"type": "shell",
+			"command": "command -v ollama >/dev/null 2>&1 && { echo OLLAMA_FOUND; ollama --version; } || echo OLLAMA_NOT_FOUND",
+			"isBackground": false
+		},
+		{
+			"label": "install-and-start-ollama",
+			"type": "shell",
+			"command": "brew list --versions ollama >/dev/null 2>&1 || brew install ollama && nohup ollama serve >/tmp/ollama-serve.log 2>&1 & disown; sleep 2; ollama --version",
+			"isBackground": false
+		},
+		{
+			"label": "check-ollama",
+			"type": "shell",
+			"command": "command -v ollama >/dev/null 2>&1 && { echo OLLAMA_FOUND; ollama --version; } || echo OLLAMA_NOT_FOUND",
+			"isBackground": false
+		},
+		{
+			"label": "check-openai-key",
+			"type": "shell",
+			"command": "if [ -n \"$OPENAI_API_KEY\" ]; then echo OPENAI_API_KEY_SET; else echo OPENAI_API_KEY_MISSING; fi",
+			"isBackground": false
+		},
+		{
+			"label": "check-ollama-models",
+			"type": "shell",
+			"command": "ollama list",
+			"isBackground": false
+		},
+		{
+			"label": "check-dimos-env",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && python -c \"import dimos, sys; print('DIMOS_OK')\"",
+			"isBackground": false
+		},
+		{
+			"label": "pull-ollama-model",
+			"type": "shell",
+			"command": "ollama pull qwen3:8b",
+			"isBackground": false
+		},
+		{
+			"label": "launch-agentic-ollama",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos run unitree-go2-agentic-ollama --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "install-unitree-extra",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && uv pip install --python .venv/bin/python \"dimos[unitree]\"",
+			"isBackground": false
+		},
+		{
+			"label": "launch-agentic-ollama-retry",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos run unitree-go2-agentic-ollama --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "launch-agentic-ollama-sim",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos --simulation run unitree-go2-agentic-ollama --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "launch-agentic-ollama-nospeak",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos --simulation run unitree-go2-agentic-ollama --disable SpeakSkill --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "launch-agentic-ollama-nospeak-fixed",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos --simulation run unitree-go2-agentic-ollama --disable speak-skill --daemon && dimos status",
+			"isBackground": false
+		},
+		{
+			"label": "validate-breadcrumb-import",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && PYTHONPATH=/Users/ally/Github/HackMITdog python - <<'PY'\nfrom orchestrator.breadcrumb import BreadcrumbRecorder, breadcrumb_agentic_sim\nprint(BreadcrumbRecorder.__name__)\nprint(type(breadcrumb_agentic_sim).__name__)\nPY",
+			"isBackground": false
+		},
+		{
+			"label": "check-breadcrumb-tools",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos mcp list-tools",
+			"isBackground": false
+		},
+		{
+			"label": "check-breadcrumb-process",
+			"type": "shell",
+			"command": "ps -axo pid,command | grep 'python -m orchestrator.breadcrumb' | grep -v grep || true",
+			"isBackground": false
+		},
+		{
+			"label": "check-mcp-port",
+			"type": "shell",
+			"command": "curl -sS -X POST http://127.0.0.1:9990/mcp -H 'content-type: application/json' --data @/tmp/mcp-initialize.json | sed -n '1,40p'",
+			"isBackground": false
+		},
+		{
+			"label": "validate-breadcrumb-visual-import",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && PYTHONPATH=/Users/ally/Github/HackMITdog python /tmp/validate_breadcrumb_visuals.py",
+			"isBackground": false
+		},
+		{
+			"label": "check-breadcrumb-skills-live",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos mcp list-tools | grep breadcrumb",
+			"isBackground": false
+		},
+		{
+			"label": "validate-breadcrumb-logging-import",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && PYTHONPATH=/Users/ally/Github/HackMITdog python /tmp/validate_breadcrumb_logging.py",
+			"isBackground": false
+		},
+		{
+			"label": "check-restarted-breadcrumb-mcp",
+			"type": "shell",
+			"command": "cd /Users/ally/Github/HackMITdog/dimensional-applications && source .venv/bin/activate && dimos mcp list-tools | grep breadcrumb",
+			"isBackground": false
+		},
+		{
+			"label": "git-branch-check",
+			"type": "shell",
+			"command": "zsh /tmp/git_branch_check.sh",
+			"isBackground": false
+		},
+		{
+			"label": "git-log-check",
+			"type": "shell",
+			"command": "zsh /tmp/git_log_check.sh",
+			"isBackground": false
+		},
+		{
+			"label": "git-remote-branch-check",
+			"type": "shell",
+			"command": "zsh /tmp/git_remote_branch_check.sh",
+			"isBackground": false
+		},
+		{
+			"label": "git-ls-remote-skills",
+			"type": "shell",
+			"command": "zsh /tmp/git_ls_remote_skills.sh",
+			"isBackground": false
+		},
+		{
+			"label": "git-diff-skills",
+			"type": "shell",
+			"command": "zsh /tmp/git_diff_skills.sh",
+			"isBackground": false
+		},
+		{
+			"label": "git-merge-skills-into-breadcrumb",
+			"type": "shell",
+			"command": "zsh /tmp/git_merge_skills.sh",
+			"isBackground": false
+		}
+	]
+}

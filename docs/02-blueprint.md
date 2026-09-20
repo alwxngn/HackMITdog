@@ -46,7 +46,8 @@ one-line differentiator for each. Read it before you pitch.
 
 ```
                          ┌──► 1. Voice — Conversation & Companionship  (Deepgram + ElevenLabs)
-[Unitree Go2 + Jetson] ──┼──► 2. Night Watch, Lead-Away & Guided Walks (DimOS + LiDAR SLAM + GPS)
+[Unitree Go2 + Jetson] ──┼──► 2. Night Watch, Lead-Away & Guided Walks (DimOS + LiDAR SLAM +
+                         │                                              odometry breadcrumb retrace)
                          └──► 3. Caregiver Link                        (React + FastAPI + Twilio)
 
                               Calm Mode is a behavior inside pillars 1+2, not a pillar.
@@ -149,7 +150,8 @@ hardware, no added failure mode.
    when the redirect fails.
 
 **The policy used to stop there — silent on what happens if the person actually leaves. It
-doesn't anymore (Tier 2, mocked GPS; see `14-companion-and-caretaker.md` §6):**
+doesn't anymore (Tier 2, breadcrumb retrace, demoable live; see `14-companion-and-caretaker.md`
+§6):**
 
 8. **If they leave anyway, the robot follows — after them, through the door they opened, never
    into it.** Following at a respectful distance is not blocking; nothing about it restrains
@@ -314,9 +316,9 @@ same three added states, entered two different ways (full spec and rationale in
                                        │ yes
                                        ▼
                               ┌────────────────┐
-                              │   GUIDE_HOME   │  GPS-guided walk to the home anchor
-                              └────────┬───────┘  (mocked at the venue — GPS doesn't work
-                                       │ arrived     indoors, see companion-and-caretaker doc)
+                              │   GUIDE_HOME   │  retraces the breadcrumb trail recorded
+                              └────────┬───────┘  from `pose` since the walk started, no GPS
+                                       │ arrived     (see companion-and-caretaker doc)
                                        ▼
                                      IDLE
 ```
@@ -378,8 +380,8 @@ cooperates, Tier 0a is still a complete, demoable product.
 
 **Tier 2 — stretch. Dropping these costs us nothing.**
 
-- [ ] Guided walk: `FOLLOW` → `CONFIRM_HOME` → `GUIDE_HOME`, against a scripted `mock_gps`
-      feed — real GPS does not work indoors, so this is mocked by design, not by necessity
+- [ ] Guided walk: `FOLLOW` → `CONFIRM_HOME` → `GUIDE_HOME`, retracing a breadcrumb trail built
+      from `pose` — no GPS, no dedicated mock needed, and demoable live at the venue
       (`14-companion-and-caretaker.md`)
 - [ ] Day-walk entry into the same follow/guide-home machinery, ping-severity alerts
 - [ ] Preferred walking route (on top of a working point-to-point "take me home")
