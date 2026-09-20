@@ -222,6 +222,18 @@ curl -s -X POST http://127.0.0.1:8000/api/ingest \
 
 Then open `/onboarding` (map should appear) and `/watch`. Stream `person_track` the same way — if the pin is wrong, fix the **frame** with E2, not the React map renderer.
 
+### On-demand dog camera (out-of-band)
+
+Night Watch can embed a Go2 live view **only when the caregiver opens it** (or accepts the alert soft-offer). This is not a bus message.
+
+| Env | Purpose |
+|---|---|
+| `DOG_CAMERA_ENABLED=1` | Master switch (default off) |
+| `DOG_CAMERA_URL` | DimOS cockpit / teleop / MJPEG page to iframe |
+| `DOG_CAMERA_STREAM_URL` | Optional raw stream for `GET /api/camera/stream` proxy |
+
+E2 owns the stream — see [`robot/README.md`](../robot/README.md). E3 never imports DimOS.
+
 E2 runs DimOS author-once mapping and emits `map_ready` in the shared metre frame (origin = SW). Until a shared `/bus` transport is used end-to-end, cloud still accepts these via `/api/ingest`.
 
 Zone wire values stay `safe` | `watch` | `exit` (UI label for `exit` = **"Don't go"**).

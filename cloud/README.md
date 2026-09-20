@@ -116,6 +116,16 @@ python scripts/smoke_live_map.py
 
 Sample E2 payload: [`fixtures/sample_map_ready.json`](fixtures/sample_map_ready.json). Frame + checklist: [`docs/16-e3-portal.md`](../docs/16-e3-portal.md).
 
+### Dog camera (on-demand)
+
+```bash
+# cloud/.env — off by default
+DOG_CAMERA_ENABLED=1
+DOG_CAMERA_URL=http://127.0.0.1:7780/   # DimOS cockpit; see robot/README.md
+```
+
+Night Watch shows **View dog camera**; alert modal can soft-offer open. No always-on feed.
+
 See [docs/16-e3-portal.md](../docs/16-e3-portal.md) for the E2 bus contract.
 
 ## Twilio
