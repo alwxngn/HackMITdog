@@ -54,7 +54,6 @@ reachable from another device on the same network, then point that device's
 from dimos.agents.mcp.mcp_client import McpClient
 from dimos.agents.mcp.mcp_server import McpServer
 from dimos.agents.ollama_agent import ollama_installed
-from dimos.agents.skills.person_follow import PersonFollowSkillContainer
 from dimos.core.coordination.blueprints import autoconnect
 from dimos.robot.unitree.go2.blueprints.smart.unitree_go2_spatial import (
     unitree_go2_spatial,
@@ -62,6 +61,7 @@ from dimos.robot.unitree.go2.blueprints.smart.unitree_go2_spatial import (
 from dimos.robot.unitree.go2.connection import GO2Connection
 
 from hackmitdog.aegis.danger_zone import DangerZoneSkills
+from hackmitdog.aegis.follow_control import ConfigurableFollowSkillContainer
 from hackmitdog.aegis.guided_walk import GuidedWalkSkills
 from hackmitdog.aegis.home import HomeSkills
 from hackmitdog.aegis.locations import LocationSkills
@@ -73,24 +73,29 @@ from hackmitdog.aegis.person import PersonSkills
 # spatial-memory stack (unitree_go2_spatial already carries GO2Connection,
 # VoxelGridMapper, CostMapper, ReplanningAStarPlanner, PatrollingModule,
 # MovementManager, SpatialMemory, PerceiveLoopSkill -- see
-# DIMOS_SKILL_IMPLEMENTATION_PLAN.md §5). This blueprint adds no new DimOS
-# modules except PersonFollowSkillContainer, which PersonSkills.follow_person/
-# stop_person_follow require -- PersonSkills only injects an RPC proxy to it
-# (`_person_follow: PersonFollowSkillContainer`), it does not deploy the
-# module itself. Without this line that proxy resolves to None at runtime,
-# which is exactly the bug this comment is here to prevent regressing: calling
-# follow_person/stop_person_follow failed with
-# "'NoneType' object has no attribute 'follow_person'"/"'stop_following'"
-# because PersonFollowSkillContainer was never in this autoconnect(...) call.
+# DIMOS_SKILL_IMPLEMENTATION_PLAN.md §5). This blueprint deploys
+# ConfigurableFollowSkillContainer (hackmitdog.aegis.follow_control), a thin
+# PersonFollowSkillContainer subclass with a real, configurable standoff
+# distance -- see that module's docstring. PersonSkills.follow_person/
+# stop_person_follow only inject an RPC proxy typed as the DimOS base class
+# (`_person_follow: PersonFollowSkillContainer`); DimOS's own module-ref
+# resolution (`_resolve_single_ref.satisfies`, module_coordinator.py) matches
+# by `issubclass`, so a subclass instance correctly satisfies that ref with no
+# changes needed in person.py. Without *some* PersonFollowSkillContainer (or
+# subclass) in this autoconnect(...) call, that proxy resolves to None at
+# runtime -- confirmed the hard way once already ("'NoneType' object has no
+# attribute 'follow_person'"/"'stop_following'"), so don't remove this line.
 # camera_info=GO2Connection.camera_info_static matches the exact invocation
-# DimOS's own _common_agentic.py uses.
+# DimOS's own _common_agentic.py uses for the stock container.
 aegis_go2_skills = autoconnect(
     unitree_go2_spatial,
     LocationSkills.blueprint(),
     NavigationSkills.blueprint(),
     GuidedWalkSkills.blueprint(),
     PersonSkills.blueprint(),
-    PersonFollowSkillContainer.blueprint(camera_info=GO2Connection.camera_info_static),
+    ConfigurableFollowSkillContainer.blueprint(
+        camera_info=GO2Connection.camera_info_static,
+    ),
     ObjectMemorySkills.blueprint(),
     HomeSkills.blueprint(),
     DangerZoneSkills.blueprint(),

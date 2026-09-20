@@ -9,32 +9,32 @@ Reuses DimOS's person-perception and person-follow stack (see
   captured frame rather than wired as a standing streaming module (see the
   code comment on ``detect_person`` for why an instant, single-frame call is
   the right shape here).
-- ``PersonFollowSkillContainer`` (``dimos.agents.skills.person_follow``) for
-  ``follow_person``/``stop_person_follow`` — DimOS already owns the entire
-  background follow lifecycle (visual detection, EdgeTAM tracking, visual
-  servoing, capability holding, lost-track handling); this module composes
-  it rather than reimplementing any of it.
+- ``ConfigurableFollowSkillContainer`` (``hackmitdog.aegis.follow_control``, a
+  thin ``PersonFollowSkillContainer`` subclass) for ``follow_person``/
+  ``stop_person_follow`` — DimOS already owns the entire background follow
+  lifecycle (visual detection, EdgeTAM tracking, visual servoing, capability
+  holding, lost-track handling) *and* already computes a real metric
+  distance to the tracked person (pinhole-camera bbox-width estimation in
+  ``VisualServoing2D``, or real pointcloud-based 3D distance in
+  ``DetectionNavigation``) and drives toward a distance setpoint; DimOS just
+  hardcodes that setpoint. ``ConfigurableFollowSkillContainer`` exposes it as
+  a real, live-settable value (see that module's docstring) instead of
+  reimplementing any tracking/servoing logic.
 - ``ExtendedSpatialMemorySpec`` + ``NavigationInterfaceSpec`` (the same two
   specs ``hackmitdog.aegis.locations`` uses) for the navigation leg of
   ``escort_person``.
 
 No DimOS code is modified.
 
-**Two gaps this file deliberately does NOT paper over** (see plan §3, §6
-rows 7/8, §8):
+**One gap this file deliberately does NOT paper over** (see plan §3, §6 rows
+7/8, §8; the `follow_distance_m` gap noted here in earlier revisions of this
+file is resolved -- see ``follow_person``'s own docstring):
 
-1. ``PersonFollowSkillContainer.follow_person`` has no enforced minimum
-   standoff distance. It drives the robot to keep the person centered/sized
-   in the camera frame (2D visual servoing) or, with 3D navigation enabled,
-   toward a fixed offset from a 3D detection -- neither path takes this
-   module's ``follow_distance_m`` as a live setpoint. ``follow_person`` below
-   accepts the parameter for interface compatibility but documents, in its
-   own docstring, that it is not enforced.
-2. DimOS has no "is the person still following/nearby" primitive independent
-   of a transient per-call detection. ``escort_person`` therefore only
-   confirms a person is present *before* departing, then navigates and
-   reports arrival -- it does not and cannot verify the person stayed with
-   the robot during the walk.
+DimOS has no "is the person still following/nearby" primitive independent of
+a transient per-call detection. ``escort_person`` therefore only confirms a
+person is present *before* departing, then navigates and reports arrival --
+it does not and cannot verify the person stayed with the robot during the
+walk.
 """
 
 from __future__ import annotations
@@ -45,7 +45,6 @@ import time
 from dimos.agents.annotation import skill
 from dimos.agents.capabilities import CAP_MOVEMENT
 from dimos.agents.skill_result import SkillResult
-from dimos.agents.skills.person_follow import PersonFollowSkillContainer
 from dimos.core.module import Module
 from dimos.core.stream import In
 from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
@@ -57,6 +56,7 @@ from dimos.navigation.navigation_spec import NavigationInterfaceSpec
 from dimos.perception.detection.detectors.person.yolo import YoloPersonDetector
 from dimos.utils.logging_config import setup_logger
 
+from hackmitdog.aegis.follow_control import ConfigurableFollowSkillContainer
 from hackmitdog.aegis.skill_errors import AegisError
 from hackmitdog.aegis.spec_ext import ExtendedSpatialMemorySpec
 
@@ -77,9 +77,13 @@ class PersonSkills(Module):
     # which calls `is_module_type(annotation)` alongside `is_spec(annotation)`
     # and registers both as a `ModuleRef`) -- at blueprint-build time this
     # attribute is replaced with an RPC proxy to the running
-    # `PersonFollowSkillContainer` instance, so calls below are ordinary
-    # cross-module RPCs, not local method calls.
-    _person_follow: PersonFollowSkillContainer
+    # `ConfigurableFollowSkillContainer` instance, so calls below are ordinary
+    # cross-module RPCs, not local method calls. Typed as
+    # `ConfigurableFollowSkillContainer` (not the DimOS base class) so
+    # `self._person_follow.set_follow_distance(...)` below type-checks; DimOS's
+    # own module-ref resolution also matches by `issubclass`, so this would
+    # resolve correctly even if it were typed as the base class.
+    _person_follow: ConfigurableFollowSkillContainer
     _spatial_memory: ExtendedSpatialMemorySpec
     _navigation: NavigationInterfaceSpec
 
@@ -172,42 +176,48 @@ class PersonSkills(Module):
         follow_distance_m: float = 1.5,
         timeout_s: float = 120.0,
     ) -> SkillResult[AegisError]:
-        """Start following a person matching a description.
+        """Start following a person matching a description, at a real standoff distance.
 
-        Thin wrapper over DimOS's `PersonFollowSkillContainer.follow_person`.
-        That skill is itself `lifecycle="background"`: it detects the person
-        once from the current camera frame, launches a background thread that
-        tracks and drives toward them at 20 Hz, and returns immediately once
-        tracking starts -- it does not block until following ends. This
-        wrapper is deliberately just as thin: it calls straight through and
-        relays the immediate return message, rather than adding a second
-        blocking wait/timeout loop of its own that would fight with the
-        underlying skill's own start_tool/stop_tool-managed lifecycle (that
-        would mean two independent things both deciding when "done" is).
-        Call `stop_person_follow` to end an in-progress follow.
+        Thin wrapper over `ConfigurableFollowSkillContainer.follow_person`
+        (`hackmitdog.aegis.follow_control`, a `PersonFollowSkillContainer`
+        subclass). That skill is itself `lifecycle="background"`: it detects
+        the person once from the current camera frame, launches a background
+        thread that tracks and drives toward them at 20 Hz, and returns
+        immediately once tracking starts -- it does not block until
+        following ends. This wrapper is deliberately just as thin for the
+        tracking/servoing itself: it calls straight through and relays the
+        immediate return message, rather than adding a second blocking
+        wait/timeout loop of its own that would fight with the underlying
+        skill's own start_tool/stop_tool-managed lifecycle (that would mean
+        two independent things both deciding when "done" is). Call
+        `stop_person_follow` to end an in-progress follow.
 
-        KNOWN LIMITATION -- `follow_distance_m` is accepted but NOT enforced.
-        The underlying `follow_person` drives the robot using 2D visual
-        servoing (keeping the person centered and a consistent size in the
-        camera frame), not a metric distance controller. There is no minimum
-        standoff distance guaranteed at any point during following. Do not
-        rely on this skill to keep the robot a specific distance from the
-        person; it only tries to keep them in view. `timeout_s` is accepted
-        for interface compatibility but is also not enforced here, since the
-        underlying skill has no notion of an overall follow-duration timeout
-        either (it runs until lost-track, an explicit stop, or a takeover).
+        `follow_distance_m` IS enforced: before starting the follow, this
+        calls `set_follow_distance` on the underlying container, which
+        updates the real distance setpoint used by both its 2D visual
+        servoing (pinhole-camera bbox-width distance estimate) and, if 3D
+        navigation is enabled, its pointcloud-based 3D distance -- the
+        control loop actually drives toward this distance, not just a
+        "keep the person in frame" heuristic. A backup-off floor of half the
+        requested distance is set automatically underneath it.
+
+        `timeout_s` is still accepted for interface compatibility but is NOT
+        enforced -- the underlying skill has no notion of an overall
+        follow-duration timeout; it runs until lost-track, an explicit stop,
+        or a takeover.
 
         Args:
             query: Free-text description of the person to follow, e.g. "man
                 with blue shirt". Passed straight to the underlying VL-model
                 detection step.
-            follow_distance_m: Requested standoff distance in meters. NOT
-                currently enforced -- see limitation above.
+            follow_distance_m: Standoff distance to hold, in meters. Enforced
+                by the underlying visual-servoing/3D-navigation control loop.
             timeout_s: Accepted for interface compatibility. NOT enforced --
-                see limitation above.
+                see note above.
 
         Example:
             follow_person("person in the red jacket")
+            follow_person("person in the red jacket", follow_distance_m=2.0)
         """
         query = query.strip()
         if not query:
@@ -216,6 +226,20 @@ class PersonSkills(Module):
             return SkillResult.fail("INVALID_INPUT", "follow_distance_m must be positive.")
         if timeout_s <= 0:
             return SkillResult.fail("INVALID_INPUT", "timeout_s must be positive.")
+
+        try:
+            applied = self._person_follow.set_follow_distance(follow_distance_m)
+        except Exception as exc:
+            logger.exception(
+                "follow_person: could not set follow distance", follow_distance_m=follow_distance_m
+            )
+            return SkillResult.fail(
+                "EXECUTION_FAILED", f"Could not set follow distance: {exc}"
+            )
+        if not applied:
+            return SkillResult.fail(
+                "INVALID_INPUT", f"Rejected follow_distance_m={follow_distance_m}."
+            )
 
         try:
             message = self._person_follow.follow_person(query=query)
@@ -232,8 +256,8 @@ class PersonSkills(Module):
         return SkillResult.ok(
             str(message),
             query=query,
-            follow_distance_m_requested=follow_distance_m,
-            follow_distance_enforced=False,
+            follow_distance_m=follow_distance_m,
+            follow_distance_enforced=True,
         )
 
     @skill
