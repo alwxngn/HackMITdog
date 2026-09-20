@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from bus import bus
 from camera import router as camera_router
@@ -125,6 +127,28 @@ from voice_bridge import install_voice
 install_voice(app)
 
 app.include_router(camera_router)
+
+
+_DEFAULT_MAP_ARTIFACT_DIR = Path(__file__).resolve().parents[2] / "artifacts" / "maps"
+
+
+@app.get("/api/maps/{filename}")
+async def api_map_file(filename: str):
+    """Serve robot-generated map artifacts through the app's own origin.
+
+    Keeping the PLY behind `/api` means the Vite frontend and the artifact use
+    the same origin in development, avoiding a separate static server/CORS
+    requirement. Only a basename and the two known artifact formats are
+    accepted.
+    """
+    if Path(filename).name != filename or Path(filename).suffix not in {".ply", ".json"}:
+        return JSONResponse({"ok": False, "error": "invalid map artifact"}, status_code=400)
+    artifact_dir = Path(os.getenv("LANTERN_MAP_ARTIFACT_DIR", str(_DEFAULT_MAP_ARTIFACT_DIR))).expanduser().resolve()
+    path = (artifact_dir / filename).resolve()
+    if path.parent != artifact_dir or not path.is_file():
+        return JSONResponse({"ok": False, "error": "map artifact not found"}, status_code=404)
+    media_type = "application/json" if path.suffix == ".json" else "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
 
 
 @app.get("/")

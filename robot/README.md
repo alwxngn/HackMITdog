@@ -51,3 +51,20 @@ Subscribe to DimOS `color_image` and serve MJPEG/WebRTC on a dedicated port; set
 Still `POST /api/ingest` with `map_ready` / `person_track` — see
 [`docs/16-e3-portal.md`](../docs/16-e3-portal.md) and
 [`cloud/fixtures/sample_map_ready.json`](../cloud/fixtures/sample_map_ready.json).
+
+## Room mapping skill
+
+The Aegis Go2 blueprint now exposes `map_room` through DimOS MCP. It uses the
+existing `WavefrontFrontierExplorer` and `world/global_map` voxel stream, then
+writes `<map_id>.ply` (browser-loadable 3-D point cloud) and `<map_id>.json`
+under `artifacts/maps` by default:
+
+```bash
+dimos mcp call map_room --json-args '{"room_id":"living_room","duration_s":180,"cloud_ingest_url":"http://127.0.0.1:8000/api/ingest","artifact_url":"https://maps.example/living_room.ply"}'
+```
+
+The result includes absolute artifact paths and the existing `map_ready`
+payload. Serve the PLY from the returned path and load it with a web viewer
+such as Three.js `PLYLoader`; the optional `artifact_url` is carried as
+additive metadata in that existing payload. Stop/cancel the skill through the
+normal DimOS `end_exploration` tool if needed.
