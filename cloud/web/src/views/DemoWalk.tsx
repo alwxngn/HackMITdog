@@ -68,9 +68,7 @@ export function DemoWalk() {
 
   return (
     <section className="card-cream">
-      <p className="eyebrow mb-2">Demo</p>
-      <h2>Walk-through</h2>
-      <p className="mt-3 flex items-center gap-2 text-[13px] text-[var(--color-ink-2)]">
+      <p className="flex items-center gap-2 text-[13px] text-[var(--color-ink-2)]">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: speakerLine.dot }} />
         <span className="min-w-0 flex-1">{speakerLine.text}</span>
         <button type="button" className="shrink-0 underline" onClick={testSpeaker}>
@@ -103,10 +101,6 @@ export function DemoWalk() {
         </>
       ) : (
         <>
-          <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">
-            Simulates the person walking from the safe zone into the warning zone, then the danger zone, and out of
-            the house.
-          </p>
           <button type="button" className="btn-primary mt-4" disabled={busy} onClick={() => call('/api/demo/walk')}>
             Run demo walk
           </button>
