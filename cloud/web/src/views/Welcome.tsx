@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { KineticTextReveal } from '../components/KineticTextReveal'
-import { CheckinButton } from './CheckinButton'
 
 export function Welcome() {
   const [stage, setStage] = useState<'mark' | 'invite'>('mark')
 
   return (
     <div className="flex min-h-full items-center justify-center px-6 py-16">
-      <CheckinButton />
       <div className="w-full max-w-[720px] rounded-[14px] bg-[var(--color-keylime-wash)] px-8 py-16 text-center md:px-16 md:py-24">
         {stage === 'mark' && (
           <h1 className="text-[56px] leading-[1.05] tracking-[-0.03em] md:text-[74px]">
