@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { MapReadyPayload } from '../../lib/demoFloorplan'
 import { DEMO_HOME_PIN } from '../../lib/demoHome'
@@ -25,10 +25,11 @@ export function Onboarding() {
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState('')
   const [scanMode, setScanMode] = useState<'demo' | 'live' | null>(null)
-  const [scanPhase, setScanPhase] = useState<'idle' | 'running' | 'stopping' | 'complete' | 'error'>('idle')
+  const [scanPhase, setScanPhase] = useState<'idle' | 'running' | 'stopping' | 'stopped' | 'complete' | 'error'>('idle')
   const [scanElapsed, setScanElapsed] = useState(0)
   const [scanExpectedSeconds, setScanExpectedSeconds] = useState(180)
   const [scanRequestId, setScanRequestId] = useState<string | null>(null)
+  const scanLoopStopped = useRef(false)
   const [map, setMap] = useState<MapReadyPayload | null>(
     (projection.map_ready as MapReadyPayload | null) || null,
   )
@@ -157,6 +158,7 @@ export function Onboarding() {
     setScanPhase('running')
     setScanElapsed(0)
     setScanRequestId(null)
+    scanLoopStopped.current = false
     const started = Date.now()
     const tick = window.setInterval(
       () => setScanElapsed(Math.floor((Date.now() - started) / 1000)),
@@ -189,6 +191,7 @@ export function Onboarding() {
       // DimOS explores instead of timing out after the demo-length window.
       const deadline = Date.now() + 360_000
       while (Date.now() < deadline) {
+        if (scanLoopStopped.current) return
         const st = await fetch('/api/map-scan/status').then((x) => x.json())
         if (st.map_ready?.request_id === data.request_id) {
           setMap(st.map_ready as MapReadyPayload)
@@ -224,6 +227,9 @@ export function Onboarding() {
       })
       const data = await r.json().catch(() => null)
       if (!r.ok) throw new Error(data?.error || `Could not stop mapping (HTTP ${r.status}).`)
+      scanLoopStopped.current = true
+      setScanning(false)
+      setScanPhase('stopped')
     } catch (e) {
       setScanError(String(e))
       setScanPhase('running')
@@ -492,6 +498,14 @@ export function Onboarding() {
                   </p>
                 </div>
               )}
+              {scanPhase === 'stopped' && (
+                <div className="rounded-[16px] bg-[var(--color-panel-2)] p-4" role="status">
+                  <p className="text-[15px] font-semibold text-[var(--color-ink)]">Mapping stopped</p>
+                  <p className="mt-1 text-[13px] text-[var(--color-ink-2)]">
+                    The stop command was sent. Lantern will show the partial map here when it finishes saving.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {scanPhase !== 'complete' && (
                   <button type="button" className="btn-primary" onClick={() => startScan(false)}>
@@ -503,7 +517,7 @@ export function Onboarding() {
                     Use demo map
                   </button>
                 )}
-                {map && (
+                {map && scanPhase !== 'stopped' && (
                   <button type="button" className="btn-primary" onClick={() => setStep(3)}>
                     Review map & paint zones
                   </button>
