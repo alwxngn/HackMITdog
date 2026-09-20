@@ -29,12 +29,16 @@ person following.
 from __future__ import annotations
 
 import functools
+from threading import RLock
 from typing import Any
 
 from dimos.agents.skills.person_follow import Config as _PersonFollowConfig
 from dimos.agents.skills.person_follow import PersonFollowSkillContainer
 from dimos.core.core import rpc
+from dimos.msgs.geometry_msgs.Twist import Twist
+from dimos.msgs.geometry_msgs.Vector3 import make_vector3
 from dimos.navigation.visual_servoing.detection_navigation import DetectionNavigation
+from dimos.navigation.visual_servoing.visual_servoing_2d import VisualServoing2D
 from dimos.utils.logging_config import setup_logger
 
 
@@ -86,6 +90,121 @@ _DEFAULT_TARGET_DISTANCE_M = 1.5
 _DEFAULT_MIN_DISTANCE_M = 0.8
 
 
+class SmoothedVisualServoing2D(VisualServoing2D):
+    """`VisualServoing2D` with a filtered distance estimate and a hold deadband.
+
+    DimOS's own controller is a clean proportional law, but on real hardware
+    it produced visibly slow, jittery following. Both symptoms trace to how
+    it senses distance, and both are fixed here without touching its control
+    math -- `compute_twist` still runs the parent's exact algorithm, just on
+    a steadier distance signal and with a "close enough, hold still" band.
+
+    JITTER. The parent estimates distance purely from bounding-box width
+    (`_estimate_distance`: `distance = _assumed_object_width * fx /
+    bbox_width`, with `_assumed_object_width = 0.45 m`). That is inversely
+    proportional to a pixel measurement, so ordinary frame-to-frame tracker
+    wobble becomes a large distance swing. Measured against real bboxes from
+    this robot's logs (fx=797.5, bbox_width~200px, i.e. ~1.7-1.9 m away), a
+    10-pixel wobble moves the estimate by 8-9 cm. Fed unfiltered into a
+    proportional controller at 20 Hz, that is a jitter generator -- and it
+    gets worse up close, where the box is wider. `_distance_smoothing`
+    applies an exponential moving average so a single noisy frame nudges the
+    command instead of yanking it.
+
+    SLOWNESS. The parent's forward speed is `distance_error * _linear_gain`
+    with no lower bound, so speed decays to zero as it approaches the
+    setpoint -- it is slowest exactly where it is asked to settle. With a
+    1 m target that dead zone is most of the operating range. Below
+    `_hold_deadband_m` of error this class commands zero linear motion
+    (deliberately stop, rather than creep), and outside it enforces
+    `_min_move_speed` so real corrections happen at a visible pace instead
+    of a crawl.
+
+    Angular control is left entirely alone -- turning to keep the person
+    centered uses bbox *center*, not width, so it never had the noise
+    problem and was not reported as jittery.
+    """
+
+    # Weight of each new distance reading in the exponential moving average
+    # (0 < a <= 1). Lower = smoother but laggier. 0.3 removes most of the
+    # single-frame noise while still tracking a walking person promptly.
+    _distance_smoothing: float = 0.3
+
+    # Distance error (m) within which the robot holds position instead of
+    # creeping. Sized above the ~8-9 cm single-frame noise measured above,
+    # so sensor wobble alone can never command motion.
+    _hold_deadband_m: float = 0.15
+
+    # Minimum commanded linear speed (m/s) once outside the deadband, so a
+    # real correction moves at a visible pace rather than a crawl.
+    _min_move_speed: float = 0.12
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._smoothed_distance: float | None = None
+
+    def reset_distance_filter(self) -> None:
+        """Forget the smoothed distance, so the next reading is taken as-is.
+
+        Called when a new follow starts: the previous target's distance must
+        not bleed into the new one.
+        """
+        self._smoothed_distance = None
+
+    def _estimate_distance(self, bbox: tuple[float, float, float, float]) -> float | None:
+        raw = super()._estimate_distance(bbox)
+        if raw is None:
+            # Keep the last smoothed value rather than resetting, so a single
+            # dropped/invalid box doesn't restart the filter from scratch.
+            return None
+
+        if self._smoothed_distance is None:
+            self._smoothed_distance = raw
+        else:
+            a = self._distance_smoothing
+            self._smoothed_distance = a * raw + (1.0 - a) * self._smoothed_distance
+
+        return self._smoothed_distance
+
+    def compute_twist(
+        self, bbox: tuple[float, float, float, float], image_width: int
+    ) -> Twist:
+        twist = super().compute_twist(bbox, image_width)
+
+        # The parent already applied its full control law (including the
+        # backup-off branch when closer than _min_distance) using the
+        # smoothed distance from _estimate_distance above. Only shape the
+        # forward/backward term here; leave angular_z untouched.
+        distance = self._smoothed_distance
+        if distance is None:
+            return twist
+
+        linear_x = twist.linear.x
+
+        # Never suppress a backup command -- being too close is a safety
+        # case, and the parent drives it at a fixed speed, not proportionally.
+        if distance < self._min_distance:
+            return twist
+
+        error = distance - self._target_distance
+        if abs(error) <= self._hold_deadband_m:
+            # Close enough: hold position instead of hunting around the
+            # setpoint, which is what made it stutter in place.
+            linear_x = 0.0
+        elif 0.0 < abs(linear_x) < self._min_move_speed:
+            # Outside the deadband but the proportional term is tiny --
+            # move at a visible minimum pace, preserving direction.
+            linear_x = self._min_move_speed if linear_x > 0 else -self._min_move_speed
+
+        if linear_x == twist.linear.x:
+            return twist
+
+        return Twist(
+            linear=make_vector3(linear_x, twist.linear.y, twist.linear.z),
+            angular=twist.angular,
+        )
+
+
 class ConfigurableFollowConfig(_PersonFollowConfig):
     """`PersonFollowSkillContainer.Config` plus a configurable standoff distance."""
 
@@ -122,11 +241,94 @@ class ConfigurableFollowSkillContainer(PersonFollowSkillContainer):
     # stop being independently registered as MCP tools, so the agent only
     # ever sees one `follow_person` (the Aegis wrapper in `person.py`, which
     # never requires ALIBABA_API_KEY).
-    follow_person = _rpc_only(PersonFollowSkillContainer.follow_person)
     stop_following = _rpc_only(PersonFollowSkillContainer.stop_following)
+
+    @rpc
+    def follow_person(  # type: ignore[override]
+        self,
+        query: str,
+        initial_bbox: list[float] | None = None,
+        initial_image: str | None = None,
+    ) -> str:
+        """Start following, marking follow state and resetting the distance filter.
+
+        Plain `@rpc`, never `@skill` -- see `_rpc_only`'s docstring for why
+        this must not be independently MCP-exposed. (Declared directly
+        rather than via `_rpc_only` because it needs real behavior of its
+        own before delegating.)
+        """
+        # A previous target's smoothed distance must not carry into a new
+        # follow, or the first few commands chase a stale estimate.
+        self._visual_servo.reset_distance_filter()
+
+        with self._follow_state_lock:
+            self._following = True
+            self._last_stop_reason = None
+
+        try:
+            return str(
+                super().follow_person(
+                    query=query,
+                    initial_bbox=initial_bbox,
+                    initial_image=initial_image,
+                )
+            )
+        except Exception:
+            # Never leave _following stuck True if starting threw.
+            with self._follow_state_lock:
+                self._following = False
+            raise
+
+    def _send_stop_reason(self, query: str, reason: str) -> None:
+        """Record that the follow ended, so another module can observe it.
+
+        `_send_stop_reason` is the single funnel every way a follow can end
+        goes through -- an explicit `stop_following`, losing track of the
+        person (`_max_lost_frames` exceeded), or a 3D-navigation failure.
+        DimOS's version closes only THIS module's tool stream, releasing
+        only this module's capability token.
+
+        `hackmitdog.aegis.person.PersonSkills.follow_person` holds the
+        `movement` capability under its OWN token (see its docstring), so it
+        must learn when a follow ends for any reason -- otherwise a follow
+        that ends by itself (the person walks away) strands `movement` held
+        forever, exactly as an explicit stop used to.
+
+        This is recorded as plain state rather than delivered via a
+        callback: `PersonSkills` runs in a *different worker process* (its
+        access to this module is an RPC proxy), so a Python callable cannot
+        be handed across. `is_following()` below is what it polls.
+        """
+        with self._follow_state_lock:
+            self._following = False
+            self._last_stop_reason = reason
+        super()._send_stop_reason(query, reason)
+
+    @rpc
+    def is_following(self) -> bool:
+        """True while a follow is active; False once it has ended, for any reason.
+
+        Polled by `PersonSkills` so it can close its own tool stream (and
+        release `movement`) when a follow ends on its own rather than by an
+        explicit `stop_person_follow`.
+        """
+        with self._follow_state_lock:
+            return self._following
+
+    @rpc
+    def last_stop_reason(self) -> str | None:
+        """Why the most recent follow ended, or None if none has ended yet."""
+        with self._follow_state_lock:
+            return self._last_stop_reason
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
+        # Observable follow state, polled cross-process via is_following()
+        # -- see _send_stop_reason's docstring for why this isn't a callback.
+        self._follow_state_lock = RLock()
+        self._following = False
+        self._last_stop_reason: str | None = None
 
         target = self.config.target_distance_m
         floor = self.config.min_distance_m
@@ -139,11 +341,15 @@ class ConfigurableFollowSkillContainer(PersonFollowSkillContainer):
             )
             floor = target / 2.0
 
-        # self._visual_servo is built in the parent's __init__ (see
-        # PersonFollowSkillContainer.__init__); override its distance
-        # constants in place rather than reconstructing it, since it also
-        # carries the camera_info/simulation-mode logic the parent already
-        # resolved correctly.
+        # Replace the parent's plain VisualServoing2D with the smoothed
+        # variant (see SmoothedVisualServoing2D: filtered distance estimate,
+        # hold deadband, minimum move speed -- fixes the slow, jittery
+        # following seen on hardware). Rebuilt with the same constructor
+        # args the parent used, so the camera_info/simulation-mode logic it
+        # already resolved is preserved exactly.
+        self._visual_servo = SmoothedVisualServoing2D(
+            self._camera_info, bool(self.config.g.simulation)
+        )
         self._visual_servo._target_distance = target
         self._visual_servo._min_distance = floor
 

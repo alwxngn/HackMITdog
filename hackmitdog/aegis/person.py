@@ -80,6 +80,13 @@ _ESCORT_GOAL_SETTLE_S = 1.5
 _PERSON_ACQUIRE_TIMEOUT_S = 10.0
 _PERSON_ACQUIRE_POLL_INTERVAL_S = 1.0
 
+# How often the follow watchdog checks whether the underlying follow is
+# still running, and how long we wait for that thread to wind down. The
+# watchdog only exists to release the `movement` capability promptly once a
+# follow ends by itself, so a 1s granularity is plenty.
+_FOLLOW_WATCH_INTERVAL_S = 1.0
+_FOLLOW_WATCH_JOIN_TIMEOUT_S = 5.0
+
 
 class PersonSkills(Module):
     """Person detection, person-following, and escort-to-location skills."""
@@ -114,6 +121,71 @@ class PersonSkills(Module):
         self._person_detector = YoloPersonDetector()
         self._escort_stop_event = threading.Event()
         self._escort_thread = None
+        self._follow_watch_thread: threading.Thread | None = None
+        self._follow_watch_stop = threading.Event()
+
+    # ------------------------------------------------------------------
+    # follow_person capability-release watchdog
+    # ------------------------------------------------------------------
+
+    def _watch_follow(self) -> None:
+        """Close this module's `follow_person` stream once the follow ends.
+
+        `follow_person` holds the `movement` capability under this module's
+        own tool-stream token, and only closing that stream releases it (see
+        `follow_person`'s docstring). An explicit `stop_person_follow`
+        closes it directly -- but a follow can also end on its own, inside
+        the container's background loop, when it loses track of the person
+        or 3D navigation fails. Nothing would close the stream in that case,
+        stranding `movement` held forever.
+
+        The container records those endings as observable state; this polls
+        it, because the container runs in a different worker process and a
+        callback can't cross that boundary.
+        """
+        try:
+            while not self._follow_watch_stop.wait(_FOLLOW_WATCH_INTERVAL_S):
+                try:
+                    still_following = self._person_follow.is_following()
+                except Exception:
+                    logger.exception("follow watchdog: is_following() failed; releasing movement")
+                    break
+
+                if not still_following:
+                    try:
+                        reason = self._person_follow.last_stop_reason()
+                    except Exception:
+                        logger.exception("follow watchdog: last_stop_reason() failed")
+                        reason = None
+                    logger.info("follow ended on its own; releasing movement", reason=reason)
+                    if reason:
+                        self.tool_update("follow_person", f"follow ended: {reason}")
+                    break
+        finally:
+            self.stop_tool("follow_person")
+
+    def _start_follow_watch(self) -> None:
+        """(Re)start the watchdog thread for a newly started follow."""
+        self._stop_follow_watch()
+        self._follow_watch_stop = threading.Event()
+        self._follow_watch_thread = threading.Thread(
+            target=self._watch_follow, name="aegis-follow-watch", daemon=True
+        )
+        self._follow_watch_thread.start()
+
+    def _stop_follow_watch(self) -> None:
+        """Stop the watchdog thread if running. Does not itself close the stream.
+
+        The thread closes the tool stream in its own `finally`, so callers
+        that need the stream closed regardless (e.g. `stop_person_follow`,
+        or when no watchdog was ever started) call `stop_tool` themselves --
+        it is a no-op when the stream is already closed.
+        """
+        thread = self._follow_watch_thread
+        self._follow_watch_thread = None
+        if thread is not None and thread.is_alive():
+            self._follow_watch_stop.set()
+            thread.join(timeout=_FOLLOW_WATCH_JOIN_TIMEOUT_S)
 
     # ------------------------------------------------------------------
     # Skill 6: detect_person
@@ -269,13 +341,25 @@ class PersonSkills(Module):
         a starting bounding box it launches a background thread that tracks
         and drives toward that person at 20 Hz, and returns immediately once
         tracking starts -- it does not block until following ends. This
-        wrapper is deliberately just as thin for the tracking/servoing
-        itself: it calls straight through and relays the immediate return
-        message, rather than adding a second blocking wait/timeout loop of
-        its own that would fight with the underlying skill's own
-        start_tool/stop_tool-managed lifecycle (that would mean two
-        independent things both deciding when "done" is). Call
-        `stop_person_follow` to end an in-progress follow.
+        wrapper stays just as thin for the tracking/servoing itself: it
+        calls straight through and relays the immediate return message,
+        rather than adding a second blocking wait/timeout loop of its own.
+
+        It does, however, open its OWN tool stream (`start_tool`), and
+        `stop_person_follow` closes it. That is not optional bookkeeping --
+        it is what releases the `movement` capability. The MCP server holds
+        capabilities for a `lifecycle="background"` skill until a
+        `dimos/tool_stopped` frame arrives, and releases them by *token*
+        (`_fan_out_to_sse_queues` -> `cap_registry.release_by_token`), where
+        the token belongs to whichever module called `start_tool`.
+        `Module._tools` is per-instance, so the inner container's own
+        `start_tool("follow_person")`/`stop_tool("follow_person")` pair
+        carries the CONTAINER's token, not this skill's -- letting the inner
+        stream alone manage the lifecycle means this skill's hold on
+        `movement` is never released, and every later movement skill is
+        refused with "capability 'movement' is held by 'follow_person'"
+        forever, even though `stop_person_follow` reports success. Confirmed
+        the hard way on hardware. Keep the start_tool/stop_tool pair here.
 
         KNOWN LIMITATION -- `query` does NOT select which person to follow.
         DimOS's `follow_person` has two ways to get a starting bounding box:
@@ -358,6 +442,13 @@ class PersonSkills(Module):
                 "INVALID_INPUT", f"Rejected follow_distance_m={follow_distance_m}."
             )
 
+        # Open this skill's own tool stream BEFORE delegating. This is what
+        # owns the `movement` capability hold (see the docstring): it must be
+        # opened on the skill's main thread, and it must be closed on every
+        # path out of here that doesn't leave a follow running, or the
+        # capability leaks and blocks all later movement skills.
+        self.start_tool("follow_person")
+
         try:
             # query is passed through only as a label DimOS's own container
             # attaches to log lines / lost-track messages -- initial_bbox is
@@ -366,13 +457,22 @@ class PersonSkills(Module):
             message = self._person_follow.follow_person(query=query, initial_bbox=bbox)
         except Exception as exc:
             logger.exception("follow_person: underlying skill call failed", query=query)
+            self.stop_tool("follow_person")
             return SkillResult.fail("EXECUTION_FAILED", f"Could not start following: {exc}")
 
         message_lower = str(message).lower()
         if "could not find" in message_lower or "no image available" in message_lower:
+            self.stop_tool("follow_person")
             return SkillResult.fail("PERSON_NOT_FOUND", str(message))
         if "failed" in message_lower:
+            self.stop_tool("follow_person")
             return SkillResult.fail("EXECUTION_FAILED", str(message))
+
+        self.tool_update("follow_person", f"following {query}")
+
+        # Releases `movement` if the follow ends on its own (lost track,
+        # 3D-nav failure) rather than via stop_person_follow.
+        self._start_follow_watch()
 
         return SkillResult.ok(
             str(message),
@@ -386,9 +486,13 @@ class PersonSkills(Module):
 
     @skill
     def stop_person_follow(self) -> SkillResult[AegisError]:
-        """Stop an in-progress `follow_person` call.
+        """Stop an in-progress `follow_person` call and release `movement`.
 
-        Safe to call even if nothing is currently being followed.
+        Safe to call even if nothing is currently being followed -- it still
+        closes this module's `follow_person` tool stream, which is what
+        actually releases the `movement` capability (see `follow_person`'s
+        docstring for why the inner container's own stream cannot do that).
+        So it also works as a way to clear a stuck `movement` hold.
 
         Example:
             stop_person_follow()
@@ -397,7 +501,17 @@ class PersonSkills(Module):
             message = self._person_follow.stop_following()
         except Exception as exc:
             logger.exception("stop_person_follow failed")
+            # Release the capability even when the inner stop failed --
+            # otherwise a failure here would strand `movement` forever.
+            self._stop_follow_watch()
+            self.stop_tool("follow_person")
             return SkillResult.fail("EXECUTION_FAILED", f"Could not stop following: {exc}")
+
+        # Closes this skill's stream -> emits dimos/tool_stopped with THIS
+        # module's token -> cap_registry.release_by_token frees `movement`.
+        # No-op if the stream isn't open, so repeat calls are harmless.
+        self._stop_follow_watch()
+        self.stop_tool("follow_person")
         return SkillResult.ok(str(message))
 
     # ------------------------------------------------------------------
