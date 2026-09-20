@@ -1,6 +1,8 @@
 import os
+import io
+import wave
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, call, patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -31,7 +33,7 @@ class CheckinTests(unittest.TestCase):
     def checkin(self, text=''):
         return self.client.post(f'/api/sessions/{self.id}/checkins', json={'text': text}, headers=self.headers)
 
-    def test_full_checkin_delivery_patient_reply_and_identity_guard(self):
+    def test_full_checkin_delivery_and_patient_reply(self):
         with self.phone() as ws:
             self.ready(ws)
             result = self.checkin()
@@ -44,7 +46,7 @@ class CheckinTests(unittest.TestCase):
             self.assertEqual(ws.receive_json()['checkin']['status'], 'delivered')
             ws.send_json({'type':'transcript', 'text':'Are you Sarah?', 'turn_id':'turn1', 'checkin_id':result.json()['checkin_id']})
             response = ws.receive_json()
-            self.assertIn("I'm Lantern", response['payload']['text'])
+            self.assertIn("view your message", response['payload']['text'])
             state = ws.receive_json()
             self.assertEqual(state['checkin']['status'], 'responded')
             self.assertEqual([e['type'] for e in state['events']], ['checkin','say','speech_state','transcript','say'])
@@ -162,6 +164,69 @@ class CheckinTests(unittest.TestCase):
         self.assertEqual(self.client.get('/phone').status_code, 200)
         self.assertEqual(self.client.post('/api/sessions', json={'patient':'<script>'}).status_code, 422)
         self.assertEqual(self.client.post('/api/sessions', json={'patient':'   '}).status_code, 422)
+
+    def test_two_voices_form_one_complete_wav_and_retry_preserves_format(self):
+        env = {'ELEVENLABS_API_KEY': 'test', 'ELEVENLABS_VOICE_ID': 'agent', 'ELEVENLABS_VOICE_CONSENT': 'true'}
+        intro, body = b'\x01\x00' * 24000, b'\x02\x00' * 48000
+        with patch.dict(os.environ, env), \
+             patch.object(app.state, 'patient_voice_id', lambda: 'clone', create=True), \
+             patch('voice.providers.synthesize', new=AsyncMock(side_effect=[intro, body])) as synth:
+            with self.phone() as ws:
+                self.ready(ws)
+                self.checkin('See you soon.')
+                speech = ws.receive_json()['payload']; ws.receive_json()
+                path = f"/api/sessions/{self.id}/speech/{speech['utterance_id']}"
+                first = self.client.post(path, headers=self.phone_headers)
+                second = self.client.post(path, headers=self.phone_headers)
+                self.assertEqual(first.status_code, 200)
+                self.assertEqual(first.headers['content-type'], 'audio/wav')
+                self.assertEqual(second.headers['content-type'], 'audio/wav')
+                self.assertEqual(second.content, first.content)
+                with wave.open(io.BytesIO(first.content)) as audio:
+                    self.assertEqual(audio.getframerate(), 24000)
+                    self.assertEqual(audio.getnchannels(), 1)
+                    self.assertEqual(audio.getsampwidth(), 2)
+                    self.assertEqual(audio.getnframes(), 72000)
+                    self.assertEqual(audio.readframes(72000), intro + body)
+                self.assertEqual(synth.await_args_list, [
+                    call('Sarah sent you this message:', 'agent', output_format='pcm_24000'),
+                    call('See you soon.', 'clone', output_format='pcm_24000'),
+                ])
+
+    def test_failed_custom_voice_never_returns_intro_only_audio(self):
+        env = {'ELEVENLABS_API_KEY': 'test', 'ELEVENLABS_VOICE_ID': 'agent', 'ELEVENLABS_VOICE_CONSENT': 'true'}
+        with patch.dict(os.environ, env), \
+             patch.object(app.state, 'patient_voice_id', lambda: 'clone', create=True), \
+             patch('voice.providers.synthesize', new=AsyncMock(side_effect=[b'\x01\x00', HTTPException(502, 'Retry')])):
+            with self.phone() as ws:
+                self.ready(ws)
+                self.checkin('See you soon.')
+                speech = ws.receive_json()['payload']; ws.receive_json()
+                response = self.client.post(f"/api/sessions/{self.id}/speech/{speech['utterance_id']}", headers=self.phone_headers)
+                self.assertEqual(response.status_code, 502)
+                self.assertIsNone(sessions[self.id].speech_cache)
+
+    def test_lantern_response_uses_default_voice_with_clone_configured(self):
+        env = {'ELEVENLABS_API_KEY': 'test', 'ELEVENLABS_VOICE_ID': 'agent', 'ELEVENLABS_VOICE_CONSENT': 'true'}
+        with patch.dict(os.environ, env), \
+             patch.object(app.state, 'patient_voice_id', lambda: 'clone', create=True), \
+             patch('voice.providers.synthesize', new=AsyncMock(return_value=b'mp3')) as synth:
+            with self.phone() as ws:
+                self.ready(ws)
+                checkin = self.checkin().json()
+                greeting = ws.receive_json()['payload']; ws.receive_json()
+                response = self.client.post(f"/api/sessions/{self.id}/speech/{greeting['utterance_id']}", headers=self.phone_headers)
+                self.assertEqual(response.status_code, 200)
+                synth.assert_awaited_once_with(greeting['text'], 'agent')
+                ws.send_json({'type': 'playback', 'utterance_id': greeting['utterance_id'], 'state': 'delivered'})
+                ws.receive_json()
+                ws.send_json({'type': 'transcript', 'text': 'I feel fine', 'turn_id': 'reply1', 'checkin_id': checkin['checkin_id']})
+                reply = ws.receive_json()['payload']; ws.receive_json()
+                self.assertIn('view your message', reply['text'])
+                synth.reset_mock()
+                response = self.client.post(f"/api/sessions/{self.id}/speech/{reply['utterance_id']}", headers=self.phone_headers)
+                self.assertEqual(response.status_code, 200)
+                synth.assert_awaited_once_with(reply['text'], 'agent')
 
 
 if __name__ == '__main__':

@@ -1,10 +1,13 @@
 """Single-process mobile voice prototype; temporary session relay for E1/E3/E4."""
 import asyncio
+import io
 from collections import deque
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 import secrets
 import time
+import wave
 from typing import Callable, Awaitable
 
 from dotenv import load_dotenv
@@ -65,7 +68,7 @@ class Session:
     turns: deque = field(default_factory=lambda: deque(maxlen=100))
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     audio_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    speech_cache: tuple[str, bytes] | None = None
+    speech_cache: tuple[str, bytes, str] | None = None
     event_sink: Callable[[dict], Awaitable[None]] | None = None
     forwarded_seq: int = 0
     forward_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -160,9 +163,9 @@ async def create_session(profile: Profile, request: Request):
             "phone_token": session.phone_token}
 
 
-async def say(session, text, origin, attribution=None):
+async def say(session, text, origin, attribution=None, body=None):
     payload = {"utterance_id": secrets.token_urlsafe(12), "text": text, "voice_id": None,
-               "tone": "warm", "interruptible": True, "attribution": attribution, "origin": origin}
+               "tone": "warm", "interruptible": True, "attribution": attribution, "body": body, "origin": origin}
     session.utterance = {**payload, "state": "pending"}
     session.speech_cache = None
     session.record("say", payload, "orchestrator")
@@ -198,9 +201,12 @@ async def check_in(session_id: str, body: Checkin, request: Request):
                            "text": body.text.strip(), "needs_attention": False}
         session.record("checkin", {**session.checkin, "from_name": session.profile.caregiver}, "cloud")
         attribution = f"{session.profile.caregiver} sent you this message"
-        text = (f"{attribution}: {body.text.strip()}" if body.text.strip() else
-                f"Hi {session.profile.patient}. {session.profile.caregiver} asked me to check in. How are you feeling?")
-        await say(session, text, "checkin", attribution)
+        custom_text = body.text.strip()
+        if custom_text:
+            await say(session, f"{attribution}: {custom_text}", "checkin", attribution, body=custom_text)
+        else:
+            text = f"Hi {session.profile.patient}. {session.profile.caregiver} asked me to check in. How are you feeling?"
+            await say(session, text, "checkin", attribution)
         await session.publish()
         return session.checkin
 
@@ -330,10 +336,33 @@ async def speech(session_id: str, utterance_id: str, request: Request):
         if session.utterance is not current or current["state"] not in {"pending", "speaking", "failed"}:
             raise HTTPException(409, "This utterance is no longer active.")
         if session.speech_cache and session.speech_cache[0] == utterance_id:
-            audio = session.speech_cache[1]
+            _, audio, media_type = session.speech_cache
         else:
-            audio = await providers.synthesize(current["text"])
+            media_type = "audio/mpeg"
+            voice_id = getattr(request.app.state, "patient_voice_id", lambda: None)()
+            default_voice_id = os.getenv("ELEVENLABS_VOICE_ID")
+            if current["origin"] == "checkin" and voice_id and default_voice_id and current.get("body") and current.get("attribution"):
+                # Attribution spoken in the default voice, the message itself in the cloned voice.
+                intro_audio = await providers.synthesize(f"{current['attribution']}:", default_voice_id, output_format="pcm_24000")
+                if session.utterance is not current or current["state"] not in {"pending", "speaking", "failed"}:
+                    raise HTTPException(409, "This utterance was interrupted.")
+                body_audio = await providers.synthesize(current["body"], voice_id, output_format="pcm_24000")
+                # Join samples, not independent MP3 files: browsers can stop decoding
+                # concatenated MP3s at the first stream's declared end.
+                if any(not part or len(part) % 2 for part in (intro_audio, body_audio)):
+                    raise HTTPException(502, "The voice service returned incomplete audio. Please retry.")
+                output = io.BytesIO()
+                with wave.open(output, "wb") as wav:
+                    wav.setnchannels(1)
+                    wav.setsampwidth(2)
+                    wav.setframerate(24000)
+                    wav.writeframes(intro_audio + body_audio)
+                audio = output.getvalue()
+                media_type = "audio/wav"
+            else:
+                # Lantern's own words always use its configured default voice.
+                audio = await providers.synthesize(current["text"], default_voice_id)
             if session.utterance is not current or current["state"] not in {"pending", "speaking", "failed"}:
                 raise HTTPException(409, "This utterance was interrupted.")
-            session.speech_cache = (utterance_id, audio)
-    return Response(audio, media_type="audio/mpeg")
+            session.speech_cache = (utterance_id, audio, media_type)
+    return Response(audio, media_type=media_type)
