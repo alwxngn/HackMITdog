@@ -9,32 +9,32 @@ Reuses DimOS's person-perception and person-follow stack (see
   captured frame rather than wired as a standing streaming module (see the
   code comment on ``detect_person`` for why an instant, single-frame call is
   the right shape here).
-- ``PersonFollowSkillContainer`` (``dimos.agents.skills.person_follow``) for
-  ``follow_person``/``stop_person_follow`` — DimOS already owns the entire
-  background follow lifecycle (visual detection, EdgeTAM tracking, visual
-  servoing, capability holding, lost-track handling); this module composes
-  it rather than reimplementing any of it.
+- ``ConfigurableFollowSkillContainer`` (``hackmitdog.aegis.follow_control``, a
+  thin ``PersonFollowSkillContainer`` subclass) for ``follow_person``/
+  ``stop_person_follow`` — DimOS already owns the entire background follow
+  lifecycle (visual detection, EdgeTAM tracking, visual servoing, capability
+  holding, lost-track handling) *and* already computes a real metric
+  distance to the tracked person (pinhole-camera bbox-width estimation in
+  ``VisualServoing2D``, or real pointcloud-based 3D distance in
+  ``DetectionNavigation``) and drives toward a distance setpoint; DimOS just
+  hardcodes that setpoint. ``ConfigurableFollowSkillContainer`` exposes it as
+  a real, live-settable value (see that module's docstring) instead of
+  reimplementing any tracking/servoing logic.
 - ``ExtendedSpatialMemorySpec`` + ``NavigationInterfaceSpec`` (the same two
   specs ``hackmitdog.aegis.locations`` uses) for the navigation leg of
   ``escort_person``.
 
 No DimOS code is modified.
 
-**Two gaps this file deliberately does NOT paper over** (see plan §3, §6
-rows 7/8, §8):
+**One gap this file deliberately does NOT paper over** (see plan §3, §6 rows
+7/8, §8; the `follow_distance_m` gap noted here in earlier revisions of this
+file is resolved -- see ``follow_person``'s own docstring):
 
-1. ``PersonFollowSkillContainer.follow_person`` has no enforced minimum
-   standoff distance. It drives the robot to keep the person centered/sized
-   in the camera frame (2D visual servoing) or, with 3D navigation enabled,
-   toward a fixed offset from a 3D detection -- neither path takes this
-   module's ``follow_distance_m`` as a live setpoint. ``follow_person`` below
-   accepts the parameter for interface compatibility but documents, in its
-   own docstring, that it is not enforced.
-2. DimOS has no "is the person still following/nearby" primitive independent
-   of a transient per-call detection. ``escort_person`` therefore only
-   confirms a person is present *before* departing, then navigates and
-   reports arrival -- it does not and cannot verify the person stayed with
-   the robot during the walk.
+DimOS has no "is the person still following/nearby" primitive independent of
+a transient per-call detection. ``escort_person`` therefore only confirms a
+person is present *before* departing, then navigates and reports arrival --
+it does not and cannot verify the person stayed with the robot during the
+walk.
 """
 
 from __future__ import annotations
@@ -45,7 +45,6 @@ import time
 from dimos.agents.annotation import skill
 from dimos.agents.capabilities import CAP_MOVEMENT
 from dimos.agents.skill_result import SkillResult
-from dimos.agents.skills.person_follow import PersonFollowSkillContainer
 from dimos.core.module import Module
 from dimos.core.stream import In
 from dimos.msgs.geometry_msgs.PoseStamped import PoseStamped
@@ -55,8 +54,10 @@ from dimos.msgs.sensor_msgs.Image import Image
 from dimos.navigation.base import NavigationState
 from dimos.navigation.navigation_spec import NavigationInterfaceSpec
 from dimos.perception.detection.detectors.person.yolo import YoloPersonDetector
+from dimos.perception.detection.type.detection2d.bbox import Detection2DBBox
 from dimos.utils.logging_config import setup_logger
 
+from hackmitdog.aegis.follow_control import ConfigurableFollowSkillContainer
 from hackmitdog.aegis.skill_errors import AegisError
 from hackmitdog.aegis.spec_ext import ExtendedSpatialMemorySpec
 
@@ -66,6 +67,25 @@ _FRAME_TIMEOUT_S = 5.0
 _DEFAULT_ESCORT_TIMEOUT_S = 300.0
 _ESCORT_GOAL_POLL_INTERVAL_S = 0.1
 _ESCORT_GOAL_SETTLE_S = 1.5
+
+# How long detect_person/follow_person keep re-trying acquisition (grab a
+# fresh frame, run YOLO again) before giving up with PERSON_NOT_FOUND. A
+# single frame can miss a person who is plainly in view -- bad angle, motion
+# blur, a moment of occlusion, or just an unlucky miss from a CPU-run
+# detector -- so both skills poll for a few seconds rather than failing on
+# the very first frame. 10s keeps this well under the MCP client's 120s
+# request timeout even accounting for per-attempt frame-grab/detector
+# latency (~230ms observed live), while still giving a person a real chance
+# to step into frame or turn toward the camera.
+_PERSON_ACQUIRE_TIMEOUT_S = 10.0
+_PERSON_ACQUIRE_POLL_INTERVAL_S = 1.0
+
+# How often the follow watchdog checks whether the underlying follow is
+# still running, and how long we wait for that thread to wind down. The
+# watchdog only exists to release the `movement` capability promptly once a
+# follow ends by itself, so a 1s granularity is plenty.
+_FOLLOW_WATCH_INTERVAL_S = 1.0
+_FOLLOW_WATCH_JOIN_TIMEOUT_S = 5.0
 
 
 class PersonSkills(Module):
@@ -77,9 +97,13 @@ class PersonSkills(Module):
     # which calls `is_module_type(annotation)` alongside `is_spec(annotation)`
     # and registers both as a `ModuleRef`) -- at blueprint-build time this
     # attribute is replaced with an RPC proxy to the running
-    # `PersonFollowSkillContainer` instance, so calls below are ordinary
-    # cross-module RPCs, not local method calls.
-    _person_follow: PersonFollowSkillContainer
+    # `ConfigurableFollowSkillContainer` instance, so calls below are ordinary
+    # cross-module RPCs, not local method calls. Typed as
+    # `ConfigurableFollowSkillContainer` (not the DimOS base class) so
+    # `self._person_follow.set_follow_distance(...)` below type-checks; DimOS's
+    # own module-ref resolution also matches by `issubclass`, so this would
+    # resolve correctly even if it were typed as the base class.
+    _person_follow: ConfigurableFollowSkillContainer
     _spatial_memory: ExtendedSpatialMemorySpec
     _navigation: NavigationInterfaceSpec
 
@@ -97,6 +121,71 @@ class PersonSkills(Module):
         self._person_detector = YoloPersonDetector()
         self._escort_stop_event = threading.Event()
         self._escort_thread = None
+        self._follow_watch_thread: threading.Thread | None = None
+        self._follow_watch_stop = threading.Event()
+
+    # ------------------------------------------------------------------
+    # follow_person capability-release watchdog
+    # ------------------------------------------------------------------
+
+    def _watch_follow(self) -> None:
+        """Close this module's `follow_person` stream once the follow ends.
+
+        `follow_person` holds the `movement` capability under this module's
+        own tool-stream token, and only closing that stream releases it (see
+        `follow_person`'s docstring). An explicit `stop_person_follow`
+        closes it directly -- but a follow can also end on its own, inside
+        the container's background loop, when it loses track of the person
+        or 3D navigation fails. Nothing would close the stream in that case,
+        stranding `movement` held forever.
+
+        The container records those endings as observable state; this polls
+        it, because the container runs in a different worker process and a
+        callback can't cross that boundary.
+        """
+        try:
+            while not self._follow_watch_stop.wait(_FOLLOW_WATCH_INTERVAL_S):
+                try:
+                    still_following = self._person_follow.is_following()
+                except Exception:
+                    logger.exception("follow watchdog: is_following() failed; releasing movement")
+                    break
+
+                if not still_following:
+                    try:
+                        reason = self._person_follow.last_stop_reason()
+                    except Exception:
+                        logger.exception("follow watchdog: last_stop_reason() failed")
+                        reason = None
+                    logger.info("follow ended on its own; releasing movement", reason=reason)
+                    if reason:
+                        self.tool_update("follow_person", f"follow ended: {reason}")
+                    break
+        finally:
+            self.stop_tool("follow_person")
+
+    def _start_follow_watch(self) -> None:
+        """(Re)start the watchdog thread for a newly started follow."""
+        self._stop_follow_watch()
+        self._follow_watch_stop = threading.Event()
+        self._follow_watch_thread = threading.Thread(
+            target=self._watch_follow, name="aegis-follow-watch", daemon=True
+        )
+        self._follow_watch_thread.start()
+
+    def _stop_follow_watch(self) -> None:
+        """Stop the watchdog thread if running. Does not itself close the stream.
+
+        The thread closes the tool stream in its own `finally`, so callers
+        that need the stream closed regardless (e.g. `stop_person_follow`,
+        or when no watchdog was ever started) call `stop_tool` themselves --
+        it is a no-op when the stream is already closed.
+        """
+        thread = self._follow_watch_thread
+        self._follow_watch_thread = None
+        if thread is not None and thread.is_alive():
+            self._follow_watch_stop.set()
+            thread.join(timeout=_FOLLOW_WATCH_JOIN_TIMEOUT_S)
 
     # ------------------------------------------------------------------
     # Skill 6: detect_person
@@ -106,9 +195,14 @@ class PersonSkills(Module):
     def detect_person(self) -> SkillResult[AegisError]:
         """Detect whether a person is visible in the current camera view.
 
-        Grabs the current camera frame and runs a dedicated person detector
-        (YOLO11-pose) on that single frame. This is an instant, single-shot
-        check, not a continuous tracker -- call it again to re-check.
+        Runs a dedicated person detector (YOLO11-pose) against the live
+        camera feed, retrying for up to ~10s (a fresh frame roughly once a
+        second) before reporting `PERSON_NOT_FOUND` -- a single frame can
+        miss someone who is plainly in view (bad angle, motion blur, a
+        moment of occlusion, or just an unlucky miss from a CPU-run
+        detector), so this doesn't give up on the first try. Still not a
+        continuous tracker -- it returns as soon as it finds a match, or
+        after the retry window elapses; call it again to re-check later.
 
         Reports only what the detector actually provides: a real detection
         confidence, the person's bounding box in pixel coordinates, and a
@@ -127,28 +221,11 @@ class PersonSkills(Module):
         Example:
             detect_person()
         """
-        try:
-            image = self.color_image.get_next(timeout=_FRAME_TIMEOUT_S)
-        except Exception as exc:
-            logger.exception("detect_person: no camera frame")
-            return SkillResult.fail(
-                "EXECUTION_TIMEOUT",
-                f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
-            )
+        best, image, err = self._acquire_person()
+        if err is not None:
+            return err
+        assert best is not None and image is not None  # narrowed by _acquire_person's contract
 
-        try:
-            detections = self._person_detector.process_image(image)
-        except Exception as exc:
-            logger.exception("detect_person: detector failed")
-            return SkillResult.fail("EXECUTION_FAILED", f"Person detector failed: {exc}")
-
-        valid = [d for d in detections if d.is_valid()]
-        if not valid:
-            return SkillResult.fail(
-                "PERSON_NOT_FOUND", "No person detected in the current camera view."
-            )
-
-        best = max(valid, key=lambda d: d.confidence)
         cx, cy = best.center_bbox
         width, height = image.width, image.height
         rel_x = (cx / width) * 2.0 - 1.0 if width else 0.0
@@ -161,6 +238,90 @@ class PersonSkills(Module):
             relative_position={"x": round(rel_x, 3), "y": round(rel_y, 3)},
         )
 
+    def _detect_best_person(
+        self, image: Image
+    ) -> tuple[Detection2DBBox, None] | tuple[None, SkillResult[AegisError]]:
+        """Run the local YOLO detector on one frame and return the highest-confidence hit.
+
+        Shared by `detect_person` and `follow_person` -- this is deliberately
+        the same local, no-external-API detector both use, so `follow_person`
+        can supply a real bounding box (`initial_bbox`) to DimOS's
+        `PersonFollowSkillContainer` without ever going through its VL-model
+        text-query path (`get_object_bbox_from_image`, which calls Alibaba's
+        hosted Qwen-VL and requires `ALIBABA_API_KEY`). If there are multiple
+        people in frame, this always picks the single highest-confidence
+        detection -- there is no way to select "the person in the blue
+        shirt" specifically without that VL model, so `follow_person`'s
+        `query` argument is a label for messages/logs only, not something
+        that discriminates between multiple people.
+        """
+        try:
+            detections = self._person_detector.process_image(image)
+        except Exception as exc:
+            logger.exception("person detection failed")
+            return None, SkillResult.fail("EXECUTION_FAILED", f"Person detector failed: {exc}")
+
+        valid = [d for d in detections if d.is_valid()]
+        if not valid:
+            return None, SkillResult.fail(
+                "PERSON_NOT_FOUND", "No person detected in the current camera view."
+            )
+
+        return max(valid, key=lambda d: d.confidence), None
+
+    def _acquire_person(
+        self, timeout_s: float = _PERSON_ACQUIRE_TIMEOUT_S
+    ) -> tuple[Detection2DBBox, Image, None] | tuple[None, None, SkillResult[AegisError]]:
+        """Repeatedly grab a frame and run `_detect_best_person` until one hits or `timeout_s` elapses.
+
+        A single frame can miss a person who is plainly in view -- this
+        exists because a live run showed `follow_person` reporting
+        `PERSON_NOT_FOUND` on someone sitting right in front of the camera,
+        purely because the one frame it happened to grab was a bad sample.
+        Retries every `_PERSON_ACQUIRE_POLL_INTERVAL_S` (~1s) for up to
+        `timeout_s` (default 10s) before giving up -- deliberately bounded
+        well under the MCP client's 120s request timeout, since both
+        `detect_person` and `follow_person` block the calling MCP request
+        for the entire acquisition window. For open-ended "let me know
+        whenever a person shows up" waiting with no such bound, use
+        `look_out_for` instead (a separate, standing DimOS skill).
+
+        Returns the matched frame alongside the detection (not just the
+        detection) so callers don't need a second, potentially-inconsistent
+        camera pull just to get that frame's dimensions or pixels.
+        """
+        deadline = time.monotonic() + timeout_s
+        last_err: SkillResult[AegisError] | None = None
+        attempts = 0
+
+        while True:
+            attempts += 1
+            try:
+                image = self.color_image.get_next(timeout=_FRAME_TIMEOUT_S)
+            except Exception as exc:
+                logger.exception("_acquire_person: no camera frame", attempt=attempts)
+                last_err = SkillResult.fail(
+                    "EXECUTION_TIMEOUT",
+                    f"No camera frame received within {_FRAME_TIMEOUT_S}s: {exc}",
+                )
+            else:
+                best, err = self._detect_best_person(image)
+                if err is None:
+                    assert best is not None
+                    return best, image, None
+                last_err = err
+
+            if time.monotonic() >= deadline:
+                assert last_err is not None
+                logger.info(
+                    "_acquire_person: gave up after retrying",
+                    attempts=attempts,
+                    timeout_s=timeout_s,
+                )
+                return None, None, last_err
+
+            time.sleep(_PERSON_ACQUIRE_POLL_INTERVAL_S)
+
     # ------------------------------------------------------------------
     # Skill 7: follow_person / stop_person_follow
     # ------------------------------------------------------------------
@@ -172,42 +333,86 @@ class PersonSkills(Module):
         follow_distance_m: float = 1.5,
         timeout_s: float = 120.0,
     ) -> SkillResult[AegisError]:
-        """Start following a person matching a description.
+        """Start following a person, at a real standoff distance, using only local detection.
 
-        Thin wrapper over DimOS's `PersonFollowSkillContainer.follow_person`.
-        That skill is itself `lifecycle="background"`: it detects the person
-        once from the current camera frame, launches a background thread that
-        tracks and drives toward them at 20 Hz, and returns immediately once
+        Thin wrapper over `ConfigurableFollowSkillContainer.follow_person`
+        (`hackmitdog.aegis.follow_control`, a `PersonFollowSkillContainer`
+        subclass). That skill is itself `lifecycle="background"`: once given
+        a starting bounding box it launches a background thread that tracks
+        and drives toward that person at 20 Hz, and returns immediately once
         tracking starts -- it does not block until following ends. This
-        wrapper is deliberately just as thin: it calls straight through and
-        relays the immediate return message, rather than adding a second
-        blocking wait/timeout loop of its own that would fight with the
-        underlying skill's own start_tool/stop_tool-managed lifecycle (that
-        would mean two independent things both deciding when "done" is).
-        Call `stop_person_follow` to end an in-progress follow.
+        wrapper stays just as thin for the tracking/servoing itself: it
+        calls straight through and relays the immediate return message,
+        rather than adding a second blocking wait/timeout loop of its own.
 
-        KNOWN LIMITATION -- `follow_distance_m` is accepted but NOT enforced.
-        The underlying `follow_person` drives the robot using 2D visual
-        servoing (keeping the person centered and a consistent size in the
-        camera frame), not a metric distance controller. There is no minimum
-        standoff distance guaranteed at any point during following. Do not
-        rely on this skill to keep the robot a specific distance from the
-        person; it only tries to keep them in view. `timeout_s` is accepted
-        for interface compatibility but is also not enforced here, since the
-        underlying skill has no notion of an overall follow-duration timeout
-        either (it runs until lost-track, an explicit stop, or a takeover).
+        It does, however, open its OWN tool stream (`start_tool`), and
+        `stop_person_follow` closes it. That is not optional bookkeeping --
+        it is what releases the `movement` capability. The MCP server holds
+        capabilities for a `lifecycle="background"` skill until a
+        `dimos/tool_stopped` frame arrives, and releases them by *token*
+        (`_fan_out_to_sse_queues` -> `cap_registry.release_by_token`), where
+        the token belongs to whichever module called `start_tool`.
+        `Module._tools` is per-instance, so the inner container's own
+        `start_tool("follow_person")`/`stop_tool("follow_person")` pair
+        carries the CONTAINER's token, not this skill's -- letting the inner
+        stream alone manage the lifecycle means this skill's hold on
+        `movement` is never released, and every later movement skill is
+        refused with "capability 'movement' is held by 'follow_person'"
+        forever, even though `stop_person_follow` reports success. Confirmed
+        the hard way on hardware. Keep the start_tool/stop_tool pair here.
+
+        KNOWN LIMITATION -- `query` does NOT select which person to follow.
+        DimOS's `follow_person` has two ways to get a starting bounding box:
+        (1) a text-query VL-model lookup (`get_object_bbox_from_image`),
+        which calls Alibaba's hosted Qwen-VL and requires `ALIBABA_API_KEY`
+        to be set, or (2) a pre-computed `initial_bbox`, which skips that
+        entirely. This skill always uses path (2) -- it runs the same local,
+        no-external-API YOLO detector `detect_person` uses (see
+        `_detect_best_person`) and passes its single highest-confidence
+        detection as `initial_bbox`, so following never requires an Alibaba
+        key. The tradeoff: with multiple people in frame, this follows
+        whoever the detector is most confident about, not whoever matches
+        `query`'s description. `query` is kept as a parameter purely as a
+        human-readable label in this skill's own messages/logs; it is never
+        sent to any detector.
+
+        `follow_distance_m` IS enforced: before starting the follow, this
+        calls `set_follow_distance` on the underlying container, which
+        updates the real distance setpoint used by both its 2D visual
+        servoing (pinhole-camera bbox-width distance estimate) and, if 3D
+        navigation is enabled, its pointcloud-based 3D distance -- the
+        control loop actually drives toward this distance, not just a
+        "keep the person in frame" heuristic. A backup-off floor of half the
+        requested distance is set automatically underneath it.
+
+        `timeout_s` is still accepted for interface compatibility but is NOT
+        enforced -- the underlying skill has no notion of an overall
+        follow-duration timeout; it runs until lost-track, an explicit stop,
+        or a takeover.
+
+        ACQUISITION retries for up to ~10s (a fresh frame roughly once a
+        second, via `_acquire_person`) before giving up with
+        `PERSON_NOT_FOUND` -- a single frame can miss someone plainly in
+        view, so this doesn't fail on the first bad sample. This is purely
+        about *finding* the person to start following; once acquired,
+        ongoing tracking is DimOS's own EdgeTAM tracker + 20 Hz visual
+        servoing loop inside `ConfigurableFollowSkillContainer`, which is
+        unaffected by this and already keeps re-locating the person frame to
+        frame (up to `_max_lost_frames=15` missed frames before declaring
+        the follow lost).
 
         Args:
-            query: Free-text description of the person to follow, e.g. "man
-                with blue shirt". Passed straight to the underlying VL-model
-                detection step.
-            follow_distance_m: Requested standoff distance in meters. NOT
-                currently enforced -- see limitation above.
-            timeout_s: Accepted for interface compatibility. NOT enforced --
+            query: Free-text label for the person, e.g. "man with blue
+                shirt". NOT used to select among multiple detected people --
                 see limitation above.
+            follow_distance_m: Standoff distance to hold, in meters. Enforced
+                by the underlying visual-servoing/3D-navigation control loop.
+            timeout_s: Accepted for interface compatibility. NOT enforced --
+                see note above.
 
         Example:
             follow_person("person in the red jacket")
+            follow_person("person in the red jacket", follow_distance_m=2.0)
         """
         query = query.strip()
         if not query:
@@ -217,30 +422,77 @@ class PersonSkills(Module):
         if timeout_s <= 0:
             return SkillResult.fail("INVALID_INPUT", "timeout_s must be positive.")
 
+        best, _image, err = self._acquire_person()
+        if err is not None:
+            return err
+        assert best is not None  # narrowed by _acquire_person's contract
+        bbox = list(best.bbox)
+
         try:
-            message = self._person_follow.follow_person(query=query)
+            applied = self._person_follow.set_follow_distance(follow_distance_m)
+        except Exception as exc:
+            logger.exception(
+                "follow_person: could not set follow distance", follow_distance_m=follow_distance_m
+            )
+            return SkillResult.fail(
+                "EXECUTION_FAILED", f"Could not set follow distance: {exc}"
+            )
+        if not applied:
+            return SkillResult.fail(
+                "INVALID_INPUT", f"Rejected follow_distance_m={follow_distance_m}."
+            )
+
+        # Open this skill's own tool stream BEFORE delegating. This is what
+        # owns the `movement` capability hold (see the docstring): it must be
+        # opened on the skill's main thread, and it must be closed on every
+        # path out of here that doesn't leave a follow running, or the
+        # capability leaks and blocks all later movement skills.
+        self.start_tool("follow_person")
+
+        try:
+            # query is passed through only as a label DimOS's own container
+            # attaches to log lines / lost-track messages -- initial_bbox is
+            # what actually selects who gets followed, and its presence is
+            # exactly what skips the Alibaba-backed VL query path.
+            message = self._person_follow.follow_person(query=query, initial_bbox=bbox)
         except Exception as exc:
             logger.exception("follow_person: underlying skill call failed", query=query)
+            self.stop_tool("follow_person")
             return SkillResult.fail("EXECUTION_FAILED", f"Could not start following: {exc}")
 
         message_lower = str(message).lower()
         if "could not find" in message_lower or "no image available" in message_lower:
+            self.stop_tool("follow_person")
             return SkillResult.fail("PERSON_NOT_FOUND", str(message))
         if "failed" in message_lower:
+            self.stop_tool("follow_person")
             return SkillResult.fail("EXECUTION_FAILED", str(message))
+
+        self.tool_update("follow_person", f"following {query}")
+
+        # Releases `movement` if the follow ends on its own (lost track,
+        # 3D-nav failure) rather than via stop_person_follow.
+        self._start_follow_watch()
 
         return SkillResult.ok(
             str(message),
             query=query,
-            follow_distance_m_requested=follow_distance_m,
-            follow_distance_enforced=False,
+            bbox=bbox,
+            confidence=round(best.confidence, 3),
+            follow_distance_m=follow_distance_m,
+            follow_distance_enforced=True,
+            selected_by_query=False,
         )
 
     @skill
     def stop_person_follow(self) -> SkillResult[AegisError]:
-        """Stop an in-progress `follow_person` call.
+        """Stop an in-progress `follow_person` call and release `movement`.
 
-        Safe to call even if nothing is currently being followed.
+        Safe to call even if nothing is currently being followed -- it still
+        closes this module's `follow_person` tool stream, which is what
+        actually releases the `movement` capability (see `follow_person`'s
+        docstring for why the inner container's own stream cannot do that).
+        So it also works as a way to clear a stuck `movement` hold.
 
         Example:
             stop_person_follow()
@@ -249,7 +501,17 @@ class PersonSkills(Module):
             message = self._person_follow.stop_following()
         except Exception as exc:
             logger.exception("stop_person_follow failed")
+            # Release the capability even when the inner stop failed --
+            # otherwise a failure here would strand `movement` forever.
+            self._stop_follow_watch()
+            self.stop_tool("follow_person")
             return SkillResult.fail("EXECUTION_FAILED", f"Could not stop following: {exc}")
+
+        # Closes this skill's stream -> emits dimos/tool_stopped with THIS
+        # module's token -> cap_registry.release_by_token frees `movement`.
+        # No-op if the stream isn't open, so repeat calls are harmless.
+        self._stop_follow_watch()
+        self.stop_tool("follow_person")
         return SkillResult.ok(str(message))
 
     # ------------------------------------------------------------------

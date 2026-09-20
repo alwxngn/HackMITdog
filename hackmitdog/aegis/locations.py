@@ -17,6 +17,17 @@ piece — DimOS has no delete/remove method anywhere on ``SpatialMemory`` or
 ``SpatialVectorDB`` (confirmed in the plan's investigation) — implemented here
 as a local tombstone set layered on top, so a "deleted" name stops resolving
 through this module without touching DimOS's underlying store.
+
+**Known DimOS bug worked around here**: ``SpatialMemory.add_named_location``
+(``dimos/perception/experimental/spatial_perception.py``) internally builds a
+plain ``RobotLocation(..., description=description or f"Location: {name}")``,
+but ``RobotLocation`` has no ``description`` field at all (the call is marked
+``# type: ignore[call-arg]`` in DimOS's own source) -- passing any
+non-``None`` ``description`` through this RPC raises
+``TypeError: RobotLocation.__init__() got an unexpected keyword argument
+'description'`` inside DimOS, not in this module. ``save_named_location``
+below therefore never forwards ``description`` to
+``add_named_location`` -- see the note on that method.
 """
 
 from __future__ import annotations
@@ -77,7 +88,11 @@ class LocationSkills(Module):
 
         Args:
             name: Short place name, e.g. "kitchen". Case-insensitive for lookups.
-            description: Optional free-text note about the place.
+            description: Optional free-text note about the place. Not currently
+                passed to DimOS's underlying store (see module docstring for
+                why -- a DimOS-side bug in `add_named_location` means any
+                non-empty `description` raises there); kept as a parameter for
+                interface compatibility and future use.
 
         Example:
             save_named_location("kitchen")
@@ -90,7 +105,11 @@ class LocationSkills(Module):
         self._deleted_names.discard(name.lower())
 
         try:
-            ok = self._spatial_memory.add_named_location(name, description=description)
+            # description is deliberately NOT forwarded here -- see this
+            # module's docstring: DimOS's add_named_location crashes on any
+            # non-None description due to a bug in its own RobotLocation
+            # construction, not anything on this call's side.
+            ok = self._spatial_memory.add_named_location(name)
         except Exception as exc:
             logger.exception("save_named_location failed", name=name)
             return SkillResult.fail("EXECUTION_FAILED", f"Could not save '{name}': {exc}")

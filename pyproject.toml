@@ -7,12 +7,18 @@ name = "hackmitdog"
 version = "0.1.0"
 requires-python = ">=3.12"
 
-[tool.setuptools]
-packages = ["hackmitdog", "hackmitdog.aegis", "orchestrator"]
+[tool.setuptools.packages.find]
+# Scoped explicitly: automatic flat-layout discovery refuses to build when it
+# finds multiple top-level packages ("Multiple top-level packages discovered in
+# a flat-layout"). `find` also picks up nested packages (orchestrator.mocks,
+# orchestrator.lantern_orch) that an explicit list would silently omit.
+include = ["hackmitdog*", "orchestrator*"]
 
 [project.entry-points."dimos.blueprints"]
 behaviors = "hackmitdog.behaviors:DogBehaviors"
 aegis-go2 = "hackmitdog.aegis.blueprint:aegis_go2_skills"
+aegis-go2-agentic = "hackmitdog.aegis.blueprint:aegis_go2_agentic"
+aegis-go2-ollama = "hackmitdog.aegis.blueprint:aegis_go2_agentic_ollama"
 safety-sim = "orchestrator.safety_sim:safety_agentic_sim"
-breadcrumb-agentic = "orchestrator.breadcrumb:breadcrumb_agentic"
+breadcrumb-agentic = "orchestrator.breadcrumb:breadcrumb_agentic"                                                                                                             
 breadcrumb-sim = "orchestrator.breadcrumb:breadcrumb_agentic_sim"
