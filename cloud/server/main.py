@@ -20,6 +20,7 @@ from escalation import escalation
 import notify
 from report import build_morning_report
 from schema import DEFAULT_CONFIG, DEFAULT_MAP_READY
+from speaker import speaker
 from store import store
 
 logging.basicConfig(level=logging.INFO)
@@ -96,6 +97,10 @@ async def on_bus_message(msg: dict[str, Any]) -> None:
             escalation.cancel((msg.get("payload") or {}).get("alert_id", ""))
     except Exception:
         logger.exception("escalation handler failed on %s", msg.get("type"))
+    try:
+        await speaker.on_message(msg)
+    except Exception:
+        logger.exception("speaker failed on %s", msg.get("type"))
     await hub.broadcast(msg)
 
 
@@ -287,6 +292,7 @@ async def api_reset():
 async def _reset_live() -> None:
     """Clear live state between demo runs but keep the painted zones and patient setup."""
     escalation.cancel_all()
+    speaker.reset()
     store.reset(keep_setup=True)
     await hub.broadcast(store.snapshot())
 
@@ -304,6 +310,19 @@ async def api_demo_walk():
 async def api_demo_stop():
     await demo.stop(_reset_live)
     return {"ok": True}
+
+
+@app.get("/api/speaker")
+async def api_speaker():
+    """Is a phone paired and started to act as Lantern's speaker?"""
+    return speaker.status()
+
+
+@app.post("/api/speaker/test")
+async def api_speaker_test():
+    name, _ = speaker._patient()
+    on_phone = await speaker.speak(f"Hi {name}, this is Lantern. Can you hear me?")
+    return {"ok": True, "on_phone": on_phone}
 
 
 @app.get("/api/contacts")

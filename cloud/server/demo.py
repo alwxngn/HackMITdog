@@ -130,7 +130,6 @@ class DemoWalk:
         cfg = proj.get("config") or {}
         patient = cfg.get("patient") or {}
         self.name = patient.get("preferred_name") or patient.get("name") or "Arthur"
-        self.attribution = (cfg.get("voice") or {}).get("attribution_name") or "Sarah"
         home = patient.get("home") or {}
         if home.get("lat") is not None and home.get("lon") is not None:
             self.home_latlon = (float(home["lat"]), float(home["lon"]))
@@ -149,7 +148,6 @@ class DemoWalk:
         self.zone_cls = ""
         self.agent_state = "IDLE"
         self.alert_n = 0
-        self.say_n = 0
         return None
 
     # ---- geometry -----------------------------------------------------------
@@ -235,44 +233,6 @@ class DemoWalk:
             },
             "orchestrator",
         )
-
-    def _phone_session(self) -> Any | None:
-        try:
-            from voice.app import sessions
-        except Exception:
-            return None
-        ready = [s for s in sessions.values() if s.phone is not None and s.ready]
-        return max(ready, key=lambda s: s.created) if ready else None
-
-    async def _speak(self, text: str) -> None:
-        """Speak on the paired phone (Lantern's speaker) if one is ready, else just log it."""
-        attribution = f"{self.attribution} recorded this for you"
-        session = self._phone_session()
-        if session is not None:
-            try:
-                from voice.app import say
-
-                await say(session, text, "policy", attribution)
-                await session.publish()
-                return
-            except Exception:
-                logger.exception("phone speech failed — falling back to portal-only say")
-        self.say_n += 1
-        utterance_id = f"demo_u{self.say_n}"
-        await self._emit(
-            "say",
-            {
-                "utterance_id": utterance_id,
-                "text": text,
-                "voice_id": "sarah_clone_v1",
-                "tone": "soothing",
-                "interruptible": True,
-                "attribution": attribution,
-                "origin": "policy",
-            },
-            "orchestrator",
-        )
-        await self._emit("speech_state", {"state": "speaking", "utterance_id": utterance_id}, "voice")
 
     # ---- movement -----------------------------------------------------------
 
@@ -397,12 +357,12 @@ class DemoWalk:
             {"command_id": "demo_cmd_1", "action": "lead_to", "args": {"zone_id": "bedroom", "speed_max": 0.3, "standoff_m": 1.5}},
             "orchestrator",
         )
-        await self._speak(f"{self.name}, it's the middle of the night. Let's go back to bed.")
+        # Lantern's speaker (speaker.py) reacts to this zone change and says "let's go home".
         await asyncio.sleep(1.0)
         await self._alert(
             2,
             f"{self.name} is in the Don't-go zone",
-            f"At {label}. Lantern asked them to go back to bed, but they haven't turned around.",
+            f"At {label}. Lantern asked them to go home, but they haven't turned around.",
             requires_ack=True,
             channels=["sms", "push"],
             context="night_breach",
