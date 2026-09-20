@@ -429,7 +429,7 @@ export function Onboarding() {
             {showVoiceScript && (
               <div id="voice-reading-script" className="rounded-xl bg-[var(--color-panel-2)] p-4 space-y-2">
                 <p className="text-[15px] leading-relaxed text-[var(--color-ink)]">
-                  I'm a carer, and I often check up on my loved ones. How are you doing today?
+                  I'm a carer, and I often check up on my loved ones. How are you doing today? Have you had something to eat and drink? Let's sit together and have a little chat.
                 </p>
                 <p className="text-[12px] text-[var(--color-ink-2)]">
                   Read in your usual warm voice, at an easy pace. Keep the microphone steady and the room quiet.
