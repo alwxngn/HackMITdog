@@ -149,7 +149,7 @@ class DemoWalk:
 
     def _enabled(self) -> bool:
         """Danger zones are only enforced while Night Watch is on."""
-        return bool((store.projection.get("config") or {}).get("night_watch_enabled", True))
+        return bool((store.projection.get("config") or {}).get("night_watch_enabled", False))
 
     # ---- geometry -----------------------------------------------------------
 

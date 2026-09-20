@@ -137,7 +137,7 @@ class DangerSpeaker:
 
     async def on_message(self, msg: dict[str, Any]) -> None:
         cfg = store.projection.get("config") or {}
-        if not cfg.get("night_watch_enabled", True):
+        if not cfg.get("night_watch_enabled", False):
             return
         t = msg.get("type")
         p = msg.get("payload") or {}

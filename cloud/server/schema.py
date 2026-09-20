@@ -45,7 +45,7 @@ AlertContext = Literal["night_breach", "day_walk_separation"]
 
 # --- Cloud outbound ---
 
-AckAction = Literal["im_coming", "handled", "false_alarm", "call_help"]
+AckAction = Literal["im_coming", "handled", "false_alarm", "call_help", "dismiss"]
 
 
 class CaregiverAckPayload(BaseModel):
@@ -91,7 +91,7 @@ DEFAULT_MAP_READY: dict[str, Any] = {
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "night_watch_enabled": True,
+    "night_watch_enabled": False,
     "zones": [
         {
             "id": "bedroom",
