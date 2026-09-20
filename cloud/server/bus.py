@@ -50,14 +50,21 @@ class Bus:
         if self._orch_url:
             await self._forward_orch(msg)
 
-    async def _forward_orch(self, msg: dict[str, Any]) -> None:
+    async def _forward_orch(self, msg: dict[str, Any], *, required: bool = False) -> None:
+        if not self._orch_url:
+            if required:
+                raise RuntimeError("Robot connection is not configured. Set LANTERN_ORCH_PUBLISH_URL on the cloud server.")
+            return
         try:
             import httpx
 
             async with httpx.AsyncClient(timeout=3.0) as client:
-                await client.post(f"{self._orch_url}/publish", json=msg)
+                response = await client.post(f"{self._orch_url}/publish", json=msg)
+                response.raise_for_status()
         except Exception as e:
             logger.warning("orch forward failed: %s", e)
+            if required:
+                raise RuntimeError("Could not deliver the robot request. Check the robot bridge connection before trying again.") from e
 
     async def ingest(self, msg: dict[str, Any]) -> None:
         """Inbound path used by fixture replay and the E4 bridge."""
@@ -65,11 +72,8 @@ class Bus:
             result = handler(msg)
             if asyncio.iscoroutine(result):
                 await result
-        # Voice commands originate in the mounted phone service. Forward the
-        # existing transcript envelope to E4 when a spine publish endpoint is
-        # configured; no new message type or direct DimOS call is introduced.
-        if msg.get("source") == "voice" and msg.get("type") == "transcript" and self._orch_url:
-            await self._forward_orch(msg)
+        # Inbound events may already have travelled through the orchestrator.
+        # Only the originating phone bridge forwards robot-request transcripts.
 
     async def drain_outbound(self) -> dict[str, Any]:
         return await self._outbound.get()

@@ -24,6 +24,9 @@ def classify(text: str, *, awaiting_confirmation: bool = False) -> Intent | None
     normalized = _normalize(text)
     if not normalized:
         return None
+    # A stop request takes priority even while waiting for a yes/no answer.
+    if normalized in {"stop", "stop walking", "stop following", "never mind", "cancel"}:
+        return Intent("STOP", normalized)
 
     if awaiting_confirmation:
         if normalized in {"yes", "yeah", "yep", "yes please", "go home", "take me home"} or re.match(r"^(yes|yeah|yep)\b", normalized):
@@ -36,6 +39,4 @@ def classify(text: str, *, awaiting_confirmation: bool = False) -> Intent | None
         return Intent("TAKE_ME_HOME", normalized)
     if re.search(r"\b(go for a walk|go on a walk|take a walk|take me for a walk|let's walk|lets walk|walk with me|follow me|go outside|let's go outside|lets go outside)\b", normalized):
         return Intent("START_WALK", normalized)
-    if normalized in {"stop", "stop walking", "stop following", "never mind", "cancel"}:
-        return Intent("STOP", normalized)
     return None

@@ -19,6 +19,8 @@ async def forward_voice_event(event):
     if event["type"] not in {"checkin", "say", "transcript", "speech_state"}:
         return
     payload = dict(event["payload"])
+    if event["type"] == "transcript" and not payload.get("checkin_id"):
+        await bus._forward_orch(event, required=True)
     if event["type"] == "speech_state":
         # Local playback completion is represented by the existing bus `idle` state.
         payload["state"] = {"delivered": "idle", "failed": "idle"}.get(payload["state"], payload["state"])

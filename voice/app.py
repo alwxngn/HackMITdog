@@ -246,7 +246,12 @@ async def handle_phone(session, event):
         session.record("transcript", {"text": text, "is_final": True, "speaker": "patient",
                                       **({"checkin_id": event.checkin_id} if is_checkin_reply else {})})
         if not is_checkin_reply:
-            await session.publish()
+            try:
+                await session.publish()
+            except RuntimeError as error:
+                # Never replay a movement request implicitly on a later snapshot.
+                session.forwarded_seq = session.seq
+                await session.phone.send_json({"type": "error", "message": str(error)})
             return
         session.checkin["status"] = "responded"
         answer, attention = reply_to(text, session.profile.patient, session.profile.caregiver)

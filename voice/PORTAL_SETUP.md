@@ -53,6 +53,36 @@ silently played over a safety interaction or falsely labeled as queued. The actu
 can replace this gate later. Closing the check-in panel does not stop the phone; reopening it
 restores the session. Browser reload preserves pairing until the server restarts or it expires.
 
+## Robot requests on the paired phone
+
+The phone has two sections: **Caregiver check-in** for replies, and **Talk to
+the robot** for movement requests. Tap **Speak a robot request**, say “let's go
+on a walk”, then tap **Finish and send request** (recording also stops after
+10 seconds). A typed request is available in the same section. Robot requests
+work before a caregiver check-in and do not mark an existing check-in as answered.
+
+The cloud API needs `LANTERN_ORCH_PUBLISH_URL=http://ROBOT_BUS_HOST:9000` in
+`cloud/.env`; restart the API after changing it. Use `127.0.0.1` only if the
+bus runs on the API's computer. The existing bus, orchestrator, and DimOS command
+bridge must be running as described in [the robot runbook](../robot/VOICE_WALK_RUNBOOK.md).
+The phone sends existing transcript messages through that route; it does not
+call robot hardware directly. Check-in replies stay in the check-in flow.
+
+**Robot activity** shows the portal's event stream. “Request sent” alone does
+not mean the robot moved. “Take me home” displays the orchestrator's confirmation
+prompt; answer by voice or use **Yes, go home** / **Keep walking**. “Stop” also
+works while that confirmation is pending. If delivery fails, the phone shows
+the error and does not automatically replay the movement request.
+
+For a mock run, use the runbook's mock spine, never the live DimOS consumer at
+the same time. Regression checks (no hardware or paid provider calls):
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest voice.tests.test_robot_pipeline
+.\.venv\Scripts\python.exe -m unittest voice.tests.test_portal_bridge
+.\.venv\Scripts\python.exe -m unittest voice.tests.test_robot_phone_ui voice.tests.test_playback_handoff
+```
+
 ## One tunnel for everything
 
 The teammate's repo uses a **Quick Tunnel to localhost:5173**. Its public URL forwards to the
