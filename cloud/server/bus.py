@@ -13,8 +13,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 from collections.abc import Awaitable, Callable
 from typing import Any
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 logger = logging.getLogger("lantern.bus")
 

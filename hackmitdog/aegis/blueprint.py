@@ -75,6 +75,7 @@ from hackmitdog.aegis.follow_control import ConfigurableFollowSkillContainer
 from hackmitdog.aegis.guided_walk import GuidedWalkSkills
 from hackmitdog.aegis.home import HomeSkills
 from hackmitdog.aegis.locations import LocationSkills
+from hackmitdog.aegis.map_skill import MapRoomSkills
 from hackmitdog.aegis.navigation_skills import NavigationSkills
 from hackmitdog.aegis.object_memory import ObjectMemorySkills
 from hackmitdog.aegis.person import PersonSkills
@@ -121,6 +122,7 @@ aegis_go2_skills = autoconnect(
     ObjectMemorySkills.blueprint(),
     HomeSkills.blueprint(),
     DangerZoneSkills.blueprint(),
+    MapRoomSkills.blueprint(),
 ).global_config(n_workers=12)
 
 # Same skills, plus an MCP server/client pair backed by a hosted LLM (whatever

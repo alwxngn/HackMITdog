@@ -116,6 +116,15 @@ python scripts/smoke_live_map.py
 
 Sample E2 payload: [`fixtures/sample_map_ready.json`](fixtures/sample_map_ready.json). Frame + checklist: [`docs/16-e3-portal.md`](../docs/16-e3-portal.md).
 
+3-D map artifacts are served through the API at `/api/maps/<filename>`. Set
+`LANTERN_MAP_ARTIFACT_DIR` if the robot writes maps outside the repository's
+default `artifacts/maps` directory. Pass the frontend-visible URL as
+`artifact_url` when calling `map_room`, for example:
+
+```text
+http://127.0.0.1:5173/api/maps/floor_map.ply
+```
+
 ### Dog camera (on-demand)
 
 ```bash
