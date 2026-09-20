@@ -7,6 +7,13 @@ name = "hackmitdog"
 version = "0.1.0"
 requires-python = ">=3.12"
 
+[tool.setuptools.packages.find]
+# Scoped explicitly: a top-level `orchestrator/` directory (someone else's
+# untracked work-in-progress, not part of this package) otherwise makes
+# setuptools' automatic flat-layout discovery refuse to build at all
+# ("Multiple top-level packages discovered in a flat-layout").
+include = ["hackmitdog*"]
+
 [project.entry-points."dimos.blueprints"]
 behaviors = "hackmitdog.behaviors:DogBehaviors"
 aegis-go2 = "hackmitdog.aegis.blueprint:aegis_go2_skills"
