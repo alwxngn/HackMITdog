@@ -32,8 +32,9 @@ type Props = {
 export function LiveTrack({ open, onToggle, onCallHelp }: Props) {
   const p = useProjection()
   const [copied, setCopied] = useState(false)
-  const name = (p.config.patient as { preferred_name?: string; name?: string } | undefined)?.preferred_name
-  const who = name || 'They'
+  const patient = p.config.patient as { preferred_name?: string; name?: string } | undefined
+  const name = patient?.preferred_name || patient?.name
+  const personLabel = name || 'Patient'
 
   const track = p.person_trail.filter((t): t is typeof t & { lat: number; lon: number } => t.lat != null && t.lon != null)
   const now = p.person_track
@@ -88,7 +89,7 @@ export function LiveTrack({ open, onToggle, onCallHelp }: Props) {
             <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-danger)]" />
             Live location
           </p>
-          <h2>{who} is outside</h2>
+          <h2>{name ? `${name} is outside` : 'They are outside'}</h2>
         </div>
         <button type="button" className={open ? 'btn-ghost !min-h-10 !py-2' : 'btn-primary !min-h-10 !py-2'} onClick={onToggle}>
           {open ? 'Hide map' : 'Track live location'}
@@ -144,7 +145,7 @@ export function LiveTrack({ open, onToggle, onCallHelp }: Props) {
               </circle>
               <circle cx={me.x} cy={me.y} r={9} fill="#e5626a" stroke="#fff" strokeWidth={2.5} />
               <text x={me.x - 14} y={me.y - 14} textAnchor="end" fontSize={12} fontWeight={600} fill="#153a3b" fontFamily="Inter, sans-serif" stroke="#fff" strokeWidth={3} paintOrder="stroke">
-                {who}
+                {personLabel}
               </text>
             </g>
 
