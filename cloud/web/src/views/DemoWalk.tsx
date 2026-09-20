@@ -45,7 +45,7 @@ export function DemoWalk() {
     ? { dot: 'var(--color-safe)', text: 'Speaker phone ready' }
     : speaker?.phone_online
       ? { dot: 'var(--color-watch)', text: 'Phone paired — tap Start Lantern on it' }
-      : { dot: 'var(--color-tint)', text: 'No speaker phone — scan the QR under Check-in' }
+      : { dot: 'var(--color-tint)', text: 'No speaker phone connected' }
 
   async function call(path: string) {
     setBusy(true)
