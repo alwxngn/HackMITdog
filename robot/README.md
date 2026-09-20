@@ -141,3 +141,98 @@ Run all robot-side tests without hardware:
 cd robot
 .venv/bin/python -m unittest discover -s tests -v
 ```
+
+## Patient position → danger-zone events
+
+`tracking_adapter.py` implements calibrated position conversion, actor-ID filtering,
+smoothed velocity, boundary-inclusive polygon classification, three-sample entry/exit
+confirmation, and earliest projected intersection with an exit polygon (including thin
+polygons). It publishes only existing `person_track` and `zone_event` envelopes.
+Live `config_update.zones` replaces its polygons, including an empty list to clear them.
+Overlaps prefer exit, then watch, then safe for the track's current zone; each polygon
+gets independent transition events. Editing a zone resets classification rather than
+pretending the patient walked across it.
+
+**This is a position adapter, not a camera detector.** The current DimOS
+`detect_person` tool returns a 2D box and no world position or stable identity. Do not
+feed its normalized image-center coordinates as metres. Lamine must connect a detector
+with stable actor IDs and measured floor points. For a fixed camera use the feet midpoint
+and four floor correspondences; a moving Go2 camera requires depth + camera/robot/map
+transforms upstream, not a fixed image homography. The adapter never infers identity.
+
+### Test locally before connecting sensors
+
+From the repository root, this replay prints envelopes and connects to nothing:
+
+```bash
+robot/.venv/bin/python robot/tracking_adapter.py \
+  --calibration robot/fixtures/tracking_calibration.json \
+  --zones robot/fixtures/tracking_zones.json --actor-id p1 \
+  --input robot/fixtures/tracking_walk.jsonl --replay
+```
+
+Expect `approaching`, `entered`, then `exited` for `front_door`. Replay is always marked
+`source: mock`, `tracker: mock`, even if another tracker flag was supplied. The fixture
+is synthetic; it is not an Airbnb calibration.
+
+For the full software chain, start this in a separate terminal using an environment
+with the existing bus/orchestrator dependencies installed:
+
+```bash
+robot/.venv/bin/python robot/run_tracking_spine.py \
+  --config robot/fixtures/tracking_zones.json --mock-robot
+```
+
+Add `--bus-url ws://127.0.0.1:9000/ws` to the replay command. To mirror into the running
+portal, add `--cloud http://127.0.0.1:8000` to the spine command. Do not also run
+`orchestrator/run_spine.py` or the cloud demo generator: those create another patient.
+This runner uses the existing state machine and optionally the existing mock robot;
+it starts no real robot controller. All events are recorded in `tracking_bus_events.jsonl`.
+The short replay proves entry and exit; the automated integration test additionally
+advances the escalation timer and verifies the level-2 alert.
+
+### Lamine's live input
+
+1. Export the current onboarding configuration as a JSON payload/envelope. Pass the same
+   file to `--config` on the tracking spine and `--zones` on the adapter. This seeds the
+   adapter because the bus does not replay configuration on connect. Subsequent zone
+   edits arrive live; restart with a fresh export after connection loss.
+2. Make a calibration JSON using the fixture's shape: the actual `map_id`, a named
+   `input_frame`, and exactly four non-collinear source/map pairs. `source` is the
+   detector's fixed-camera floor pixel point or an upstream world-frame point; `map`
+   is the corresponding measured floor location in portal metres. Validate at additional
+   measured points not used for fitting. Tape is optional; fixed measured landmarks work.
+3. Feed one JSON line per measured observation on stdin, ideally 10 Hz, for example:
+
+```json
+{"ts":1758297600.123,"actor_id":"p1","frame":"camera_floor_pixels","map_id":"airbnb_v1","x":410,"y":520,"confidence":0.91,"posture":"unknown"}
+```
+
+The timestamp must be the actual capture time in Unix seconds on a synchronized clock;
+the example timestamp is stale. These are **local detector input records**, not additions
+to the frozen bus. Set `--actor-id` to the selected patient's upstream track ID. Never
+reuse that ID for a new person after loss. Start the adapter with `--tracker overhead_cam`
+(or the actual sensor type), the real calibration/config files, and `--bus-url`; omit
+`--replay`. No sensor producer is bundled or assumed.
+
+Samples older than 0.5 s, more than 0.1 s in the future, out of order, or below 0.6 confidence
+are dropped. A gap resets velocity estimation and pending transitions. Missing tracking
+does not generate a fictitious exit or a clear/safe event. It also does **not** currently
+publish a lost-tracking alert or enforce a motor stop; controller watchdogs are separate.
+Stationary body heading is unknown (`null`); this adapter must not be used to assert
+the controller's person-relative approach sector is satisfied. Map/frame mismatches and
+invalid input stop the process visibly. Bus loss stops publication; there is no stale replay.
+
+### Verified alert behavior and remaining contract issue
+
+Tests feed actual adapter output through the existing `StateMachine` and `MockRobot`:
+danger-zone entry causes `LEAD` and a `lead_to` command; continued danger after the timer
+causes `ESCALATE` and a level-2 `alert`. This verifies alert creation, not SMS delivery.
+Timer duration follows the existing orchestrator configuration (5 s fast demo / 20 s normal).
+
+**E4 contract issue:** the current emergency handler requires `zone_event.payload.outside`
+to be true, but `docs/04-interfaces.md` does not define that field. We do not invent it here.
+An `exited` event means leaving a polygon, not proof of crossing outdoors. Immediate
+outdoor-breach escalation needs E4 to reconcile the contract and define a calibrated
+outdoor boundary/direction. The adapter currently supports entry/redirection/timed alerts;
+it cannot claim immediate outdoor emergency detection.
