@@ -146,3 +146,13 @@ DOG_CAMERA_URL=http://127.0.0.1:7780/   # DimOS cockpit / teammates' live viewer
 ```
 
 See [`robot/README.md`](robot/README.md) and [`AEGIS_SKILL_TESTING.md`](AEGIS_SKILL_TESTING.md).
+
+## Launch the live mapping stack on macOS
+
+The launcher opens separate Terminal windows for the bus, API, frontend,
+DimOS, map bridge, and a human MCP CLI:
+
+```bash
+export UNITREE_AES_128_KEY='your-key'
+./run_live_stack.command
+```
