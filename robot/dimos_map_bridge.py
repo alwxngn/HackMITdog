@@ -26,11 +26,26 @@ class MapCommandBridge:
         self.artifact_dir = artifact_dir
         self.artifact_base = artifact_base.rstrip("/")
         self._seen: set[str] = set()
+        self._active_request_id: str | None = None
 
     async def handle(self, msg: dict[str, Any]) -> None:
+        payload = msg.get("payload") or {}
+        if msg.get("type") == "command":
+            args = payload.get("args") or {}
+            if (
+                payload.get("action") == "stop"
+                and args.get("operation") == "map_scan"
+                and self._active_request_id
+                and str(args.get("request_id") or "") == self._active_request_id
+            ):
+                logger.info("stopping DimOS map_room request=%s", self._active_request_id)
+                try:
+                    await self._call("end_exploration", {})
+                except Exception:
+                    logger.exception("could not stop DimOS map_room request=%s", self._active_request_id)
+            return
         if msg.get("type") != "map_scan_request":
             return
-        payload = msg.get("payload") or {}
         request_id = str(payload.get("request_id") or "")
         if not request_id or request_id in self._seen:
             return
@@ -46,11 +61,15 @@ class MapCommandBridge:
             "artifact_url": f"{self.artifact_base}/{map_id}.ply",
         }
         logger.info("starting DimOS map_room request=%s", request_id)
+        self._active_request_id = request_id
         try:
             await self._call("map_room", args)
             logger.info("completed DimOS map_room request=%s", request_id)
         except Exception:
             logger.exception("map_room failed request=%s", request_id)
+        finally:
+            if self._active_request_id == request_id:
+                self._active_request_id = None
 
     async def _call(self, tool: str, args: dict[str, Any]) -> None:
         process = await asyncio.create_subprocess_exec(

@@ -293,6 +293,7 @@ async def api_map_scan(body: dict[str, Any] | None = None):
     body = body or {}
     request_id = body.get("request_id") or f"ms_{uuid.uuid4().hex[:8]}"
     mode = (body.get("mode") or os.getenv("MAP_SCAN_MODE", "demo")).strip().lower()
+    expected_duration_s = float(os.getenv("LANTERN_MAP_DURATION_S", "180"))
 
     req = {
         "type": "map_scan_request",
@@ -315,14 +316,43 @@ async def api_map_scan(body: dict[str, Any] | None = None):
             "payload": map_ready_payload,
         }
         await bus.ingest(ready)
-        return {"ok": True, "mode": "demo", "request_id": request_id, "map_ready": ready["payload"]}
+        return {
+            "ok": True,
+            "mode": "demo",
+            "request_id": request_id,
+            "expected_duration_s": 2,
+            "map_ready": ready["payload"],
+        }
 
     return {
         "ok": True,
         "mode": "live",
         "request_id": request_id,
+        "expected_duration_s": expected_duration_s,
         "hint": "Waiting for E2 map_ready on the bus (POST /api/ingest)",
     }
+
+
+@app.post("/api/map-scan/stop")
+async def api_map_scan_stop(body: dict[str, Any] | None = None):
+    """Stop active exploration and ask E2 to export the map collected so far."""
+    body = body or {}
+    request_id = str(body.get("request_id") or "")
+    pending = store.projection.get("map_scan_pending") or {}
+    if not request_id or pending.get("request_id") != request_id:
+        return JSONResponse({"ok": False, "error": "No matching map scan is active."}, status_code=409)
+    await bus.publish({
+        "type": "command",
+        "ts": time.time(),
+        "source": "cloud",
+        "seq": 0,
+        "payload": {
+            "command_id": f"map_stop_{uuid.uuid4().hex[:8]}",
+            "action": "stop",
+            "args": {"operation": "map_scan", "request_id": request_id},
+        },
+    })
+    return {"ok": True, "request_id": request_id, "status": "stopping"}
 
 
 @app.get("/api/map-scan/status")
