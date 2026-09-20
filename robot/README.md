@@ -68,3 +68,22 @@ payload. Serve the PLY from the returned path and load it with a web viewer
 such as Three.js `PLYLoader`; the optional `artifact_url` is carried as
 additive metadata in that existing payload. Stop/cancel the skill through the
 normal DimOS `end_exploration` tool if needed.
+
+### Start mapping from the portal
+
+The onboarding **Start mapping** button sends a live `map_scan_request` when
+`MAP_SCAN_MODE=live`. Run this bridge beside DimOS so it converts that request
+into the `map_room` MCP call:
+
+```bash
+python robot/dimos_map_bridge.py \
+  --bus-url ws://127.0.0.1:9000/ws \
+  --cloud-base http://127.0.0.1:8000 \
+  --artifact-dir artifacts/maps \
+  --artifact-base http://127.0.0.1:8000/api/maps
+```
+
+The bridge writes the PLY into the cloud server's `artifacts/maps` directory
+when both processes run on the same machine, then posts `map_ready` to the
+cloud API. The portal polls for that event and shows the resulting artifact in
+the 3-D map view.
