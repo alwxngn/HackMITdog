@@ -11,15 +11,17 @@ import { EmergencyContacts } from './EmergencyContacts'
 import { LiveTrack } from './LiveTrack'
 import { MapView } from './Map'
 import { MorningReport } from './MorningReport'
+import { SpeakerPhone } from './SpeakerPhone'
 import { StatePanel } from './StatePanel'
 import { TabIsland, type TabId } from './TabIsland'
 import { Timeline } from './Timeline'
 
-function PageHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
+function PageHeader({ eyebrow, title, blurb }: { eyebrow: string; title: string; blurb?: string }) {
   return (
     <header className="pb-1 pt-2">
       <p className="eyebrow mb-1">{eyebrow}</p>
       <h1 className="text-[30px] leading-[1.1]">{title}</h1>
+      {blurb && <p className="mt-2 text-[14px] leading-[1.5] text-[var(--color-ink-2)]">{blurb}</p>}
     </header>
   )
 }
@@ -95,7 +97,7 @@ export function Dashboard() {
                   </span>
                   Lantern
                 </Link>
-                <p className="eyebrow mt-2">{name ? `Watching over ${name}` : 'Night Watch'}</p>
+                <p className="eyebrow mt-2">{name ? `Looking after ${name}` : 'Night Watch'}</p>
               </div>
               <button
                 type="button"
@@ -157,14 +159,22 @@ export function Dashboard() {
 
         {tab === 'checkin' && (
           <Screen>
-            <PageHeader eyebrow="Talk to Lantern" title="Check in" />
-            <CheckinComposer />
+            <PageHeader
+              eyebrow="Stay close"
+              title={name ? `Check in on ${name}` : 'Check in'}
+              blurb={`Send a message and Lantern will say it out loud in the voice of someone ${name || 'they'} love${name ? 's' : ''}. Their reply shows up here.`}
+            />
+            <CheckinComposer onOpenSettings={() => go('settings')} />
           </Screen>
         )}
 
         {tab === 'activity' && (
           <Screen>
-            <PageHeader eyebrow="Tonight & last night" title="Activity" />
+            <PageHeader
+              eyebrow="A look back"
+              title="Activity"
+              blurb={name ? `How ${name}’s nights have been, and anything Lantern noticed.` : 'How the nights have been, and anything Lantern noticed.'}
+            />
             <MorningReport />
             <Timeline />
           </Screen>
@@ -172,12 +182,12 @@ export function Dashboard() {
 
         {tab === 'settings' && (
           <Screen>
-            <PageHeader eyebrow="Lantern" title="Settings" />
+            <PageHeader eyebrow="Make it yours" title="Settings" />
             <div className="card flex flex-col divide-y divide-[var(--color-line)] !p-0">
               <div className="flex items-center justify-between gap-4 p-5">
                 <div>
                   <p className="text-[16px] text-[var(--color-ink)]">Night Watch</p>
-                  <p className="text-[13px]">Turns the warning and danger zones on or off.</p>
+                  <p className="text-[13px]">Lantern watches the zones you set and lets you know if they need you.</p>
                 </div>
                 <button
                   type="button"
@@ -196,10 +206,11 @@ export function Dashboard() {
                   />
                 </button>
               </div>
+              <SpeakerPhone />
               <Link to="/onboarding" className="flex items-center justify-between gap-4 p-5">
                 <div>
                   <p className="text-[16px] text-[var(--color-ink)]">Edit home</p>
-                  <p className="text-[13px]">Rescan rooms, paint zones, update routines.</p>
+                  <p className="text-[13px]">Update rooms, zones and daily routines.</p>
                 </div>
                 <span aria-hidden className="text-[var(--color-ink)]">→</span>
               </Link>

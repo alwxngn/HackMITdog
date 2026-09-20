@@ -2,20 +2,20 @@ import type { AgentState, Envelope, PersonTrack, Zone } from './types'
 import { zoneName } from './zonePaint'
 
 const STATE_TITLE: Record<string, string> = {
-  IDLE: 'All is quiet',
-  ATTEND: 'Lantern is with them',
-  LEAD: 'Guiding them back',
-  ESCALATE: 'Needs you now',
+  IDLE: 'All is well',
+  ATTEND: 'Lantern is keeping them company',
+  LEAD: 'Lantern is guiding them back',
+  ESCALATE: 'They could use you now',
   EMERGENCY: 'Emergency',
-  WALK: 'Out on a walk',
-  FOLLOW: 'Staying close',
-  CONFIRM_HOME: 'Checking they are home',
-  GUIDE_HOME: 'Helping them home',
+  WALK: 'Out for a walk together',
+  FOLLOW: 'Lantern is staying close',
+  CONFIRM_HOME: 'Making sure they’re home',
+  GUIDE_HOME: 'Lantern is helping them home',
 }
 
 const STATE_VERB: Record<string, string> = {
-  IDLE: 'resting nearby',
-  ATTEND: 'checking in',
+  IDLE: 'close by',
+  ATTEND: 'keeping them company',
   LEAD: 'gently guiding them',
   ESCALATE: 'calling for you',
   EMERGENCY: 'in an emergency',
@@ -26,9 +26,9 @@ const STATE_VERB: Record<string, string> = {
 }
 
 const MOOD: Record<string, string> = {
-  calm: 'They seem settled.',
-  unsettled: 'They seem a little uneasy.',
-  agitated: 'They seem distressed.',
+  calm: 'They seem calm and settled.',
+  unsettled: 'They seem a little restless.',
+  agitated: 'They seem upset.',
 }
 
 const SKIP_TIMELINE = new Set([
@@ -76,9 +76,10 @@ export function statusDetail(a: AgentState, zone?: ZoneContext | null): string {
 
 function humanReason(reason: string): string {
   const r = (reason || '').trim()
-  if (!r || r === 'boot' || r === 'connecting…' || r === 'connecting...') {
+  if (!r || r === 'boot' || r === 'connecting…' || r === 'connecting...' || r === 'night watch idle') {
     return ''
   }
+  if (r === 'night watch off') return 'Night Watch is off.'
   if (r.startsWith('projected_zone=')) return 'They may be heading toward an edge of the home.'
   return r.endsWith('.') ? r : `${r}.`
 }
@@ -92,7 +93,7 @@ export function timelineLine(msg: Envelope): string | null {
       const reason = humanReason(String(p.reason || ''))
       const title = STATE_TITLE[state]
       if (!title) return null
-      if (state === 'IDLE' && !reason) return 'The house is quiet again.'
+      if (state === 'IDLE' && !reason) return 'Everything is calm again.'
       return reason ? `${title} — ${reason}` : title
     }
     case 'alert':
@@ -115,7 +116,7 @@ export function timelineLine(msg: Envelope): string | null {
       const action = String(p.action || '')
       if (action === 'im_coming') return 'You said you’ll handle it.'
       if (action === 'false_alarm') return 'Marked as a false alarm.'
-      if (action === 'call_help') return 'You asked to call for help.'
+      if (action === 'call_help') return 'You reached out for help.'
       return 'You responded to an alert.'
     }
     case 'transcript':

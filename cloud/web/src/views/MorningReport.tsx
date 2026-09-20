@@ -31,7 +31,7 @@ export function MorningReport() {
       </div>
       <p className="text-[16px] text-[var(--color-ink)]">{report.summary}</p>
       {report.episodes.length === 0 ? (
-        <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">No restless stretches recorded.</p>
+        <p className="mt-3 text-[14px] text-[var(--color-ink-2)]">A peaceful night. Nothing to worry about.</p>
       ) : (
         <ul className="mt-4 space-y-2 text-[14px] text-[var(--color-ink-2)]">
           {report.episodes.map((e, i) => (
