@@ -1,0 +1,1 @@
+{"type":"agent_state","ts":1789914893.357684,"source":"orchestrator","seq":1,"payload":{"state":"IDLE","previous":"IDLE","agitation":"calm","calm_mode":false,"reason":"night watch idle","since_ts":1789914893.357682}}

@@ -128,6 +128,11 @@ class StateMachine:
             self._clear_breadcrumbs()
             await self._set_state("IDLE", "voice requested stop", agitation="calm")
 
+        if intent.name == "TRICK" and intent.command_name:
+            await self._emit_command("posture", {"command_name": intent.command_name})
+            await self._maybe_say(f"Okay, I will do {intent.command_name}.", tone="warm")
+            return
+
     async def _on_pose(self, p: dict[str, Any]) -> None:
         self._last_pose = p
         if self.state not in {"WALK", "FOLLOW"}:

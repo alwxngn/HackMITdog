@@ -4,7 +4,6 @@ import type { MapReadyPayload } from '../../lib/demoFloorplan'
 import { DEMO_HOME_PIN } from '../../lib/demoHome'
 import { useProjection } from '../../hooks/useProjection'
 import type { Zone } from '../../lib/types'
-import { DogMascot } from '../../components/DogMascot'
 import { PhoneFrame } from '../../components/PhoneFrame'
 import { PawBackdrop } from '../../components/PawBackdrop'
 import { Wave } from '../../components/Wave'
@@ -12,6 +11,7 @@ import { useRoutine } from '../../hooks/useRoutine'
 import { DEFAULT_ROUTINE } from '../../lib/routine'
 import { emergencyReady, seedPeople, withDemoMember, type Person } from '../../lib/people'
 import { DevMenuShell } from '../DevMenu'
+import logo from '../../assets/lantern-logo.png'
 import { PeopleEditor } from './PeopleEditor'
 import { ZonePainter } from './ZonePainter'
 import { RoutineEditor } from '../RoutineEditor'
@@ -322,9 +322,8 @@ export function Onboarding() {
       <PawBackdrop />
       <header className="relative">
         <div className="bg-white px-5 pb-1 pt-7">
-          <div className="flex w-full flex-col items-center gap-2 text-center">
-            <DogMascot color="var(--color-brand)" className="h-[74px] w-[92px]" />
-            <p className="text-[22px] font-bold uppercase tracking-[0.1em] text-[var(--color-brand)]">Lantern</p>
+          <div className="flex w-full justify-center">
+            <img src={logo} alt="Lantern" className="h-[104px] w-auto" />
           </div>
         </div>
         <Wave color="#fff" className="-mt-px block h-[36px] w-full" />

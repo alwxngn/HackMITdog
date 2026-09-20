@@ -72,8 +72,10 @@ class Bus:
             result = handler(msg)
             if asyncio.iscoroutine(result):
                 await result
-        # Inbound events may already have travelled through the orchestrator.
-        # Only the originating phone bridge forwards robot-request transcripts.
+        # Phone speech is an E4 input. Forward the existing transcript
+        # envelope; tricks still use the frozen command schema downstream.
+        if msg.get("source") == "voice" and msg.get("type") == "transcript" and self._orch_url:
+            await self._forward_orch(msg)
 
     async def drain_outbound(self) -> dict[str, Any]:
         return await self._outbound.get()
