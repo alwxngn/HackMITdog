@@ -4,7 +4,7 @@
  * otherwise use window.location.origin (works when already opened via tunnel).
  */
 export function publicOrigin(): string {
-  const fromEnv = (import.meta.env.VITE_PUBLIC_ORIGIN as string | undefined)?.replace(/\/$/, '')
+  const fromEnv = (import.meta.env.VITE_PUBLIC_ORIGIN as string | undefined)?.trim().replace(/\/$/, '')
   if (fromEnv) return fromEnv
   if (typeof window !== 'undefined') return window.location.origin
   return 'http://127.0.0.1:5173'

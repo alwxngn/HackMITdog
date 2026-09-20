@@ -21,6 +21,10 @@ function update() {
 function playback(state, id = utterance?.utterance_id) {
   if (id && connected) send({type:'playback', utterance_id:id, state});
 }
+function autoListen() {
+  if (!active || recording || busy) return;
+  void startRecording();
+}
 function stopSpeaking(report = true) {
   playbackVersion++;
   clearTimeout(speechTimer);
@@ -45,7 +49,7 @@ async function play(payload) {
       source.onended = () => {
         if (version !== playbackVersion) return;
         playback('delivered', payload.utterance_id); source = null; utterance = null;
-        $('activity').textContent = 'Your turn. Tap below to reply.';
+        if (payload.origin === 'checkin') autoListen();
       };
       source.start(); playback('speaking'); $('activity').textContent = 'Lantern is speaking';
     } else {
@@ -58,7 +62,8 @@ async function play(payload) {
       speech.onend = () => {
         clearTimeout(speechTimer);
         if (version !== playbackVersion) return;
-        playback('delivered', payload.utterance_id); utterance = null; $('activity').textContent = 'Your turn. Tap below to reply.';
+        playback('delivered', payload.utterance_id); utterance = null;
+        if (payload.origin === 'checkin') autoListen();
       };
       speech.onerror = () => {
         clearTimeout(speechTimer);
@@ -145,7 +150,7 @@ async function startRecording() {
   }
   if (recording) {
     $('activity').textContent = 'Listening. Take your time.';
-    recordTimer = setTimeout(finishRecording, 30000);
+    recordTimer = setTimeout(finishRecording, 5000);
   }
   update();
 }
