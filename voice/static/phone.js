@@ -8,21 +8,28 @@ try {
 } catch { /* Invalid storage is handled below. */ }
 let channel, connected = false, active = false, snapshot, audioContext, source, utterance, playbackVersion = 0;
 let fetchController, recorder, recognition, micStream, recording = false, busy = false, recordTimer, speechTimer, captureVersion = 0;
+let captureMode = 'checkin';
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-function send(message) { try { channel.send(message); } catch (error) { showError(error.message); } }
+function send(message) {
+  try { channel.send(message); return true; }
+  catch (error) { showError(error.message); return false; }
+}
 function update() {
   $('start').disabled = !connected;
   $('start').hidden = active;
   $('controls').hidden = !active;
-  $('record').disabled = !connected || !snapshot?.checkin || busy;
+  $('record').disabled = !connected || !snapshot?.checkin || busy || (recording && captureMode !== 'checkin');
   $('send-reply').disabled = !connected || !snapshot?.checkin || busy || recording;
-  $('record').textContent = recording ? 'Finish and send reply' : 'Talk to Lantern';
+  $('record').textContent = recording && captureMode === 'checkin' ? 'Finish and send reply' : 'Reply to check-in';
+  $('robot-record').disabled = !connected || !active || busy || (recording && captureMode !== 'robot');
+  $('robot-record').textContent = recording && captureMode === 'robot' ? 'Finish and send request' : 'Speak a robot request';
+  for (const id of ['robot-send', 'robot-yes', 'robot-no']) $(id).disabled = !connected || !active || busy || recording;
 }
 function playback(state, id = utterance?.utterance_id) {
   if (id && connected) send({type:'playback', utterance_id:id, state});
 }
 function autoListen() {
-  if (!active || recording || busy) return;
+  if (!active || recording || busy || !snapshot?.checkin) return;
   void startRecording();
 }
 function stopSpeaking(report = true) {
@@ -89,22 +96,32 @@ function releaseMic() {
   clearTimeout(recordTimer);
 }
 function cancelCapture() {
+  if (captureMode === 'robot' && (recording || busy)) $('robot-request-status').textContent = 'Recording cancelled. Tap to try again.';
   captureVersion++;
   if (recorder?.state === 'recording') { recorder.onstop = null; recorder.stop(); }
   recognition?.abort(); recognition = null; releaseMic(); recording = false; busy = false;
 }
-function submitTranscript(text, checkinId, turnId) {
+function submitTranscript(text, checkinId, turnId, mode = 'checkin') {
   if (!text.trim()) { showError('No words were recognized. Please try again or type a reply.'); return; }
-  if (!connected || !active || checkinId !== snapshot?.checkin?.checkin_id) {
+  if (!connected || !active || (mode === 'checkin' && (!checkinId || checkinId !== snapshot?.checkin?.checkin_id))) {
     showError('The session changed before your reply could be sent. Please try again.'); return;
   }
-  send({type:'transcript', text:text.slice(0, 2000), turn_id:turnId, checkin_id:checkinId});
-  $('activity').textContent = 'Reply sent';
+  if (!send({type:'transcript', text:text.slice(0, 2000), turn_id:turnId, checkin_id:checkinId})) {
+    if (mode === 'robot') $('robot-request-status').textContent = 'Request not sent. Wait for the phone to reconnect.';
+    return;
+  }
+  if (mode === 'robot') {
+    $('robot-transcript').textContent = `You said: “${text.trim()}”`;
+    $('robot-transcript').hidden = false;
+    $('robot-request-status').textContent = 'Request sent. Watch robot activity for confirmation.';
+  } else $('activity').textContent = 'Reply sent';
 }
-async function startRecording() {
+async function startRecording(mode = 'checkin') {
+  if (!active || !connected || busy || recording || (mode === 'checkin' && !snapshot?.checkin)) return;
+  captureMode = mode;
   showError(); stopSpeaking();
   if (!window.isSecureContext) { showError('Microphone access needs HTTPS. Open the secure pairing link.'); return; }
-  const checkinId = snapshot.checkin.checkin_id, turnId = crypto.randomUUID(), version = ++captureVersion;
+  const checkinId = mode === 'robot' ? '' : snapshot.checkin.checkin_id, turnId = crypto.randomUUID(), version = ++captureVersion;
   if (snapshot.capabilities.stt === 'deepgram') {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       showError('Audio recording is unavailable. Type a reply instead.'); return;
@@ -120,13 +137,14 @@ async function startRecording() {
       const chunks = []; recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       recorder.onerror = () => { cancelCapture(); showError('Recording failed. Please try again.'); update(); };
       recorder.onstop = async () => {
-        releaseMic(); recording = false; busy = true; update(); $('activity').textContent = 'Listening to your reply…';
+        releaseMic(); recording = false; busy = true; update();
+        $(mode === 'robot' ? 'robot-request-status' : 'activity').textContent = 'Transcribing…';
         try {
           const response = await api(`/api/sessions/${session.session_id}/transcribe`, session.token, {
             method:'POST', headers:{'Content-Type':mimeType}, body:new Blob(chunks, {type:mimeType}),
           });
           const data = await response.json();
-          if (version === captureVersion) submitTranscript(data.text, checkinId, turnId);
+          if (version === captureVersion) submitTranscript(data.text, checkinId, turnId, mode);
         } catch (error) { if (version === captureVersion) showError(error.message); }
         finally { if (version === captureVersion) { busy = false; update(); } }
       };
@@ -141,16 +159,16 @@ async function startRecording() {
     };
     recognition.onerror = (event) => { if (event.error !== 'aborted') showError(`Microphone recognition: ${event.error}. You can type a reply instead.`); };
     recognition.onend = () => {
-      clearTimeout(recordTimer);
       if (version !== captureVersion) return;
+      clearTimeout(recordTimer);
       recording = false; busy = false; recognition = null;
-      submitTranscript(text, checkinId, turnId); update();
+      submitTranscript(text, checkinId, turnId, mode); update();
     };
     try { recognition.start(); recording = true; } catch (error) { showError(error.message); }
   }
   if (recording) {
-    $('activity').textContent = 'Listening. Take your time.';
-    recordTimer = setTimeout(finishRecording, 5000);
+    $(mode === 'robot' ? 'robot-request-status' : 'activity').textContent = mode === 'robot' ? 'Listening… tap again to send your request.' : 'Listening. Take your time.';
+    recordTimer = setTimeout(finishRecording, mode === 'robot' ? 10000 : 5000);
   }
   update();
 }
@@ -179,6 +197,18 @@ $('start').onclick = async () => {
   } catch (error) { showError(`Audio could not start: ${error.message}`); }
 };
 $('record').onclick = () => recording ? finishRecording() : startRecording();
+$('robot-record').onclick = () => recording ? finishRecording() : startRecording('robot');
+function sendRobotRequest(text) {
+  if (!active || !connected || busy || recording) return;
+  captureMode = 'robot';
+  showError(); stopSpeaking();
+  submitTranscript(text, '', crypto.randomUUID(), 'robot');
+}
+$('robot-form').onsubmit = event => {
+  event.preventDefault(); sendRobotRequest($('robot-input').value); $('robot-input').value = '';
+};
+$('robot-yes').onclick = () => sendRobotRequest('yes');
+$('robot-no').onclick = () => sendRobotRequest('no');
 $('stop').onclick = () => { stopSpeaking(); $('activity').textContent = 'Speech stopped'; };
 $('pause').onclick = pause;
 $('retry').onclick = async () => {
@@ -199,15 +229,55 @@ if (!session?.session_id || !session?.token) {
   channel = connect(session, 'phone', message => {
     if (message.type === 'snapshot') {
       snapshot = message;
-      $('mode').textContent = `${message.capabilities.stt === 'deepgram' ? 'Deepgram recording' : 'Browser recognition (where supported)'} · ${message.capabilities.tts === 'elevenlabs' ? 'ElevenLabs voice' : 'Phone voice'} · Scripted replies. Audio is captured only when you tap Talk.`;
+      $('mode').textContent = `${message.capabilities.stt === 'deepgram' ? 'Deepgram recording' : 'Browser recognition (where supported)'} · ${message.capabilities.tts === 'elevenlabs' ? 'ElevenLabs voice' : 'Phone voice'} · Check-ins listen after playback. Robot requests listen only when you tap to speak.`;
       update();
     } else if (message.type === 'say') {
       if (active) { cancelCapture(); play(message.payload); }
       else playback('failed', message.payload.utterance_id);
-    } else if (message.type === 'error') showError(message.message);
+    } else if (message.type === 'error') {
+      showError(message.message);
+      if (captureMode === 'robot') $('robot-request-status').textContent = message.message;
+    }
   }, isConnected => {
     connected = isConnected; $('connection').textContent = connected ? '● Connected' : '○ Reconnecting';
     if (!connected) { active = false; cancelCapture(); stopSpeaking(false); $('activity').textContent = 'Connection lost. Tap Start after reconnecting.'; }
     update();
   });
 }
+
+// The mounted portal already exposes the robot's existing event stream.
+// These are observed states, not optimistic claims that a request moved the dog.
+if (BASE && session?.session_id && session?.token) {
+  let robotSocket, reconnect;
+  const showRobotState = payload => {
+    const labels = {IDLE:'Ready', WALK:'Walking together', FOLLOW:'Following', CONFIRM_HOME:'Confirm return home', GUIDE_HOME:'Returning home'};
+    $('robot-state').textContent = labels[payload.state] || `Robot mode: ${payload.state}`;
+    $('robot-confirm').hidden = payload.state !== 'CONFIRM_HOME';
+    $('robot-prompt').textContent = payload.state === 'CONFIRM_HOME' ? 'Would you still like to go home?' : '';
+  };
+  const openRobotStream = () => {
+    const url = new URL('/ws', location.href); url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    robotSocket = new WebSocket(url);
+    robotSocket.onmessage = event => {
+      let message; try { message = JSON.parse(event.data); } catch { return; }
+      const payload = message.payload || {};
+      if (message.type === 'snapshot' && payload.agent_state) showRobotState(payload.agent_state);
+      else if (message.type === 'agent_state') showRobotState(payload);
+      else if (message.type === 'say' && message.source === 'orchestrator' && payload.origin === 'policy') {
+        $('robot-prompt').textContent = payload.text;
+      }
+      else if (message.type === 'robot_status') {
+        const labels = {accepted:'Request accepted by the robot bridge', executing:'Robot is carrying out the request', done:'Robot action completed', failed:'Robot action failed', yielded:'Robot yielded to a person'};
+        $('robot-state').textContent = labels[payload.state] || payload.state;
+        if (payload.state === 'failed') $('robot-prompt').textContent = payload.detail || 'Please check the robot before trying again.';
+      }
+    };
+    robotSocket.onclose = () => {
+      $('robot-state').textContent = 'Robot updates disconnected. Reconnecting…';
+      $('robot-confirm').hidden = true;
+      reconnect = setTimeout(openRobotStream, 2000);
+    };
+  };
+  openRobotStream();
+  window.addEventListener('pagehide', () => { clearTimeout(reconnect); robotSocket.onclose = null; robotSocket.close(); });
+} else $('robot-state').textContent = 'Open the paired phone link from the portal to see robot activity.';

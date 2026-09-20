@@ -1,51 +1,51 @@
-"""Bus adapter for the external WebSocket hub used by the real robot stack."""
-
+"""Async adapter for the shared HTTP/WebSocket bus hub."""
 from __future__ import annotations
-
-import asyncio
-import json
-import logging
+import asyncio, json, logging, time
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
-
 import websockets
-
-from lantern_bus.core import Bus
-
+from lantern_bus.envelope import make_envelope
+MessageHandler = Callable[[dict[str, Any]], Awaitable[None] | None]
 logger = logging.getLogger("lantern.orch.remote_bus")
 
-
 class RemoteBus:
-    def __init__(self, local: Bus, url: str) -> None:
-        self.local = local
-        self.url = url
-        self._ws: Any = None
-        self._send_lock = asyncio.Lock()
-        self._inbound = False
-
-    async def start(self) -> None:
-        self.local.subscribe(self._on_local)
-        while True:
+    def __init__(self, url: str, *, log_path: str | Path | None = None) -> None:
+        self.url = url.replace("http://", "ws://").replace("https://", "wss://").rstrip("/")
+        if not self.url.endswith("/ws"): self.url += "/ws"
+        self._handlers: list[MessageHandler] = []; self._ws: Any = None; self._ready = asyncio.Event(); self._stopping = False
+        self._seqs: dict[str, int] = {}; self._sent: set[tuple[Any, ...]] = set(); self._remote: set[tuple[Any, ...]] = set(); self.log_path = Path(log_path) if log_path else None
+    def subscribe(self, handler: MessageHandler) -> None: self._handlers.append(handler)
+    async def connect(self) -> None:
+        asyncio.create_task(self._loop()); await self._ready.wait()
+    async def close(self) -> None:
+        self._stopping = True
+        if self._ws: await self._ws.close()
+    async def publish(self, type_: str, payload: dict[str, Any], *, source: str = "orchestrator", ts: float | None = None, seq: int | None = None) -> dict[str, Any]:
+        if seq is None: self._seqs[source] = self._seqs.get(source, 0) + 1; seq = self._seqs[source]
+        msg = make_envelope(type_, payload, source=source, seq=seq, ts=ts); await self.emit(msg); await self._send(msg); return msg
+    async def emit(self, msg: dict[str, Any]) -> None:
+        msg = {**msg}; msg.setdefault("ts", time.time()); msg.setdefault("source", "mock")
+        for handler in list(self._handlers):
+            result = handler(msg)
+            if asyncio.iscoroutine(result): await result
+    async def _send(self, msg: dict[str, Any]) -> None:
+        await self._ready.wait(); self._sent.add(self._key(msg)); await self._ws.send(json.dumps(msg))
+    async def _loop(self) -> None:
+        while not self._stopping:
             try:
                 async with websockets.connect(self.url) as ws:
-                    self._ws = ws
-                    logger.info("connected to bus hub %s", self.url)
+                    self._ws = ws; self._ready.set(); logger.info("connected to bus hub %s", self.url)
                     async for raw in ws:
-                        self._inbound = True
-                        try:
-                            await self.local.emit(json.loads(raw))
-                        finally:
-                            self._inbound = False
+                        msg = json.loads(raw)
+                        key = self._key(msg)
+                        if key not in self._sent:
+                            self._remote.add(key)
+                            try: await self.emit(msg)
+                            finally: self._remote.discard(key)
             except Exception as exc:
-                logger.warning("bus hub connection failed: %s; retrying", exc)
-                await asyncio.sleep(2)
-            finally:
-                self._ws = None
-
-    async def publish(self, msg: dict[str, Any]) -> None:
-        async with self._send_lock:
-            if self._ws is not None:
-                await self._ws.send(json.dumps(msg))
-
-    async def _on_local(self, msg: dict[str, Any]) -> None:
-        if not self._inbound:
-            await self.publish(msg)
+                self._ready.clear(); self._ws = None
+                if not self._stopping: logger.warning("bus hub connection failed: %s; retrying", exc); await asyncio.sleep(2)
+    @staticmethod
+    def _key(msg: dict[str, Any]) -> tuple[Any, ...]: return (msg.get("type"), msg.get("source"), msg.get("seq"), msg.get("ts"))
+    def is_remote_message(self, msg: dict[str, Any]) -> bool: return self._key(msg) in self._remote

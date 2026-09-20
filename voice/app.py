@@ -230,14 +230,29 @@ async def handle_phone(session, event):
             session.checkin["status"] = event.state
     elif event.type == "transcript":
         text = event.text.strip()
-        if (not text or not event.turn_id or event.turn_id in session.turns or not session.ready
-                or not session.checkin or event.checkin_id != session.checkin["checkin_id"]):
+        if not text or not event.turn_id or event.turn_id in session.turns or not session.ready:
+            return
+        # A transcript may be a robot command, so it is valid without a
+        # caregiver check-in. Check-in replies still require their matching
+        # private check-in id.
+        is_checkin_reply = bool(session.checkin and event.checkin_id)
+        if is_checkin_reply and event.checkin_id != session.checkin["checkin_id"]:
+            return
+        if not is_checkin_reply and event.checkin_id:
             return
         session.turns.append(event.turn_id)
         if session.utterance and session.utterance["state"] in {"pending", "speaking"}:
             session.utterance["state"] = "interrupted"
         session.record("transcript", {"text": text, "is_final": True, "speaker": "patient",
-                                      "checkin_id": event.checkin_id})
+                                      **({"checkin_id": event.checkin_id} if is_checkin_reply else {})})
+        if not is_checkin_reply:
+            try:
+                await session.publish()
+            except RuntimeError as error:
+                # Never replay a movement request implicitly on a later snapshot.
+                session.forwarded_seq = session.seq
+                await session.phone.send_json({"type": "error", "message": str(error)})
+            return
         session.checkin["status"] = "responded"
         answer, attention = reply_to(text, session.profile.patient, session.profile.caregiver)
         session.checkin["needs_attention"] |= attention

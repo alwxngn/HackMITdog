@@ -50,14 +50,21 @@ class Bus:
         if self._orch_url:
             await self._forward_orch(msg)
 
-    async def _forward_orch(self, msg: dict[str, Any]) -> None:
+    async def _forward_orch(self, msg: dict[str, Any], *, required: bool = False) -> None:
+        if not self._orch_url:
+            if required:
+                raise RuntimeError("Robot connection is not configured. Set LANTERN_ORCH_PUBLISH_URL on the cloud server.")
+            return
         try:
             import httpx
 
             async with httpx.AsyncClient(timeout=3.0) as client:
-                await client.post(f"{self._orch_url}/publish", json=msg)
+                response = await client.post(f"{self._orch_url}/publish", json=msg)
+                response.raise_for_status()
         except Exception as e:
             logger.warning("orch forward failed: %s", e)
+            if required:
+                raise RuntimeError("Could not deliver the robot request. Check the robot bridge connection before trying again.") from e
 
     async def ingest(self, msg: dict[str, Any]) -> None:
         """Inbound path used by fixture replay and the E4 bridge."""

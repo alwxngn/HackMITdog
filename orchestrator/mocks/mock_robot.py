@@ -42,6 +42,7 @@ class MockRobot:
         self.mode = "standing"
         self._cmd: dict[str, Any] | None = None
         self._target: tuple[float, float] | None = None
+        self._walk_home: tuple[float, float] | None = None
         self._person: tuple[float, float] | None = None
         self._running = False
         self._zones = {z["id"]: z for z in DEFAULT_ZONES}
@@ -85,6 +86,17 @@ class MockRobot:
             self.mode = "walking"
         elif action == "approach_person" and self._person:
             self._target = self._person
+            self.mode = "walking"
+        elif action == "follow_person":
+            # Following is represented as a persistent command in the mock;
+            # the patient track drives the distance signal while the robot
+            # keeps publishing pose. Anchor the walk's original location.
+            self._walk_home = self._walk_home or (self.x, self.y)
+            self._target = None
+            self.mode = "walking"
+        elif action == "guide_home":
+            if self._walk_home is not None:
+                self._target = self._walk_home
             self.mode = "walking"
         elif action == "stop":
             self._target = None
@@ -142,6 +154,7 @@ class MockRobot:
                     self._target = None
                     self.mode = "standing"
                     if self._cmd:
+                        completed_action = self._cmd.get("action")
                         await self.bus.publish(
                             "robot_status",
                             {
@@ -153,6 +166,8 @@ class MockRobot:
                             source="mock",
                         )
                         self._cmd = None
+                        if completed_action == "guide_home":
+                            self._walk_home = None
                 else:
                     self.x += dx / dist * step
                     self.y += dy / dist * step

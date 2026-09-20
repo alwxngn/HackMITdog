@@ -49,6 +49,13 @@ class CloudBridge:
     async def _on_bus(self, msg: dict[str, Any]) -> None:
         if self._forwarding:
             return
+        # RemoteBus already received cloud-originated events from the shared
+        # hub. Posting those back would create a cloud → hub → cloud loop.
+        # Robot events still need to travel hub → orchestrator → cloud so the
+        # dashboard can display real robot status.
+        is_remote = getattr(self.bus, "is_remote_message", None)
+        if is_remote and is_remote(msg) and msg.get("source") in {"cloud", "voice"}:
+            return
         # Avoid re-POSTing messages we just pulled from cloud
         k = self._key(msg)
         if k in self._seen:

@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -82,3 +83,42 @@ class PortalBridgeTests(unittest.TestCase):
                                     headers={'Authorization':'Bearer ' + credentials['caregiver_token']})
         self.assertEqual(response.status_code, 409)
         self.assertIn('safety event', response.json()['detail'])
+
+    def test_robot_requests_forward_once_and_checkin_replies_stay_local(self):
+        credentials = self.client.post('/voice/api/sessions', json={}).json()
+        sid = credentials['session_id']
+        with patch.object(self.main.bus, '_forward_orch', new_callable=AsyncMock) as forward:
+            with self.client.websocket_connect(f'/voice/ws/{sid}/phone') as phone:
+                phone.send_json({'token': credentials['phone_token']}); phone.receive_json()
+                phone.send_json({'type': 'ready'}); phone.receive_json()
+                checkin = self.client.post(f'/voice/api/sessions/{sid}/checkins', json={},
+                    headers={'Authorization': 'Bearer ' + credentials['caregiver_token']}).json()
+                phone.receive_json(); phone.receive_json()
+                phone.send_json({'type': 'transcript', 'text': "let's go on a walk", 'turn_id': 'robot1', 'checkin_id': ''})
+                state = phone.receive_json()
+                self.assertEqual(state['checkin']['status'], 'sent')
+                forward.assert_awaited_once()
+                event = forward.call_args.args[0]
+                self.assertNotIn('checkin_id', event['payload'])
+                self.assertTrue(forward.call_args.kwargs['required'])
+                # The hub's echoed transcript must not be forwarded again.
+                self.client.post('/api/ingest', json=event)
+                forward.assert_awaited_once()
+                phone.send_json({'type': 'transcript', 'text': "let's go on a walk", 'turn_id': 'reply1', 'checkin_id': checkin['checkin_id']})
+                phone.receive_json(); phone.receive_json()
+                forward.assert_awaited_once()
+
+    def test_robot_delivery_failure_is_reported_and_not_replayed(self):
+        credentials = self.client.post('/voice/api/sessions', json={}).json()
+        sid = credentials['session_id']
+        with patch.object(self.main.bus, '_orch_url', ''):
+            with self.client.websocket_connect(f'/voice/ws/{sid}/phone') as phone:
+                phone.send_json({'token': credentials['phone_token']}); phone.receive_json()
+                phone.send_json({'type': 'ready'}); phone.receive_json()
+                phone.send_json({'type': 'transcript', 'text': "let's go on a walk", 'turn_id': 'robot1'})
+                error = phone.receive_json()
+                self.assertEqual(error['type'], 'error')
+                self.assertIn('not configured', error['message'])
+                with patch.object(self.main.bus, '_forward_orch', new_callable=AsyncMock) as forward:
+                    phone.send_json({'type': 'ready'}); phone.receive_json()
+                    forward.assert_not_awaited()

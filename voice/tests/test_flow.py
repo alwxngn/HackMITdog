@@ -52,6 +52,15 @@ class CheckinTests(unittest.TestCase):
             self.assertEqual([e['type'] for e in state['events']], ['checkin','say','speech_state','transcript','say'])
             self.assertNotIn('phone_token', state)
 
+    def test_phone_can_send_robot_command_transcript_without_checkin(self):
+        with self.phone() as ws:
+            self.ready(ws)
+            ws.send_json({'type': 'transcript', 'text': 'Take me for a walk', 'turn_id': 'walk-1'})
+            state = ws.receive_json()
+            self.assertEqual(state['events'][-1]['type'], 'transcript')
+            self.assertEqual(state['events'][-1]['payload']['text'], 'Take me for a walk')
+            self.assertNotIn('checkin_id', state['events'][-1]['payload'])
+
     def test_offline_and_unstarted_phone_cannot_receive_checkins(self):
         self.assertEqual(self.checkin().status_code, 409)
         with self.phone() as ws:
